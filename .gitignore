@@ -1,37 +1,30 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
 
-# next.js
-/.next/
-/out/
-next-env.d.ts
-
-# production
-/build
-
-# misc
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-*.pem
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# debug
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# env files (never commit secrets)
-.env
-.env*.local
-.env.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-
-# supabase local
-/supabase/.branches
-/supabase/.temp
-/supabase/.env
+# Electron build output
+release/
+dist-electron/
