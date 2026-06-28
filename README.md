@@ -44,6 +44,7 @@ added later without touching the UI.
 | Persistence | IndexedDB via `idb` (behind a swappable `Store` interface) |
 | Styling | Tailwind CSS v4 |
 | Icons | lucide-react |
+| Desktop | Electron + electron-builder (`.exe` / `.dmg` / `.AppImage`) |
 | Data | 5e SRD monsters & conditions (5e-bits/5e-database, CC-BY-4.0 / OGL) |
 
 ## Run it
@@ -57,6 +58,39 @@ npm run dev        # http://localhost:5173
 npm run build      # typecheck + production build to dist/
 npm run preview    # serve the production build
 ```
+
+## Desktop app (.exe)
+
+The app is also wrapped as a native desktop app with **Electron** + **electron-builder**.
+The built SPA is served to the window over a custom `app://` protocol, so the
+local-first IndexedDB persistence behaves exactly as it does in a browser.
+
+```bash
+npm run electron:dev    # dev: Vite + a desktop window with hot reload
+npm run electron        # run the production build in a desktop window
+```
+
+Build installers / executables (output goes to `release/`):
+
+```bash
+npm run dist:win        # Windows: NSIS installer + single-file portable .exe
+npm run dist:mac        # macOS: .dmg
+npm run dist:linux      # Linux: .AppImage
+npm run dist            # the current platform's default target
+```
+
+- **On Windows, `npm run dist:win` is all you need** — it produces
+  `release/Encounter Board-0.1.0-x64.exe` (installer) and
+  `release/EncounterBoard-0.1.0-portable.exe` (run without installing).
+- **Cross-building a Windows `.exe` from Linux/macOS additionally requires
+  [wine](https://www.electron.build/multi-platform-build)** (electron-builder
+  uses it to stamp the Windows executable's resources). Building the matching
+  native target (`.AppImage` on Linux, `.dmg` on macOS) needs no extra tools.
+- Builds are unsigned by default. To ship a signed Windows build, supply a code-
+  signing certificate per the [electron-builder docs](https://www.electron.build/code-signing).
+
+Desktop window config lives in [`electron/main.cjs`](electron/main.cjs); packaging
+options are the `build` field in [`package.json`](package.json).
 
 ## How it's organized
 

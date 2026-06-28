@@ -273,11 +273,10 @@ export function CharacterEditor({ initial, isNew, onClose }: CharacterEditorProp
                 <div className="mb-1 text-[10px] font-semibold uppercase text-slate-500">
                   {ABILITY_LABEL[k]}
                 </div>
-                <input
-                  type="number"
+                <NumberInput
                   value={draft.abilities[k]}
-                  onChange={(e) => setAbility(k, parseInt(e.target.value, 10) || 0)}
-                  className={cn(inputCls, "text-center")}
+                  onChange={(n) => setAbility(k, n)}
+                  className="text-center"
                 />
                 <div className="mt-0.5 text-[11px] tabular-nums text-slate-500">
                   {formatMod(abilityMod(draft.abilities[k]))}
@@ -474,18 +473,37 @@ function NumberInput({
   value,
   onChange,
   placeholder,
+  className,
 }: {
   value: number;
   onChange: (n: number) => void;
   placeholder?: string;
+  className?: string;
 }) {
+  // Keep an internal string buffer while editing so in-progress states like
+  // "" and "-" survive — otherwise a lone "-" parses to NaN and snaps to 0,
+  // making negative Init mods / attack bonuses impossible to type.
+  const [text, setText] = useState<string | null>(null);
+  const display = text ?? (Number.isFinite(value) ? String(value) : "");
   return (
     <input
-      type="number"
-      value={Number.isFinite(value) ? value : 0}
-      onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
+      type="text"
+      inputMode="numeric"
+      value={display}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        if (raw === "" || raw === "-") return; // in-progress, don't commit yet
+        const n = parseInt(raw, 10);
+        if (Number.isFinite(n)) onChange(n);
+      }}
+      onBlur={() => {
+        const n = parseInt(text ?? "", 10);
+        onChange(Number.isFinite(n) ? n : 0);
+        setText(null); // resume mirroring the prop
+      }}
       placeholder={placeholder}
-      className={cn(inputCls, "tabular-nums")}
+      className={cn(inputCls, "tabular-nums", className)}
     />
   );
 }

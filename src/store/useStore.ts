@@ -96,6 +96,11 @@ export const useStore = create<StoreState>((set, get) => {
     void store.putEncounter(enc);
   }
 
+  // Guards against double-ticking timed conditions: a creature's conditions
+  // tick at most once per round (keyed `round:charId`), so stepping back and
+  // forth across turns never burns or deletes a timer.
+  const tickedTurns = new Set<string>();
+
   return {
     loaded: false,
     folders: [],
@@ -171,7 +176,12 @@ export const useStore = create<StoreState>((set, get) => {
 
     // ── characters lifecycle ──
     addCharacter(c) {
-      set((s) => ({ characters: [...s.characters, c] }));
+      // Upsert by id so an accidental double-save can't insert a duplicate.
+      set((s) => ({
+        characters: s.characters.some((x) => x.id === c.id)
+          ? s.characters.map((x) => (x.id === c.id ? c : x))
+          : [...s.characters, c],
+      }));
       void store.putCharacter(c);
     },
 
@@ -194,10 +204,16 @@ export const useStore = create<StoreState>((set, get) => {
       const original = get().characters.find((c) => c.id === id);
       if (!original) return undefined;
       const now = Date.now();
-      // bump a trailing number, e.g. "Goblin" -> "Goblin 2", "Goblin 2" -> "Goblin 3"
-      const m = original.name.match(/^(.*?)(?:\s+(\d+))?$/);
-      const base = (m?.[1] ?? original.name).trim();
-      const n = m?.[2] ? parseInt(m[2], 10) + 1 : 2;
+      // Number against ALL existing siblings so copies never collide:
+      // "Goblin" (+ "Goblin 2", "Goblin 3") -> "Goblin 4".
+      const base = (original.name.trim().match(/^(.*?)(?:\s+(\d+))?$/)?.[1] ?? original.name).trim();
+      const re = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s+(\\d+))?$`);
+      let maxN = 1;
+      for (const c of get().characters) {
+        const cm = c.name.trim().match(re);
+        if (cm) maxN = Math.max(maxN, cm[1] ? parseInt(cm[1], 10) : 1);
+      }
+      const n = maxN + 1;
       const copy: Character = {
         ...original,
         id: uid(),
@@ -313,16 +329,22 @@ export const useStore = create<StoreState>((set, get) => {
     startEncounter() {
       const s = get();
       const ordered = boardOrder(s.characters, { ...s.encounter, active: true });
+      const first = ordered[0];
       const next: Encounter = {
         active: true,
         round: 1,
-        turnCharId: ordered[0]?.id ?? null,
+        turnCharId: first?.id ?? null,
       };
+      tickedTurns.clear();
+      // The opening combatant doesn't tick at round 1; mark it so navigating
+      // away and back doesn't retroactively tick it either.
+      if (first) tickedTurns.add(`1:${first.id}`);
       set({ encounter: next });
       persistEncounter(next);
     },
 
     endEncounter() {
+      tickedTurns.clear();
       const next: Encounter = { active: false, round: 1, turnCharId: null };
       set({ encounter: next });
       persistEncounter(next);
@@ -333,18 +355,27 @@ export const useStore = create<StoreState>((set, get) => {
       const ordered = boardOrder(s.characters, s.encounter);
       if (ordered.length === 0) return;
       const curIdx = ordered.findIndex((c) => c.id === s.encounter.turnCharId);
-      let nextIdx = curIdx + 1;
+      let nextIdx: number;
       let round = s.encounter.round;
-      if (nextIdx >= ordered.length) {
+      if (curIdx === -1) {
+        // Current combatant left the board; resume at the top, no round change.
+        nextIdx = 0;
+      } else if (curIdx === ordered.length - 1) {
         nextIdx = 0;
         round += 1;
+      } else {
+        nextIdx = curIdx + 1;
       }
       const nextChar = ordered[nextIdx];
       const next: Encounter = { ...s.encounter, round, turnCharId: nextChar.id };
       set({ encounter: next });
       persistEncounter(next);
-      // tick down the incoming creature's timed conditions
-      tickConditions(nextChar.id);
+      // Tick the incoming creature's timed conditions — at most once per round.
+      const key = `${round}:${nextChar.id}`;
+      if (!tickedTurns.has(key)) {
+        tickedTurns.add(key);
+        tickConditions(nextChar.id);
+      }
     },
 
     prevTurn() {
@@ -352,17 +383,19 @@ export const useStore = create<StoreState>((set, get) => {
       const ordered = boardOrder(s.characters, s.encounter);
       if (ordered.length === 0) return;
       const curIdx = ordered.findIndex((c) => c.id === s.encounter.turnCharId);
-      let prevIdx = curIdx - 1;
+      let prevIdx: number;
       let round = s.encounter.round;
-      if (prevIdx < 0) {
+      if (curIdx === -1) {
+        // Current combatant left the board; land at the top, no round change.
+        prevIdx = 0;
+      } else if (curIdx === 0) {
+        // Genuine wrap from the first combatant back to the last.
         prevIdx = ordered.length - 1;
         round = Math.max(1, round - 1);
+      } else {
+        prevIdx = curIdx - 1;
       }
-      const next: Encounter = {
-        ...s.encounter,
-        round,
-        turnCharId: ordered[prevIdx].id,
-      };
+      const next: Encounter = { ...s.encounter, round, turnCharId: ordered[prevIdx].id };
       set({ encounter: next });
       persistEncounter(next);
     },

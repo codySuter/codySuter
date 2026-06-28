@@ -43,7 +43,7 @@ export function Board({ characters, encounter, onEdit, onNew, onImport }: BoardP
   }
 
   return (
-    <div className="grid auto-rows-[8rem] grid-flow-row-dense grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-3 p-4">
+    <div className="grid auto-rows-[8rem] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-3 p-4">
       {characters.map((c) => (
         <CharacterCard
           key={c.id}

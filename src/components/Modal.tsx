@@ -36,14 +36,17 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }: M
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm sm:p-8"
-      onMouseDown={onClose}
+      onClick={(e) => {
+        // Only close on a genuine click on the backdrop itself — not on a
+        // drag/selection that happens to end here, and not on inner clicks.
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className={cn(
           "my-auto w-full rounded-2xl border border-slate-700/70 bg-slate-900 shadow-2xl shadow-black/50",
           SIZE[size],
         )}
-        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
