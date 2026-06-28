@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0b1120;
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Faction accent system ──────────────────────────────────────────────────
+   Components read `var(--accent)` / `var(--accent-soft)`; the value is set by a
+   `data-faction` attribute on the card root so a single card style adapts. */
+[data-faction="enemy"] {
+  --accent: #fb7185; /* rose-400 */
+  --accent-strong: #f43f5e; /* rose-500 */
+  --accent-soft: rgba(244, 63, 94, 0.14);
+  --accent-border: rgba(244, 63, 94, 0.4);
+}
+[data-faction="ally"] {
+  --accent: #38bdf8; /* sky-400 */
+  --accent-strong: #0ea5e9; /* sky-500 */
+  --accent-soft: rgba(14, 165, 233, 0.14);
+  --accent-border: rgba(14, 165, 233, 0.4);
+}
+[data-faction="neutral"] {
+  --accent: #fbbf24; /* amber-400 */
+  --accent-strong: #f59e0b; /* amber-500 */
+  --accent-soft: rgba(245, 158, 11, 0.14);
+  --accent-border: rgba(245, 158, 11, 0.4);
+}
+
+/* Custom slim scrollbars to fit the dashboard aesthetic. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* The turn highlight pulse for the active combatant. */
+@keyframes turn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--accent-border);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--accent-border);
+  }
+}
+.turn-active {
+  animation: turn-pulse 1.8s ease-in-out infinite;
+}
+
+/* Range input styled as an HP slider is avoided; we use buttons instead. */
+button {
+  font-family: inherit;
+}

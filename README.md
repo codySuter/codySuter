@@ -1,162 +1,83 @@
-# Campaign Codex
+# Encounter Board — a DM's combat dashboard
 
-A private wiki + database for your D&D world — NPCs, monsters, locations, shops,
-magic items, session notes, maps, and player characters — all in one place,
-reachable from anywhere.
+Build, display, and **run** D&D monsters, NPCs, and adversaries as live tiles.
+Each character is a card showing its portrait, stats, HP, and moves. The board
+auto-fits the space — and you can make the important villains bigger so a boss
+commands two grid cells while a mob of goblins stays compact.
 
-- **You and your co-DM** get full edit access.
-- **Players** get a read-only view, and only see the pages you explicitly
-  reveal. Pages are hidden from players by default.
-- **Quick templates**: hit **New** (or `⌘/Ctrl + K`) and pick "NPC", "Location",
-  "Shop"… to spin up a pre-filled page in a second — built for fast, improvised
-  play.
-- **Wiki links**: type `[[` inside any page to link to another entry. Links
-  survive renames and power a "Mentioned in" backlinks list.
-- **DM-only secret blocks**: inside a page players *can* see, mark blocks as
-  secret — they're stripped out for players, server-side.
-- **Multiple worlds**: run separate campaigns, each with its own members.
+Everything is **local-first**: your data lives in your browser (IndexedDB), works
+offline at the table, and never leaves your machine. Export a JSON backup any
+time. The storage layer is a single swappable interface, so cloud sync can be
+added later without touching the UI.
 
----
+## Features
+
+- **Adaptive tile board.** Tiles resize to fill the screen via a CSS auto-fit
+  grid. Per-tile size (S / M / L) — Large bosses span 2×2 for their extra
+  complexity.
+- **Two ways to build a character, fast:**
+  - **Import from the 5e SRD** — search 334 official monsters (CC-licensed) and
+    drop them in with full stats, actions, and traits pre-filled. Add several at
+    once (e.g. 3 goblins, auto-numbered).
+  - **Manual + templates** — Monster / Boss / Allied NPC / Neutral NPC / PC
+    starting points, then edit everything in a full form.
+- **Live combat tools:**
+  - **HP & damage tracking** — apply damage/healing on the tile; temp HP is
+    absorbed first; the HP bar shifts green → amber → red and downed creatures
+    grey out.
+  - **Initiative & turn order** — roll initiative for the whole board, start an
+    encounter, and step through turns with a highlighted active combatant, a
+    round counter, and a clickable turn-order strip.
+  - **Status conditions** — tag tiles with the 5e conditions (icons + optional
+    round timers that tick down on the creature's turn).
+- **Factions** — enemy / ally / neutral, each with its own accent color
+  (red / blue / amber) so the board reads at a glance.
+- **Folders** — file saved characters into colored folders in the sidebar; add
+  them to the board (or spawn extra copies) with one click.
 
 ## Tech stack
 
 | Layer | Choice |
 |------|--------|
-| App | Next.js 16 (App Router, React 19) |
-| Editor | Tiptap 3 (`[[ ]]` autocomplete + secret blocks) |
-| Database / Auth / Storage | Supabase (Postgres + magic-link auth + private bucket) |
+| App | React 18 + TypeScript + Vite |
+| State | Zustand |
+| Persistence | IndexedDB via `idb` (behind a swappable `Store` interface) |
 | Styling | Tailwind CSS v4 |
-| Maps | `react-zoom-pan-pinch` |
-| Hosting | Vercel + Supabase (both free tier) |
+| Icons | lucide-react |
+| Data | 5e SRD monsters & conditions (5e-bits/5e-database, CC-BY-4.0 / OGL) |
 
-### How the permission model works (important)
-
-The security boundary is **Postgres Row Level Security (RLS)** — *not* the UI.
-A player querying a hidden NPC gets **zero rows back from the database**, even if
-they bypass the app and call the API directly. See
-[`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) for the
-policies. Highlights:
-
-- Membership + role (`dm` / `co_dm` / `player`) live per-campaign in
-  `campaign_members`. `dm`/`co_dm` are "editors".
-- `entries.visibility` defaults to `dm_only`. Players can only read rows where
-  it's `players`.
-- A `[[wiki link]]` to a hidden page renders as **inert plain text** for players
-  — its id/href never reach the browser
-  ([`lib/entries/render.tsx`](lib/entries/render.tsx)).
-- DM-only secret blocks are dropped server-side before HTML is generated for a
-  player.
-- Map images live in a **private** Storage bucket and are served via short-lived
-  signed URLs minted only after the row passes RLS.
-
----
-
-## 1. Create your Supabase project
-
-1. Sign up at [supabase.com](https://supabase.com) and create a new project
-   (free tier is fine). Pick a strong database password.
-2. In **Project Settings → API**, copy:
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (keep secret!)
-3. Open the **SQL Editor**, paste the entire contents of
-   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), and
-   **Run**. This creates every table, all RLS policies, the triggers, the
-   invite-accept function, the private `maps` storage bucket, and seeds the
-   built-in templates.
-4. In **Authentication → Providers**, make sure **Email** is enabled (magic
-   links work out of the box on the free tier).
-5. In **Authentication → URL Configuration**, set:
-   - **Site URL** → your deployed URL (e.g. `https://your-app.vercel.app`)
-     (use `http://localhost:3000` while developing).
-   - Add the same origin to **Redirect URLs** (e.g.
-     `https://your-app.vercel.app/**`).
-
-> Prefer the CLI? With the [Supabase CLI](https://supabase.com/docs/guides/cli):
-> `supabase link --project-ref <ref>` then `supabase db push`.
-
-## 2. Run it locally
+## Run it
 
 ```bash
-cp .env.example .env.local      # then fill in the 4 values from step 1
 npm install
-npm run dev                     # http://localhost:3000
+npm run dev        # http://localhost:5173
 ```
 
-## 3. Deploy to Vercel
+```bash
+npm run build      # typecheck + production build to dist/
+npm run preview    # serve the production build
+```
 
-1. Push this repo to GitHub (already done if you're reading this there).
-2. In [Vercel](https://vercel.com), **Add New → Project**, import the repo.
-   Next.js is auto-detected.
-3. Add the four environment variables (**Settings → Environment Variables**):
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL` (your Vercel URL).
-4. Deploy. Update the Supabase **Site URL / Redirect URLs** (step 1.5) to the
-   real Vercel domain.
+## How it's organized
 
-## 4. Become the DM (one-time)
+```
+src/
+  types.ts              # the domain model (Character, Folder, Encounter…)
+  data/                 # bundled SRD bestiary + conditions
+  lib/                  # dnd math, SRD loader/search, templates, backup, helpers
+  store/
+    db.ts               # Store interface + IndexedDB implementation (swap point)
+    useStore.ts         # Zustand store, wired to persistence
+  components/           # Sidebar, TopBar, Board, CharacterCard, editors, dialogs
+```
 
-Roles are created via invites, but the very first user has to be promoted by
-hand:
+The board shows every character with `onBoard: true`. The sidebar is your
+library — characters organized into folders. The same character record holds its
+live state (HP, conditions, initiative), so "saving its current state into a
+folder" is just filing it.
 
-1. Open the app, sign in with your email (magic link).
-2. Create your first campaign on the **Campaigns** page — **you automatically
-   become its DM** (a database trigger handles this). Done!
+## Data & licensing
 
-That's it — creating a campaign makes you its DM. Use the **Members** page to
-invite your co-DM (`Co-DM`) and players (`Player`) by email; share each generated
-invite link. They sign in with that exact email to join.
-
----
-
-## Using it
-
-- **New entry**: `⌘/Ctrl + K` or the **New** button → choose a type. You land
-  straight in the editor with the title focused.
-- **Link pages**: type `[[`, search, pick a page — or "Create …" a new stub on
-  the fly. Links update their text automatically if you rename the target.
-- **Reveal to players**: open an entry and toggle **Hidden / Revealed** (or set
-  it in the editor). Hidden is the default.
-- **Secret blocks**: in the editor toolbar, the 👁 button wraps the selection in
-  a DM-only block. Players never see it, even on a revealed page.
-- **Maps**: create a **Map** entry and upload an image; everyone with access can
-  pan/zoom it.
-- **Character sheets**: create a **Player Character** entry and paste the D&D
-  Beyond URL — it shows as a one-click link.
-
----
-
-## Verifying the security model
-
-After deploying, confirm players really can't see secrets (test the database,
-not just the UI):
-
-1. Create three test accounts (DM, Co-DM, Player) via the invite flow.
-2. As DM, make entry **A** (Revealed) that links to entry **B** (Hidden).
-3. Sign in as the **Player**:
-   - Visiting **B**'s URL → 404.
-   - On **A**, the link to **B** is plain grey text; view source — **B**'s id and
-     title are absent.
-   - Any DM-only secret block on **A** is gone.
-4. (Optional, strongest check) Grab the player's access token from the browser
-   and hit the REST API directly:
-   `GET /rest/v1/entries?id=eq.<B-id>` → returns `[]`.
-5. In Supabase, run **Advisors → Security** — every table should have RLS
-   enabled with no warnings.
-
----
-
-## Good to know
-
-- **Free-tier pause**: Supabase pauses a free project after ~7 days of *no*
-  activity (data is kept; resume with one click from the dashboard). For a group
-  that plays regularly this is rarely an issue; upgrade to Pro for always-on.
-- **Storage**: the free tier gives 1 GB — compress very large battle maps.
-
-## Roadmap (not yet built)
-
-- Clickable **map pins** linking spots to location pages (schema + actions are
-  already in place).
-- Full-text **search** across entries.
-- In-app **custom entry types** editor.
-- Realtime co-editing / presence.
+Monster and condition data come from the open-source
+[5e-bits/5e-database](https://github.com/5e-bits/5e-database) project, derived
+from the D&D 5e SRD under the OGL / CC-BY-4.0. Only SRD content is included.
