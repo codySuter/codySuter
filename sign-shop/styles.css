@@ -1,0 +1,369 @@
+/* ================= STIHL Sign Shop =================
+   Screen chrome mirrors the sign's own design language:
+   Barlow type, STIHL orange, white cards, cool grays. */
+
+:root {
+  --orange: #EF7A1A;
+  --orange-dark: #D96407;
+  --ink: #191919;
+  --gray-label: #9C9C9C;
+  --gray-note: #ABABAB;
+  --line: #E4E4E4;
+  --side-bg: #F4F4F4;
+  --app-bg: #ECEDEE;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Barlow", system-ui, sans-serif;
+  background: var(--app-bg);
+  color: var(--ink);
+}
+
+/* ---------------- top bar ---------------- */
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  background: #141414; color: #fff;
+  padding: 10px 18px;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-logo {
+  background: var(--orange); color: #fff;
+  font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+  font-weight: 800; font-style: italic;
+  font-size: 22px; letter-spacing: .5px;
+  padding: 2px 12px 4px 10px; border-radius: 3px;
+}
+.topbar-logo span { font-size: 10px; vertical-align: super; }
+.topbar-title {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700; font-size: 20px; letter-spacing: 3px;
+}
+.topbar-title .sub {
+  color: #8d8d8d; font-size: 12px; letter-spacing: 2.5px; margin-left: 10px;
+}
+.topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+.btn-dark { background: #2b2b2b; border-color: #4a4a4a; color: #eee; }
+.btn-dark:hover { background: #3a3a3a; }
+
+.data-status {
+  margin-top: 8px; font-size: 11.5px; color: #8a8a8a; line-height: 1.4;
+}
+.data-status b { color: #555; font-weight: 600; }
+.data-status a { color: var(--orange); cursor: pointer; text-decoration: underline; }
+
+.btn {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700; letter-spacing: 1.5px; font-size: 15px;
+  border: 1px solid #c9c9c9; background: #fff; color: var(--ink);
+  border-radius: 4px; padding: 8px 16px; cursor: pointer;
+}
+.btn:hover { border-color: #999; }
+.btn-orange {
+  background: var(--orange); border-color: var(--orange); color: #fff;
+}
+.btn-orange:hover { background: var(--orange-dark); border-color: var(--orange-dark); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------------- layout ---------------- */
+.layout {
+  display: grid; grid-template-columns: 340px 1fr;
+  gap: 16px; padding: 16px; align-items: start;
+  max-width: 1500px; margin: 0 auto;
+}
+
+/* ---------------- picker ---------------- */
+.picker {
+  background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  overflow: hidden; display: flex; flex-direction: column;
+  max-height: calc(100vh - 92px); position: sticky; top: 76px;
+}
+.picker-search { padding: 12px; border-bottom: 1px solid var(--line); }
+.picker-search input {
+  width: 100%; font: 500 15px "Barlow", sans-serif;
+  padding: 10px 12px; border: 2px solid var(--line); border-radius: 5px;
+  outline: none;
+}
+.picker-search input:focus { border-color: var(--orange); }
+
+.picker-cats {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 10px 12px; border-bottom: 1px solid var(--line);
+}
+.chip {
+  font-family: "Barlow Condensed", sans-serif; font-weight: 600;
+  font-size: 12.5px; letter-spacing: .8px; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 20px; cursor: pointer;
+  background: #f1f1f1; color: #555; border: 1px solid transparent;
+}
+.chip:hover { background: #e7e7e7; }
+.chip.active { background: var(--orange); color: #fff; }
+
+.picker-results { overflow-y: auto; flex: 1; }
+.result-cat {
+  font-family: "Barlow Condensed", sans-serif; font-weight: 700;
+  font-size: 12px; letter-spacing: 2px; color: var(--gray-label);
+  padding: 10px 14px 4px; text-transform: uppercase;
+}
+.result {
+  padding: 8px 14px; cursor: pointer; border-left: 3px solid transparent;
+}
+.result:hover { background: #fdf3ea; }
+.result.active { background: #fdeadb; border-left-color: var(--orange); }
+.result .r-model { font-weight: 700; font-size: 15px; }
+.result .r-model .nick { color: var(--orange); font-style: italic; font-weight: 700; }
+.result .r-meta { font-size: 12.5px; color: #777; margin-top: 1px; }
+.result .r-price { float: right; font-weight: 700; color: var(--ink); }
+.spec-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 6px; background: #cfcfcf; vertical-align: 1px;
+}
+.spec-dot.full { background: #2f9e44; }
+.spec-dot.partial { background: var(--orange); }
+.picker-empty { padding: 18px 14px; color: #888; font-size: 14px; }
+
+/* ---------------- workbench ---------------- */
+.workbench { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.preview-wrap {
+  background:
+    repeating-conic-gradient(#e6e7e8 0% 25%, #eff0f1 0% 50%) 0 0/24px 24px;
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 28px; display: flex; justify-content: center;
+}
+.preview-scaler { transform-origin: top center; }
+
+/* =====================================================================
+   THE SIGN — exact 5in × 3in, matching the template PDF geometry.
+   1in = 96 CSS px, so the card is 480 × 288 px at natural size.
+   ===================================================================== */
+.sign {
+  width: 5in; height: 3in;
+  background: #fff; color: var(--ink);
+  display: flex; overflow: hidden; position: relative;
+  font-family: "Barlow", sans-serif;
+  outline: 1px solid rgba(0,0,0,.14);
+}
+.sign-empty {
+  margin: auto; color: #999; font-size: 13px;
+  font-family: "Barlow Condensed", sans-serif; letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* ---- main (left) panel ---- */
+.sign-main {
+  width: 64%; padding: 13px 14px 11px 15px;
+  display: flex; flex-direction: column; position: relative;
+}
+.sign-top { display: flex; align-items: flex-start; }
+.sign-logo {
+  background: var(--orange); color: #fff;
+  font-family: "Barlow Semi Condensed", sans-serif;
+  font-weight: 800; font-style: italic;
+  font-size: 15.5px; line-height: 1;
+  padding: 3.5px 7px 4.5px 5.5px; border-radius: 2px;
+  letter-spacing: .3px;
+}
+.sign-logo sup { font-size: 5px; font-style: normal; vertical-align: 6px; margin-left: .5px; }
+.sign-cat {
+  margin-left: auto; padding-top: 3px;
+  font-family: "Barlow", sans-serif; font-weight: 600;
+  font-size: 8.5px; letter-spacing: 2.6px; color: #8E8E8E;
+}
+
+.sign-model {
+  margin-top: 9px;
+  font-family: "Barlow Semi Condensed", sans-serif;
+  font-weight: 800; font-style: italic;
+  font-size: 26px; line-height: 1; letter-spacing: -.2px;
+  white-space: nowrap;
+}
+.sign-model .m1 { color: var(--ink); }
+.sign-model .m2 { color: var(--orange); margin-left: 6px; }
+
+.sign-cfgrow { margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+.sign-cfglabel {
+  font-weight: 600; font-size: 7.5px; letter-spacing: 1.8px; color: #8E8E8E;
+  white-space: nowrap;
+}
+.sign-cfgpill {
+  background: var(--ink); color: #fff;
+  font-family: "Barlow Condensed", sans-serif; font-weight: 700;
+  font-size: 8px; letter-spacing: 1.6px;
+  padding: 2.5px 7px 3px; border-radius: 2px; white-space: nowrap;
+}
+
+.sign-price {
+  margin-top: 2px;
+  font-family: "Barlow Semi Condensed", sans-serif;
+  font-weight: 800; font-style: italic; color: var(--orange);
+  line-height: .95; letter-spacing: -1px;
+  display: flex; align-items: flex-start;
+}
+.sign-price .cur { font-size: 26px; margin-top: 5px; letter-spacing: 0; }
+.sign-price .dollars { font-size: 56px; }
+.sign-price .cents { font-size: 22px; margin-top: 6px; letter-spacing: 0; }
+
+.sign-spechead {
+  margin-top: 2px;
+  font-family: "Barlow", sans-serif; font-weight: 700;
+  font-size: 8.5px; letter-spacing: 2.2px; color: var(--orange);
+}
+.sign-specgrid {
+  margin-top: 4px;
+  display: grid; grid-template-columns: 1fr 1.05fr;
+  border: 1px solid #E9E9E9; border-radius: 3px;
+  background: #FBFBFB;
+}
+.sign-spec {
+  padding: 3.5px 8px 4px;
+  border-right: 1px solid #E9E9E9; border-bottom: 1px solid #E9E9E9;
+}
+.sign-spec:nth-child(2n) { border-right: none; }
+.sign-spec:nth-child(n+3) { border-bottom: none; }
+.sign-spec .sl {
+  font-weight: 600; font-size: 6.8px; letter-spacing: 1.7px; color: #9C9C9C;
+  white-space: nowrap;
+}
+.sign-spec .sv {
+  font-family: "Barlow Condensed", sans-serif; font-weight: 700;
+  font-size: 12.5px; margin-top: 1px; white-space: nowrap;
+}
+
+.sign-bottom {
+  margin-top: auto; display: flex; align-items: flex-end; gap: 14px;
+}
+.sign-barcode svg { display: block; }
+.sign-upctext {
+  font-family: "Barlow", sans-serif; font-weight: 500;
+  font-size: 7.5px; margin-top: 2px; color: var(--ink);
+  white-space: nowrap; display: flex; justify-content: space-between;
+  letter-spacing: 1px;
+}
+.sign-skublock { padding-bottom: 1px; }
+.sign-skulabel {
+  font-weight: 600; font-size: 7.5px; letter-spacing: 2.2px; color: #8E8E8E;
+}
+.sign-skubox {
+  margin-top: 3px; border: 1px solid #DCDCDC; border-radius: 3px;
+  font-family: "Barlow Condensed", sans-serif; font-weight: 700;
+  font-size: 12px; letter-spacing: .5px;
+  padding: 3px 10px 3.5px; display: inline-block; background: #fff;
+}
+
+/* ---- sidebar ---- */
+.sign-side {
+  width: 36%; background: var(--side-bg);
+  padding: 12px 13px 10px; display: flex; flex-direction: column;
+}
+.sign-sidehead {
+  font-family: "Barlow", sans-serif; font-weight: 700;
+  font-size: 9px; letter-spacing: 1.6px; color: var(--orange);
+  white-space: nowrap;
+}
+.sign-sidenote {
+  font-size: 7.5px; font-weight: 500; color: #ABABAB; margin-top: 2px;
+}
+.sign-sideitems { margin-top: 4px; display: flex; flex-direction: column; flex: 1; }
+.side-item { padding: 5.5px 0 6px; border-bottom: 1px solid #DDDDDD; }
+.side-item:last-child { border-bottom: none; }
+.side-item .si-top { display: flex; align-items: baseline; }
+.side-item .si-name {
+  font-family: "Barlow Condensed", sans-serif; font-weight: 700;
+  font-size: 11.5px; letter-spacing: .2px;
+}
+.side-item .si-price {
+  margin-left: auto; color: var(--orange);
+  font-family: "Barlow Semi Condensed", sans-serif;
+  font-weight: 800; font-style: italic; font-size: 12.5px; letter-spacing: 0;
+  white-space: nowrap;
+}
+.side-item .si-price .c { font-size: 8px; vertical-align: 3.5px; }
+.side-item .si-row {
+  display: flex; margin-top: 1.5px;
+}
+.side-item .si-rl {
+  font-weight: 600; font-size: 6.5px; letter-spacing: 1.6px; color: #9C9C9C;
+  padding-top: 1.5px;
+}
+.side-item .si-rv {
+  margin-left: auto;
+  font-family: "Barlow Condensed", sans-serif; font-weight: 600;
+  font-size: 9px; letter-spacing: .3px; color: var(--ink);
+}
+
+/* ---------------- editor ---------------- */
+.editor {
+  background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 18px 14px;
+}
+.ed-section { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.ed-section:last-child { border-bottom: none; }
+.ed-head {
+  font-family: "Barlow Condensed", sans-serif; font-weight: 700;
+  font-size: 13px; letter-spacing: 2.5px; color: var(--orange);
+  margin-bottom: 9px;
+}
+.hint { color: #999; font-weight: 500; letter-spacing: .5px; text-transform: none; }
+.ed-row, .ed-row2 { margin-bottom: 8px; }
+.ed-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.editor label {
+  display: block; font-size: 11.5px; font-weight: 600; color: #777;
+  letter-spacing: .5px; margin-bottom: 3px; text-transform: uppercase;
+}
+.editor input, .editor select {
+  width: 100%; font: 500 14px "Barlow", sans-serif;
+  padding: 7px 9px; border: 1.5px solid var(--line); border-radius: 4px;
+  background: #fff; outline: none;
+}
+.editor input:focus, .editor select:focus { border-color: var(--orange); }
+.editor input.overridden { border-color: #f3c9a4; background: #FFF9F4; }
+
+.ed-specs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.ed-spec { display: grid; grid-template-columns: 1fr; gap: 3px; }
+.ed-spec input.spec-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 1px;
+  text-transform: uppercase; color: #666; padding: 4px 8px;
+}
+.ed-note {
+  font-size: 12px; color: #8a8a8a; margin-top: 8px; line-height: 1.45;
+}
+.ed-note.warn { color: #c04a00; }
+
+.ed-sideitem {
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px 12px; margin-bottom: 10px; background: #FCFCFC;
+}
+.ed-sideitem .top {
+  display: flex; gap: 10px; align-items: center; margin-bottom: 8px;
+}
+.ed-sideitem .top input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: var(--orange); flex: none;
+}
+.ed-sideitem .top .t-name { font-weight: 700; font-size: 14px; }
+.ed-sideitem .top .t-mat { color: #999; font-size: 12px; margin-left: auto; }
+.ed-sideitem .grid {
+  display: grid; grid-template-columns: 1.4fr .8fr 1fr; gap: 8px;
+  margin-bottom: 6px;
+}
+.ed-sideitem .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ed-actions { display: flex; gap: 10px; padding-top: 14px; }
+
+/* ---------------- print ---------------- */
+@page { size: 5in 3in; margin: 0; }
+@media print {
+  body { background: #fff; }
+  .topbar, .picker, .editor, .preview-wrap { display: none !important; }
+  .layout { display: block; padding: 0; margin: 0; max-width: none; }
+  .workbench { display: block; }
+  body .sign-print-host { display: block !important; }
+  .sign-print-host .sign {
+    outline: none;
+    position: fixed; top: 0; left: 0;
+  }
+  .sign, .sign-side, .sign-logo, .sign-cfgpill, .sign-specgrid {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+}
+.sign-print-host { display: none; }

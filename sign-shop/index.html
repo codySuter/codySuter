@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STIHL Sign Shop — Power Tool Sign Generator</title>
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-logo">STIHL<span>®</span></div>
+  <div class="topbar-title">SIGN SHOP <span class="sub">POWER TOOL SIGN GENERATOR</span></div>
+  <div class="topbar-actions">
+    <button id="btn-import" class="btn btn-dark">UPDATE PRICING…</button>
+    <button id="btn-print" class="btn btn-orange" disabled>PRINT / SAVE PDF</button>
+    <input id="import-file" type="file" accept=".csv,text/csv" hidden>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ====================== product picker ====================== -->
+  <section class="picker">
+    <div class="picker-search">
+      <input id="search" type="search" autocomplete="off"
+             placeholder="Search model, SKU, UPC, part number…">
+      <div class="data-status" id="data-status"></div>
+    </div>
+    <div class="picker-cats" id="cat-chips"></div>
+    <div class="picker-results" id="results"></div>
+  </section>
+
+  <!-- ====================== preview + editor ====================== -->
+  <section class="workbench">
+    <div class="preview-wrap">
+      <div id="preview-scaler" class="preview-scaler">
+        <div id="sign" class="sign">
+          <div class="sign-empty">Search and select a product to build its sign</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="editor" id="editor" hidden>
+      <div class="ed-section">
+        <div class="ed-head">MODEL ON FLOOR</div>
+        <div class="ed-row"><label>Floor configuration</label><select id="ed-variant"></select></div>
+        <div class="ed-row"><label>Sign category label</label><input id="ed-category"></div>
+        <div class="ed-row2">
+          <div><label>Model name</label><input id="ed-model1"></div>
+          <div><label>Marketing name <span class="hint">(orange)</span></label><input id="ed-model2"></div>
+        </div>
+        <div class="ed-row"><label>Floor config badge</label><input id="ed-config"></div>
+      </div>
+
+      <div class="ed-section">
+        <div class="ed-head">PRICE · SKU · BARCODE</div>
+        <div class="ed-row2">
+          <div><label>Price ($)</label><input id="ed-price" inputmode="decimal"></div>
+          <div><label>Store SKU</label><input id="ed-sku"></div>
+        </div>
+        <div class="ed-row"><label>UPC (barcode)</label><input id="ed-upc" inputmode="numeric"></div>
+        <div class="ed-note" id="upc-note" hidden></div>
+      </div>
+
+      <div class="ed-section">
+        <div class="ed-head">SPECS <span class="hint" id="spec-source"></span></div>
+        <div class="ed-row"><label>Section title</label><input id="ed-spectitle"></div>
+        <div class="ed-specs" id="ed-specs"></div>
+        <div class="ed-note">Specs print exactly as entered. Blank values print as “—”.
+          Edits are saved on this computer for this model.</div>
+      </div>
+
+      <div class="ed-section">
+        <div class="ed-head">OTHER CONFIGURATIONS</div>
+        <div id="ed-side"></div>
+      </div>
+
+      <div class="ed-section ed-actions">
+        <button id="btn-reset" class="btn">Reset this sign to file data</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="data/products.js"></script>
+<script src="data/specs.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

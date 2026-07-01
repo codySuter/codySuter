@@ -35,3 +35,4 @@ yarn-error.log*
 /supabase/.branches
 /supabase/.temp
 /supabase/.env
+sign-shop/tools/source/
