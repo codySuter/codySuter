@@ -7,6 +7,8 @@
 
   const BUNDLED = window.SIGN_DATA;
   const SPECS = window.SIGN_SPECS || {};
+  const SPECS_DSM = window.SIGN_SPECS_DSM || {};   // from the Dealer Support Manual
+  const DSM_PARTS = window.SIGN_DSM_PARTS || {};   // bar/chain parts per unit material
   const LS_KEY = "signshop.overrides.v1";
   const LS_DATA_KEY = "signshop.dataset.v1";
   let DATA = null; // adopted below (imported dealer file, else bundled)
@@ -115,6 +117,14 @@
   }
 
   function defaultSpecs(model) {
+    const dsm = SPECS_DSM[model.model];
+    if (dsm) {
+      return {
+        title: dsm.title,
+        specs: dsm.specs.map(s => s.slice()),
+        source: "from the 2026 Dealer Support Manual V2"
+      };
+    }
     const curated = SPECS[model.model];
     if (curated) {
       return {
@@ -193,12 +203,17 @@
   }
 
   function variantName(v, category) {
+    const dsm = DSM_PARTS[v.materialDash] || {};
     const parts = [];
-    if (v.barIn) {
+    const barIn = v.barIn || dsm.barLen;
+    if (barIn) {
       const w = lengthWord(category);
-      parts.push(v.barIn + "″" + (w ? " " + w : ""));
+      parts.push(barIn + "″" + (w ? " " + w : ""));
     }
-    if (v.chain) parts.push(v.chain);
+    // '61PS3 50' from the DSM displays as '61 PS3 50'
+    const chain = v.chain ||
+      (dsm.chainName ? dsm.chainName.replace(/^(\d{2})(\S)/, "$1 $2") : "");
+    if (chain) parts.push(chain);
     if (!parts.length) {
       const tail = meaningfulTail(v);
       if (tail) parts.push(tail);
@@ -243,8 +258,8 @@
         label: sideName(x, model.category),
         price: x.msrp.toFixed(2),
         sku: x.aceSku || "",
-        chain: "",
-        bar: ""
+        chain: (DSM_PARTS[x.materialDash] || {}).chain || "",
+        bar: (DSM_PARTS[x.materialDash] || {}).bar || ""
       }))
     };
     const merged = Object.assign({}, d, o);

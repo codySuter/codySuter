@@ -39,12 +39,15 @@ Note: dealer cost is never stored or displayed — only customer-facing MSRP.
 - **Price / UPC / store SKU / part numbers:** from the dealer price file +
   SKU master listing. The bundled dataset (`data/products.js`) was generated
   from the 07/01/2026 exports.
-- **Performance specs** (`data/specs.js`): pre-filled only where STIHL's
-  published figures are well established (MS 250/251/271/291, BR 600, …).
-  Everything else shows "—" until filled in — the colored dot in the search
-  results shows spec completeness (green = complete, orange = partial,
-  gray = none). Add authoritative specs from the STIHL Dealer Support Manual
-  to `data/specs.js`, or type them in the app's spec editor.
+- **Performance specs**: `data/specs_dsm.js` is generated from the 2026
+  STIHL Dealer Support Manual V2 by `tools/parse_dsm.py` (currently covers
+  the battery and corded-electric sections — 94 models). For battery saws
+  the DSM's per-configuration guide-bar and chain-loop part numbers
+  (`data/dsm_parts.js`) pre-fill the sidebar, but only where they validate
+  against the dealer price file's own bar/chain lists. `data/specs.js`
+  holds hand-curated specs for well-known gas models. Anything not covered
+  shows "—" until filled in — the colored dot in the search results shows
+  spec completeness (green = complete, orange = partial, gray = none).
 
 ## Rebuilding the bundled dataset
 
@@ -59,3 +62,8 @@ cd tools && python3 build_data.py   # requires: pip install openpyxl
 
 The unit-description parsing in `tools/build_data.py` and the in-app CSV
 importer in `app.js` mirror each other — change both together.
+
+To extend DSM coverage (e.g. when the gas sections' text is available, or a
+new DSM version ships), run `python3 tools/parse_dsm.py <dsm_text.txt>` with
+a plain-text extraction of the manual. DSM text is not committed — it
+contains confidential dealer pricing.
