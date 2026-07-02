@@ -79,10 +79,22 @@ To rebuild the Windows executable after any app or data change, run
 `tools/build_exe.sh` (requires Go; cross-compiles from any OS). It embeds
 the current app + data into `dist/SignShop.exe`.
 
-## Chain finder wall poster
+## Chain finder wall posters
 
 `dist/chain-poster-24x36.pdf` is a print-ready 24×36 in. poster that maps
-every saw model + bar length to its factory chain (marketing number, part
-number, store SKU), generated from the same verified data by
-`tools/build_poster.py`. The launcher also serves it at
-`http://localhost:8377/poster.html` for reprinting after data updates.
+every current saw model + bar length to its factory chain (marketing number,
+part number, store SKU), generated from the same verified data by
+`tools/build_poster.py`.
+
+`dist/chain-poster-legacy-24x36.pdf` is the companion poster for
+discontinued and classic saws (017 through MS 660, older MS/MSA/MSE, E-series
+electrics, HT pole pruners — 99 model groups). It comes from the STIHL Bar &
+Chain Catalog selection guide, extracted by `tools/parse_catalog.py` into
+`data/catalog_fitment.js` and laid out by `tools/build_poster_legacy.py`.
+Only chains orderable in the current dealer price file are shown, and for
+current models the catalog data is cross-checked against each saw's factory
+chain pitch from the DSM. The same fitment data powers the app's
+"Fits this saw" chain suggestions.
+
+The launcher serves both posters at `http://localhost:8377/poster.html` and
+`/poster-legacy.html` for reprinting after data updates.

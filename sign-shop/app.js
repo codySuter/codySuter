@@ -9,6 +9,7 @@
   const SPECS = window.SIGN_SPECS || {};
   const SPECS_DSM = window.SIGN_SPECS_DSM || {};   // from the Dealer Support Manual
   const DSM_PARTS = window.SIGN_DSM_PARTS || {};   // bar/chain parts per unit material
+  const CATALOG = window.SIGN_CATALOG || {};       // bar & chain catalog fitment rows
   const LS_KEY = "signshop.overrides.v1";
   const LS_DATA_KEY = "signshop.dataset.v1";
   let DATA = null; // adopted below (imported dealer file, else bundled)
@@ -488,16 +489,39 @@
     };
   }
 
-  function chainOptions(variant) {
+  // Bar & Chain Catalog fitment rows for a model (falls back to the base
+  // designation: "MSA 220.0 C-B" -> "MSA 220.0 C" -> "MSA 220.0" -> …).
+  function catalogRows(modelName) {
+    let name = modelName;
+    while (name) {
+      if (CATALOG[name]) return CATALOG[name];
+      if (/-[A-Z]+$/.test(name)) { name = name.replace(/-[A-Z]+$/, ""); continue; }
+      const cut = name.replace(/ ?[^ ]*$/, "");
+      if (cut === name) break;
+      name = cut;
+    }
+    return null;
+  }
+
+  function chainOptions(model, variant) {
     const norm = s => (s || "").replace(/[\s-]/g, "").toUpperCase();
     const fam = variant && variant.chain ? norm(variant.chain) : "";
+    // catalog-verified loops for this model + bar length
+    const rows = catalogRows(model.model) || [];
+    const catParts = new Set();
+    rows.forEach(r => {
+      if (!variant || !variant.barIn || r.bar === variant.barIn) {
+        r.chains.forEach(c => catParts.add(c.part));
+      }
+    });
     const suggested = [], rest = [];
     DATA.chains.forEach(c => {
       const isLoop = !/reel/i.test(c.desc);
-      const target = fam && norm(c.marketing).startsWith(fam) && isLoop ? suggested : rest;
-      target.push(c);
+      const hit = isLoop && (catParts.has(c.part) ||
+        (!catParts.size && fam && norm(c.marketing).startsWith(fam)));
+      (hit ? suggested : rest).push(c);
     });
-    return { suggested, rest };
+    return { suggested, rest, fromCatalog: catParts.size > 0 };
   }
 
   function renderSideEditor(model, cfg) {
@@ -545,7 +569,7 @@
         cw.appendChild(el("label", "", "Chain part #"));
         const csel = el("select");
         csel.appendChild(el("option", "", "— none —")).value = "";
-        const { suggested, rest } = chainOptions(variant);
+        const { suggested, rest, fromCatalog } = chainOptions(model, variant);
         const addGroup = (label, list) => {
           if (!list.length) return;
           const og = document.createElement("optgroup");
@@ -559,7 +583,9 @@
           });
           csel.appendChild(og);
         };
-        addGroup("Suggested (" + (variant.chain || "match") + ")", suggested);
+        addGroup(fromCatalog
+          ? "Fits this saw" + (variant.barIn ? " @ " + variant.barIn + "″" : "") + " (B&C catalog)"
+          : "Suggested (" + (variant.chain || "match") + ")", suggested);
         addGroup("All chains", rest);
         csel.value = item.chain || "";
         csel.addEventListener("change", () => saveItem({ chain: csel.value }));
