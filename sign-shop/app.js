@@ -710,6 +710,15 @@
         m.categoryName + " · " + m.variants.length +
         (m.variants.length === 1 ? " configuration" : " configurations")));
       r.onclick = () => { selectedId = m.id; refresh(true); renderResults(); };
+      const inQ = queue.indexOf(m.id) !== -1;
+      const qBtn = el("button", "r-queue-add" + (inQ ? " added" : ""), inQ ? "✓" : "+");
+      qBtn.title = inQ ? "Remove from print queue" : "Add to print queue";
+      qBtn.onclick = (e) => {
+        e.stopPropagation();
+        queue.indexOf(m.id) === -1 ? queueAdd(m.id) : queueRemove(m.id);
+        renderResults();
+      };
+      r.appendChild(qBtn);
       host.appendChild(r);
     });
   }
@@ -1020,6 +1029,7 @@
       a.onclick = () => {
         localStorage.removeItem(LS_DATA_KEY);
         adoptDataset(BUNDLED);
+        pruneQueue(); renderQueue();
         renderDataStatus();
         renderCats(); renderResults();
         if (selectedId && !modelById[selectedId]) selectedId = null;
@@ -1044,6 +1054,7 @@
         }
         clearFileFieldOverrides();
         adoptDataset(fresh);
+        pruneQueue(); renderQueue();
         if (selectedId && !modelById[selectedId]) selectedId = null;
         renderDataStatus("Imported " + file.name + ": " + diff.changed +
           " price change" + (diff.changed === 1 ? "" : "s") +
@@ -1056,6 +1067,160 @@
     };
     reader.readAsText(file);
   }
+
+  /* ---------------- print queue ---------------- */
+  const LS_QUEUE_KEY = "signshop.queue.v1";
+  let queue = [];
+  try { queue = JSON.parse(localStorage.getItem(LS_QUEUE_KEY) || "[]"); } catch (e) {}
+
+  const saveQueue = () => localStorage.setItem(LS_QUEUE_KEY, JSON.stringify(queue));
+
+  // Drop queued ids that no longer exist in the loaded dataset (e.g. after
+  // a price file import). Call once modelById is populated.
+  function pruneQueue() {
+    const before = queue.length;
+    queue = queue.filter(id => modelById[id]);
+    if (queue.length !== before) saveQueue();
+  }
+
+  function queueAdd(id) {
+    if (queue.indexOf(id) !== -1) return;
+    queue.push(id);
+    saveQueue();
+    renderQueue();
+  }
+  function queueRemove(id) {
+    queue = queue.filter(x => x !== id);
+    saveQueue();
+    renderQueue();
+  }
+  function queueClear() {
+    queue = [];
+    saveQueue();
+    renderQueue();
+  }
+
+  function queueLabel(model) {
+    return model.model + (model.nickname ? " " + model.nickname : "");
+  }
+
+  function renderQueue() {
+    $("#queue-count").textContent = queue.length;
+    $("#btn-queue-export").disabled = queue.length === 0;
+
+    const addBtn = $("#btn-queue-add");
+    const inQ = selectedId && queue.indexOf(selectedId) !== -1;
+    addBtn.disabled = !selectedId;
+    addBtn.textContent = inQ ? "✓ IN QUEUE" : "+ ADD TO QUEUE";
+
+    const list = $("#queue-list");
+    list.innerHTML = "";
+    if (!queue.length) {
+      list.appendChild(el("div", "queue-empty",
+        "No signs queued yet — hover a search result and click + , or add the sign you're editing."));
+      return;
+    }
+    queue.forEach(id => {
+      const model = modelById[id];
+      if (!model) return;
+      const cfg = current(model);
+      const item = el("div", "queue-item");
+      item.appendChild(el("span", "qi-name", queueLabel(model)));
+      item.appendChild(el("span", "qi-cfg", cfg.config));
+      const rm = el("button", "", "✕");
+      rm.title = "Remove from queue";
+      rm.onclick = () => queueRemove(id);
+      item.appendChild(rm);
+      list.appendChild(item);
+    });
+  }
+
+  function setQueueStatus(msg, isErr) {
+    const s = $("#queue-status");
+    if (!msg) { s.hidden = true; s.textContent = ""; return; }
+    s.hidden = false;
+    s.textContent = msg;
+    s.classList.toggle("err", !!isErr);
+  }
+
+  function sanitizeFilename(name) {
+    return name.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
+  }
+
+  async function exportQueueZip() {
+    if (!queue.length) return;
+    const ids = queue.filter(id => modelById[id]);
+    const missing = queue.length - ids.length;
+    const btnExport = $("#btn-queue-export"), btnClear = $("#btn-queue-clear");
+    btnExport.disabled = true; btnClear.disabled = true;
+    const priorSelected = selectedId;
+
+    try {
+      await document.fonts.ready;
+      const zip = new JSZip();
+      const usedNames = {};
+      for (let i = 0; i < ids.length; i++) {
+        const model = modelById[ids[i]];
+        setQueueStatus("Rendering " + (i + 1) + " of " + ids.length + " — " + queueLabel(model) + "…");
+        renderSign(model, current(model));
+        // let layout/fonts/images settle before rasterizing
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const canvas = await html2canvas($("#sign"), {
+          scale: 4, backgroundColor: "#ffffff", useCORS: true, logging: false
+        });
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new window.jspdf.jsPDF({ unit: "in", format: [5, 3], orientation: "landscape" });
+        pdf.addImage(imgData, "PNG", 0, 0, 5, 3, undefined, "FAST");
+        const blob = pdf.output("blob");
+
+        let name = sanitizeFilename(queueLabel(model)) + ".pdf";
+        if (usedNames[name] !== undefined) {
+          usedNames[name]++;
+          name = sanitizeFilename(queueLabel(model)) + " (" + usedNames[name] + ").pdf";
+        } else {
+          usedNames[name] = 0;
+        }
+        zip.file(name, blob);
+      }
+
+      setQueueStatus("Zipping " + ids.length + " sign" + (ids.length === 1 ? "" : "s") + "…");
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const stamp = new Date().toISOString().slice(0, 10);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(zipBlob);
+      a.download = "STIHL-signs-" + stamp + ".zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+
+      setQueueStatus("Done — " + ids.length + " sign" + (ids.length === 1 ? "" : "s") + " exported" +
+        (missing ? " (" + missing + " no longer in the current data, skipped)" : "") + ".");
+    } catch (err) {
+      setQueueStatus("Export failed: " + err.message, true);
+    } finally {
+      btnExport.disabled = queue.length === 0;
+      btnClear.disabled = false;
+      if (priorSelected && modelById[priorSelected]) {
+        selectedId = priorSelected;
+        refresh(true);
+      }
+    }
+  }
+
+  $("#btn-queue-add").addEventListener("click", () => {
+    if (!selectedId) return;
+    queue.indexOf(selectedId) === -1 ? queueAdd(selectedId) : queueRemove(selectedId);
+    renderResults();
+  });
+  $("#btn-queue-toggle").addEventListener("click", () => {
+    const panel = $("#queue-panel");
+    panel.hidden = !panel.hidden;
+  });
+  $("#btn-queue-close").addEventListener("click", () => { $("#queue-panel").hidden = true; });
+  $("#btn-queue-clear").addEventListener("click", () => { queueClear(); renderResults(); });
+  $("#btn-queue-export").addEventListener("click", () => { setQueueStatus(""); exportQueueZip(); });
 
   /* ---------------- preview scale & print ---------------- */
   function fitPreview() {
@@ -1088,6 +1253,7 @@
     renderSign(model, cfg);
     if (fullEditor) renderEditor(model, cfg);
     $("#btn-print").disabled = false;
+    renderQueue();
   }
 
   /* ---------------- boot ---------------- */
@@ -1110,9 +1276,11 @@
     adoptDataset(stored && stored.models && stored.models.length ? stored : BUNDLED);
   })();
 
+  pruneQueue();
   renderDataStatus();
   renderCats();
   renderResults();
+  renderQueue();
   fitPreview();
 
   // When run from the SignShop launcher (served on localhost), heartbeat so

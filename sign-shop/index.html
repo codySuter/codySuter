@@ -14,10 +14,25 @@
   <div class="topbar-title">SIGN SHOP <span class="sub">POWER TOOL SIGN GENERATOR</span></div>
   <div class="topbar-actions">
     <button id="btn-import" class="btn btn-dark">UPDATE PRICING…</button>
+    <button id="btn-queue-add" class="btn btn-dark" disabled>+ ADD TO QUEUE</button>
+    <button id="btn-queue-toggle" class="btn btn-dark">QUEUE <span id="queue-count">0</span></button>
     <button id="btn-print" class="btn btn-orange" disabled>PRINT / SAVE PDF</button>
     <input id="import-file" type="file" accept=".csv,text/csv" hidden>
   </div>
 </header>
+
+<div class="queue-panel" id="queue-panel" hidden>
+  <div class="queue-head">
+    <div class="queue-title">PRINT QUEUE <span class="hint">— each item exports as its own 5×3in page</span></div>
+    <div class="queue-head-actions">
+      <button id="btn-queue-export" class="btn btn-orange" disabled>EXPORT ALL AS ZIP</button>
+      <button id="btn-queue-clear" class="btn">CLEAR</button>
+      <button id="btn-queue-close" class="btn btn-icon" aria-label="Close">✕</button>
+    </div>
+  </div>
+  <div class="queue-list" id="queue-list"></div>
+  <div class="queue-status" id="queue-status" hidden></div>
+</div>
 
 <main class="layout">
 
@@ -89,6 +104,9 @@
 <script src="data/specs_dsm.js"></script>
 <script src="data/dsm_parts.js"></script>
 <script src="data/catalog_fitment.js"></script>
+<script src="vendor/html2canvas.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

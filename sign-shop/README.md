@@ -29,6 +29,21 @@ server or install needed; fonts are bundled).
    the original template PDF). In the print dialog choose the label printer, or
    "Save as PDF".
 
+## Printing a batch of signs at once
+
+To print several signs in one go, build a **queue** instead of printing one at
+a time:
+
+1. Add signs to the queue — hover a search result and click the **+** that
+   appears, or open a product and click **+ ADD TO QUEUE** in the top bar.
+2. Click **QUEUE** in the top bar to review what's queued, remove anything,
+   or clear it out.
+3. Click **EXPORT ALL AS ZIP**. Each queued sign is rendered at print quality
+   and saved as its own 5×3in PDF, all bundled into one ZIP file that
+   downloads automatically (e.g. `STIHL-signs-2026-07-02.zip`) — ready to hand
+   to a print shop or batch-print yourself. The queue is remembered between
+   visits until you clear it or export.
+
 ## Keeping prices current
 
 When STIHL sends a new *Dealer Price File* CSV, click **UPDATE PRICING…** in
@@ -78,6 +93,11 @@ pricing.
 To rebuild the Windows executable after any app or data change, run
 `tools/build_exe.sh` (requires Go; cross-compiles from any OS). It embeds
 the current app + data into `dist/SignShop.exe`.
+
+`vendor/` holds three MIT-licensed libraries, pinned and bundled locally (no
+CDN, so the app keeps working offline): JSZip 3.10.1 (zips the batch export),
+jsPDF 2.5.2 (builds each PDF), and html2canvas 1.4.1 (rasterizes a sign for
+the PDF page). They're plain vendored files, not an npm dependency tree.
 
 ## Chain finder wall posters
 

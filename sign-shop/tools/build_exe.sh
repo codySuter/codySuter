@@ -9,12 +9,13 @@ GO="${GO:-/usr/local/go/bin/go}"
 
 # Stage the app files the exe embeds (everything the browser needs).
 rm -rf "$LAUNCHER/app"
-mkdir -p "$LAUNCHER/app/data" "$LAUNCHER/app/fonts" "$DIST"
+mkdir -p "$LAUNCHER/app/data" "$LAUNCHER/app/fonts" "$LAUNCHER/app/vendor" "$DIST"
 cp "$ROOT/index.html" "$ROOT/styles.css" "$ROOT/app.js" "$ROOT/fonts.css" "$LAUNCHER/app/"
 [ -f "$ROOT/poster.html" ] && cp "$ROOT/poster.html" "$LAUNCHER/app/"
 [ -f "$ROOT/poster-legacy.html" ] && cp "$ROOT/poster-legacy.html" "$LAUNCHER/app/"
 cp "$ROOT"/data/*.js "$LAUNCHER/app/data/"
 cp "$ROOT"/fonts/*.woff2 "$LAUNCHER/app/fonts/"
+cp "$ROOT"/vendor/*.js "$LAUNCHER/app/vendor/"
 
 cd "$LAUNCHER"
 [ -f go.mod ] || "$GO" mod init signshop
