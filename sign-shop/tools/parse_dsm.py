@@ -49,8 +49,9 @@ STRAY_COLON_RE = re.compile(r"\s[A-Z][A-Za-z0-9()®™ /&.'*-]{2,45}:")
 #   saws:   '3.06 cu. in. (50.2 cc), 3.5 bhp (2.6 kW)'
 #   others: '64.8 cc (3.95 cu. in.), 2.8 kW (3.8 bhp), 9.8 kg (21.6 Ibs.…'
 GAS_INLINE_RE = re.compile(
-    r"([\d.]+)\s*cu\.?\s*in\.?\s*\(([\d.]+)\s*cc\),?\s*([\d.]+)\s*bhp\s*\(([\d.]+)\s*kW\)"
-    r"(?:,?\s*(?:[A-Za-z-]+ \(Shown\):\s*)?([\d.]+)\s*kg\s*\(([\d.]+)\s*lbs?)?")
+    r"([\d.]+)\s*cu\.?\s*in\.?\s*\(([\d.]+)\s*cc\)[,\s]*([\d.]+)\s*bhp"
+    r"(?:\s*\(([\d.]+)\s*kW\))?"
+    r"(?:[,\s]*(?:[A-Za-z-]+ \(Shown\):\s*)?([\d.]+)\s*kg\s*\(([\d.]+)\s*lbs?)?")
 GAS_INLINE2_RE = re.compile(
     r"([\d.]+)\s*cc\s*\(([\d.]+)\s*cu\.?\s*in\.?\),?\s*([\d.]+)\s*kW\s*\(([\d.]+)\s*b?hp\)"
     r"(?:,?\s*([\d.]+)\s*kg\s*\(([\d.]+)\s*lbs?)?"
@@ -62,6 +63,11 @@ ELECTRIC_HDR_RE = re.compile(
     r"(?:[\d.]+ kg \()?([\d.]+) lbs?\.?\)?")
 
 MODEL_CATS_BATTERY = {"0LB", "1HB", "1LB", "1ZB", "1IB"}
+
+# catalog name -> the name the manual uses for the same tool
+MODEL_ALIASES = {
+    "MSE 170 C-BQ": "MSE 170 C-B",
+}
 
 
 def load_products():
@@ -84,6 +90,10 @@ def clean_value(v: str) -> str:
     cm = re.match(r"^(\d{2,4})\s*cc\s*\(([\d.]+)\s*oz", v)
     if cm and abs(int(cm.group(1)) / 29.5735 - float(cm.group(2))) > 1:
         return str(round(int(cm.group(1)) / 29.5735, 1)) + " oz"
+    # oz-first fuel form: '20.3 oz. (600 cc)' -> '20.3 oz.'
+    om = re.match(r"^([\d.]+ ?oz\.?)\s*\(", v)
+    if om:
+        return om.group(1)
     # 'Engine Power: 0.8 kW (1.1 bhp), 6.1 kg (13.5 lbs)' -> '0.8 kW / 1.1 bhp'
     m = re.match(r"^([\d.]+) kW \(([\d.]+) bhp\)", v)
     if m:
@@ -128,16 +138,26 @@ def parse_block_specs(block: str):
             val = val[:stray.start()]
         val = val.split("PLEASE NOTE")[0]
         specs.setdefault(key, clean_value(val))
+    def checked_cc(cuin, cc):
+        """The manual occasionally mistypes one of the paired values
+        ('1.94 cu. in. (38.1 cc)'); recompute cc from cu. in. on conflict."""
+        calc = float(cuin) * 16.387
+        if abs(calc - float(cc)) > 1.5:
+            return str(round(calc, 1))
+        return cc
+
     # gas pages carry displacement/power (/weight) as an inline line
     gm = GAS_INLINE_RE.search(region)
     if gm:
-        specs.setdefault("Displacement", gm.group(2) + " cc")
-        specs.setdefault("Power Output", gm.group(4) + " kW / " + gm.group(3) + " bhp")
+        specs.setdefault("Displacement", checked_cc(gm.group(1), gm.group(2)) + " cc")
+        power = (gm.group(4) + " kW / " + gm.group(3) + " bhp") if gm.group(4) \
+            else gm.group(3) + " bhp"
+        specs.setdefault("Power Output", power)
         if gm.group(6):
             specs.setdefault("Weight", gm.group(6) + " lb")
     gm = GAS_INLINE2_RE.search(region)
     if gm:
-        specs.setdefault("Displacement", gm.group(1) + " cc")
+        specs.setdefault("Displacement", checked_cc(gm.group(2), gm.group(1)) + " cc")
         specs.setdefault("Power Output", gm.group(3) + " kW / " + gm.group(4) + " bhp")
         if gm.group(6):
             specs.setdefault("Weight", gm.group(6) + " lb")
@@ -374,8 +394,21 @@ def main(paths):
         t = re.match(r"\s+([A-Za-z][A-Za-z0-9.\-]{0,7})", following)
         if not t:
             return False
-        cand = norm_model(name + " " + t.group(1)).upper()
-        return cand != norm_model(name).upper() and cand in norm_names
+        tok = t.group(1)
+        cand = norm_model(name + " " + tok).upper()
+        if cand != norm_model(name).upper() and cand in norm_names:
+            return True
+        # a trim-designator token right after the name means this is a
+        # LONGER model's heading ('MS 362' matching at 'MS 362 R MAGNUM'),
+        # even when that longer model isn't a catalog product. A lone 'Z'
+        # is a dealer config code, not a trim ('BG 86 C-E Z' is BG 86 C-E),
+        # and a token leading straight into 'Series' is battery-line prose
+        # with a dropped letter ('FSA 50.0 \nK Series/ Series FA05').
+        # same line only — 'R\nSeries' is a wrap-handle heading, not prose
+        if re.match(r"[ ]*/?[ ]*Series", following[t.end():t.end() + 12]):
+            return False
+        return bool(re.match(r"^([RTK]|[A-Z]-[A-Z]{1,2}|SET|PLUS|CONTROL|EVO)$",
+                             tok.upper()))
 
     def count_keys(chunk):
         return sum(1 for km in KEY_RE.finditer(chunk)
@@ -428,6 +461,8 @@ def main(paths):
         conflict = any(n != model["model"] and norm_model(n) == flexed
                        for n in all_names)
         hit = find_best(model["model"], flex=not conflict)
+        if not hit and model["model"] in MODEL_ALIASES:
+            hit = find_best(MODEL_ALIASES[model["model"]], flex=True)
         if hit:
             positions.append((hit[0], model))
     positions.sort(key=lambda x: x[0])
@@ -451,7 +486,7 @@ def main(paths):
     # part-number tables are matched globally; validation ties rows to models
     variant_models = {}
     for model in products["models"]:
-        if model["category"] in ("0CS", "0LB"):
+        if model["category"] in ("0CS", "0LB", "0ES", "0GS"):
             for v in model["variants"]:
                 variant_models[v["materialDash"]] = model["model"]
     parts_out = parse_parts_tables(text, bars_set, chains_by_part, variant_models)
@@ -487,6 +522,46 @@ def main(paths):
             # is usually a bundle price row bleeding the next page's specs
             if filled(cand) >= filled(specs_out.get(name)):
                 specs_out[name] = cand
+
+    # Gas saw trim levels share the powerhead: a carbureted model without
+    # its own DSM page takes its M-Tronic sibling's specs and vice versa,
+    # preferring the sibling with the same handle (R) configuration.
+    def gas_saw_siblings(name):
+        cands = []
+        if name.endswith(" C-M R"):
+            # the manual orders it 'R C-M' — that's the model's own page
+            cands.append(name.replace(" C-M R", " R C-M"))
+        if " C-M" in name:
+            cands.append(name.replace(" C-M", ""))   # 'MS 362 C-M R' -> 'MS 362 R'
+        else:
+            cands.append(re.sub(r"^([A-Z]+ \d+\w*)", r"\1 C-M", name))
+        return cands
+
+    for model in products["models"]:
+        if model["category"] != "0CS":
+            continue
+        name = model["model"]
+        entry = specs_out.get(name)
+        has_engine = entry and any(
+            v for l, v in entry["specs"] if l == "DISPLACEMENT")
+        if has_engine:
+            continue
+        for cand in gas_saw_siblings(name):
+            if cand in specs_out:
+                specs_out[name] = specs_out[cand]
+                break
+            # the sibling may have its own DSM page without being a
+            # catalog product ('MS 362 R' page for 'MS 362 C-M R')
+            if cand in all_names:
+                continue
+            hit = find_best(cand, flex=True)
+            if hit:
+                raw = parse_block_specs(clip_block(text[hit[0]: hit[0] + 4000]))
+                if raw:
+                    title, rows = slot_specs(model, raw)
+                    if any(v for _, v in rows):
+                        specs_out[name] = {"title": title, "specs": rows}
+                        break
 
     # SET packages share the base tool's hardware specs (and vice versa).
     # A SET never has its own spec page — any direct match was a price row,

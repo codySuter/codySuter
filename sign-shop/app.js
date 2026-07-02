@@ -193,8 +193,10 @@
 
   /* ---------------- config assembly ---------------- */
   // What the length dimension is called on this kind of tool.
+  const SAW_CATS = { "0CS": 1, "0LB": 1, "0ES": 1, "0GS": 1 };
+
   function lengthWord(category) {
-    if (category === "0CS" || category === "0LB" || category === "1HT") return "Bar";
+    if (SAW_CATS[category] || category === "1HT") return "Bar";
     if (category === "1HS" || category === "1HB") return "Blade";
     if (category === "0TS") return "Wheel";
     return "";
@@ -261,9 +263,11 @@
       specTitle: ds.title,
       specs: ds.specs,
       specSource: ds.source,
-      side: model.variants.map(x => ({
+      // the sidebar fits ~3 configurations (like the template); models with
+      // more variants start with the first three shown, rest togglable
+      side: model.variants.map((x, i) => ({
         material: x.materialDash,
-        include: true,
+        include: model.variants.length <= 3 || i < 3,
         label: sideName(x, model.category),
         price: x.msrp.toFixed(2),
         sku: x.aceSku || "",
@@ -355,7 +359,7 @@
       t.appendChild(p);
       it.appendChild(t);
       const rows = [["SKU", s.sku || "—"]];
-      if (model.category === "0CS" || model.category === "0LB") {
+      if (SAW_CATS[model.category]) {
         rows.push(["CHAIN PART #", s.chain || "—"]);
         rows.push(["BAR PART #", s.bar || "—"]);
       } else if (s.chain || s.bar) {
@@ -485,7 +489,7 @@
   function renderSideEditor(model, cfg) {
     const host = $("#ed-side");
     host.innerHTML = "";
-    const isSaw = model.category === "0CS" || model.category === "0LB";
+    const isSaw = !!SAW_CATS[model.category];
 
     cfg.side.forEach((item, idx) => {
       const variant = model.variants[idx];
@@ -695,8 +699,32 @@
     "1RM": ["Gas Lawn Mowers", "GAS LAWN MOWER"],
     "1RZ": ["Front Mowers", "FRONT MOWER"],
     "1SE": ["Wet/Dry Vacuums", "WET/DRY VACUUM"],
-    "1ZB": ["Battery Front Mowers", "BATTERY FRONT MOWER"]
+    "1ZB": ["Battery Front Mowers", "BATTERY FRONT MOWER"],
+    "0ES": ["Electric Chain Saws", "ELECTRIC CHAIN SAW"],
+    "0GS": ["Concrete Cutters", "CONCRETE CUTTER"]
   };
+
+  // Pro saws and some newer battery tools ship as powerhead "kits" (9KP) or
+  // under one-off codes; resolve those rows by brand (mirror build_data.py).
+  const KIT_CATEGORIES = { "9KP": 1, "0CB": 1, "0KB": 1, "0TB": 1, "1PB": 1, "1SB": 1 };
+  const BRAND_CATEGORY = {
+    MS: "0CS", MSA: "0LB", MSE: "0ES", GS: "0GS",
+    HLA: "1HB", HL: "1HS", MM: "1MM", RMA: "1LB", RZA: "1LB",
+    KMA: "0KM", KM: "0KM", FSA: "0TR", FS: "0TR",
+    HTA: "1HT", HT: "1HT", HSA: "1HB", HS: "1HS",
+    SEA: "1SE", SE: "1SE", SGA: "1IB",
+    BGA: "1BH", BG: "1BH", BRA: "1BB", BR: "1BB"
+  };
+
+  function resolveCategory(cat, desc) {
+    const brand = (desc.split(/\s+/)[0] || "");
+    if (UNIT_CATEGORIES[cat]) {
+      if (cat === "0CS" && brand === "MSA") return "0LB"; // dealer-file misfile
+      return cat;
+    }
+    if (KIT_CATEGORIES[cat]) return BRAND_CATEGORY[brand] || null;
+    return null;
+  }
 
   function parseCSV(text) {
     const rows = [];
@@ -724,7 +752,8 @@
   const BRAND_RE = /^i?[A-Z]{2,4}$/;
   const NUM_TOKEN_RE = /^\d+(\.\d+)?[a-z]?(-[A-Z])?$/;
   const SUFFIX_RE = /^([A-Z]{1,3}(-[A-Z]{1,3})?|SET|PLUS|CONTROL|EVO)$/;
-  const SKIP_TOKENS = { "(USA)": 1, "1/4": 1, "3/8": 1, "in.P": 1 };
+  const SKIP_TOKENS = { "(USA)": 1, "1/4": 1, "3/8": 1, "in.P": 1, "in.": 1,
+                        "Z": 1, "P": 1, "SPUR": 1, "RIM": 1 };
   const TYPE_RE = new RegExp("\\s*(" + [
     "Chainsaw", "Cordless chain saw", "Chain saw", "Brushcutter", "Edger",
     "CombiEngine", "Cordless KombiMotor", "Pole pruner", "Hedge trimmer",
@@ -735,9 +764,13 @@
     "Cordless sprayer", "Electric Trimmer", "Electric Blower",
     "Electric hedge trimmer", "Robotic mower", "Cordless lawn mower",
     "Lawn mower", "High-pressure washer", "High-pressure cleaner",
-    "Vacuums", "yard boss MultiEngine", "Magnum Blower"
+    "Vacuums", "yard boss MultiEngine", "Magnum Blower",
+    "CHAINSAW", "Electric saw", "Concrete cutter", "MultiEngine",
+    "CORDLESS KOMBIMOTO", "CORDLESS TRIMMER", "Cordless Pole pruner",
+    "Chains\\b"
   ].join("|") + ")");
-  const BAR_LEN_RE = /(\d+)\s*(?:cm|mm)\/(\d+)\s*in/;
+  const BAR_LEN_RE = /(\d+)\s*(?:cm|mm)\/(\d+)\s*in/i;
+  const BAR_ALT_RE = /Chainsaw\s+(\d{2})-/i;
   const CHAIN_CODE_RE = /\b(\d{2}\s?(?:RS|RM|RH|PM|PMM|PS|PD)[A-Z0-9]{0,3})\b/;
   const NICKNAME_RE = /(Farm Boss|Wood Boss|Magnum|Yard Boss|Dirt Boss)/i;
   // marketing names confirmed by the Dealer Support Manual where retail
@@ -755,12 +788,14 @@
     }
     const kept = tokens.slice(0, 2);
     for (let i = 2; i < tokens.length; i++) {
-      const t = tokens[i];
-      if (SKIP_TOKENS[t]) continue;
-      if (/^\d+$/.test(t) && i + 1 < tokens.length && tokens[i + 1].indexOf("in") === 0) break;
+      const t = tokens[i].replace(/-A?Z$/, ""); // 'T-Z' -> 'T'
+      if (!t || SKIP_TOKENS[t]) continue;
+      if (/^\d+$/.test(t)) break;      // bare integer = size spec
+      if (t === kept[kept.length - 1]) break; // repeated suffix = spec text
       if (SUFFIX_RE.test(t) || NUM_TOKEN_RE.test(t)) { kept.push(t); continue; }
       break;
     }
+    kept[1] = kept[1].replace(/-A?Z$/, ""); // 'MS 311-Z'
     return kept.join(" ");
   }
 
@@ -770,10 +805,12 @@
     const ptype = m ? m[1] : "";
     const tail = m ? desc.slice(m.index + m[0].length) : "";
     head = head.trim().replace(/,+$/, "");
+    head = head.replace(/[- ]RZ\b/, " R"); // wrap-handle: 'MS 462-RZ' -> R model
     head = head.replace(/[- ](?:A?Z|LZ)$/, "").trim();
     const model = extractModel(head);
     const bm = BAR_LEN_RE.exec(desc);
-    const barIn = bm ? parseInt(bm[2], 10) : null;
+    const am = BAR_ALT_RE.exec(desc);
+    const barIn = bm ? parseInt(bm[2], 10) : (am ? parseInt(am[1], 10) : null);
     const cm = CHAIN_CODE_RE.exec(tail);
     let chain = null;
     if (cm) chain = cm[1].replace(/\s/g, "").replace(/^(\d{2})/, "$1 ");
@@ -833,7 +870,8 @@
         }
         continue;
       }
-      if (!UNIT_CATEGORIES[cat]) continue;
+      const rcat = resolveCategory(cat, desc);
+      if (!rcat) continue;
 
       unitRows++;
       const p = parseUnitDesc(desc);
@@ -844,14 +882,14 @@
         if (rm && +rm[1] >= 10 && +rm[1] <= 36) p.barIn = +rm[1];
       }
       const nick = NICKNAME_RE.exec(retail + " " + desc);
-      const key = cat + ":" + p.model;
+      const key = rcat + ":" + p.model;
       if (!groups[key]) {
         groups[key] = {
           id: key, model: p.model,
           nickname: nick ? nick[1].toUpperCase() : "",
-          category: cat,
-          categoryName: UNIT_CATEGORIES[cat][0],
-          signCategory: UNIT_CATEGORIES[cat][1],
+          category: rcat,
+          categoryName: UNIT_CATEGORIES[rcat][0],
+          signCategory: UNIT_CATEGORIES[rcat][1],
           productType: p.ptype, variants: []
         };
       }
@@ -869,7 +907,7 @@
     const models = Object.values(groups)
       .sort((a, b) => (a.category + a.model).localeCompare(b.category + b.model));
     models.forEach(g => {
-      g.variants.sort((a, b) => (a.barIn || 0) - (b.barIn || 0) || a.msrp - b.msrp);
+      g.variants.sort((a, b) => (a.barIn || 999) - (b.barIn || 999) || a.msrp - b.msrp);
       if (!g.nickname && NICKNAME_BY_MODEL[g.model]) g.nickname = NICKNAME_BY_MODEL[g.model];
     });
 

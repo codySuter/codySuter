@@ -7,6 +7,16 @@ window.SIGN_DATA = {
    "signLabel": "GAS CHAIN SAW"
   },
   {
+   "code": "0ES",
+   "name": "Electric Chain Saws",
+   "signLabel": "ELECTRIC CHAIN SAW"
+  },
+  {
+   "code": "0GS",
+   "name": "Concrete Cutters",
+   "signLabel": "CONCRETE CUTTER"
+  },
+  {
    "code": "0KM",
    "name": "Kombi Powerheads",
    "signLabel": "KOMBI SYSTEM"
@@ -99,6 +109,29 @@ window.SIGN_DATA = {
  ],
  "models": [
   {
+   "id": "0CS:MS 151 TC-E",
+   "model": "MS 151 TC-E",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "",
+   "variants": [
+    {
+     "material": "1146 200 0061",
+     "materialDash": "1146-200-0061",
+     "desc": "MS 151 TC-E Z 1/4 in.P Easy2Start-E2S Chain",
+     "retail": "STIHL MS 151 T C-E 12 in. 23.6 cc Gas Chainsaw",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 759.99,
+     "upc": "886661965694",
+     "aceSku": "7008688D",
+     "status": "A"
+    }
+   ]
+  },
+  {
    "id": "0CS:MS 162",
    "model": "MS 162",
    "nickname": "",
@@ -187,6 +220,470 @@ window.SIGN_DATA = {
      "upc": "886661641758",
      "aceSku": "7033489D",
      "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 194 C-E",
+   "model": "MS 194 C-E",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chains",
+   "variants": [
+    {
+     "material": "1137 200 0354",
+     "materialDash": "1137-200-0354",
+     "desc": "MS 194 C-E Z 3/8 in.P Easy2Start-E2S Chains",
+     "retail": "STIHL MS 194 C-E 12 in. 31.8 cc Gas Chainsaw",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 539.99,
+     "upc": "886661102082",
+     "aceSku": "7020831D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0357",
+     "materialDash": "1137-200-0357",
+     "desc": "MS 194 C-E Z 3/8 in.P Easy2Start-E2S Chains",
+     "retail": "STIHL MS 194 C-E 14 in. 31.8 cc Gas Chainsaw",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 549.99,
+     "upc": "886661102129",
+     "aceSku": "7020761D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0362",
+     "materialDash": "1137-200-0362",
+     "desc": "MS 194 C-E Z Chainsaw,35cm/14 in.,61PMM3",
+     "retail": "STIHL MS 194 C-E 14 in. 31.8 cc Gas Chainsaw",
+     "barIn": 14,
+     "chain": "61 PMM3",
+     "msrp": 549.99,
+     "upc": "886661419173",
+     "aceSku": "7020798D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0358",
+     "materialDash": "1137-200-0358",
+     "desc": "MS 194 C-E Z 3/8 in.P Easy2Start-E2S Chains",
+     "retail": "STIHL MS 194 C-E 14 in. 31.8 cc Gas Chainsaw",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 579.99,
+     "upc": "886661102143",
+     "aceSku": "7019485D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0359",
+     "materialDash": "1137-200-0359",
+     "desc": "MS 194 C-E Z 3/8 in.P Easy2Start-E2S Chains",
+     "retail": "STIHL MS 194 C-E 16 in. 31.8 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 559.99,
+     "upc": "886661102150",
+     "aceSku": "7020712D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0373",
+     "materialDash": "1137-200-0373",
+     "desc": "MS 194 C-E Z Chainsaw,40cm/16 in.,61PMM3",
+     "retail": "STIHL MS 194 C-E 16 in. 31.8 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": "61 PMM3",
+     "msrp": 559.99,
+     "upc": "886661499779",
+     "aceSku": "7019746D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 194 T",
+   "model": "MS 194 T",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1137 200 0349",
+     "materialDash": "1137-200-0349",
+     "desc": "MS 194 T-Z 3/8 in.P SPUR Chainsaw,30cm/12 in.",
+     "retail": "STIHL MS 194 T 12 in. 31.8 cc Gas Chainsaw",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 489.99,
+     "upc": "886661102006",
+     "aceSku": "7020835D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0391",
+     "materialDash": "1137-200-0391",
+     "desc": "MS 194 T-Z Chainsaw,30cm/12 in.,61PMM3",
+     "retail": "STIHL MS 194 T-Z 12 in. Gas Chainsaw Picco Micro Mini 3 PMM3 3/8 in.",
+     "barIn": 12,
+     "chain": "61 PMM3",
+     "msrp": 489.99,
+     "upc": "886661729890",
+     "aceSku": "7035307D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0352",
+     "materialDash": "1137-200-0352",
+     "desc": "MS 194 T-Z 3/8 in.P SPUR Chainsaw,35cm/14 in.",
+     "retail": "STIHL MS 194 T 14 in. 31.72 cc Gas Chainsaw",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 499.99,
+     "upc": "886661102051",
+     "aceSku": "7019662D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0374",
+     "materialDash": "1137-200-0374",
+     "desc": "MS 194 T-Z Chainsaw,35cm/14 in.,63PM3",
+     "retail": "",
+     "barIn": 14,
+     "chain": "63 PM3",
+     "msrp": 499.99,
+     "upc": "886661503698",
+     "aceSku": "",
+     "status": ""
+    },
+    {
+     "material": "1137 200 0402",
+     "materialDash": "1137-200-0402",
+     "desc": "MS 194 T-Z Chainsaw",
+     "retail": "STIHL MS 194 14 in. Gas Chainsaw Picco Micro Mini 3 PMM3 3/8 in.",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 499.99,
+     "upc": "795711876449",
+     "aceSku": "7035309D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0353",
+     "materialDash": "1137-200-0353",
+     "desc": "MS 194 T-Z 3/8 in.P SPUR Chainsaw,35cm/14 in.",
+     "retail": "STIHL MS 194 T 14 in. 31.8 cc Gas Chainsaw",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 529.99,
+     "upc": "886661102068",
+     "aceSku": "7020751D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0345",
+     "materialDash": "1137-200-0345",
+     "desc": "MS 194 T-Z 3/8 in.P SPUR Chainsaw,40cm/16 in.",
+     "retail": "STIHL MS 194 T-Z 16 in. Gas Chainsaw Picco Micro Mini 3 PM3 3/8 in.",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 509.99,
+     "upc": "886661965762",
+     "aceSku": "7035305D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0346",
+     "materialDash": "1137-200-0346",
+     "desc": "MS 194 T-Z 3/8 in.P SPUR Chainsaw,40cm/16 in.",
+     "retail": "STIHL MS 194 T 16 in. 31.8 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 509.99,
+     "upc": "886661965779",
+     "aceSku": "7020829D",
+     "status": "A"
+    },
+    {
+     "material": "1137 200 0344",
+     "materialDash": "1137-200-0344",
+     "desc": "MS 194 T-Z 3/8 in.P SPUR Chainsaw,40cm/16 in.",
+     "retail": "STIHL MS 194 T 16 in. 31.8 cc Gas Light Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 539.99,
+     "upc": "886661965755",
+     "aceSku": "7020757D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 201 C-EM",
+   "model": "MS 201 C-EM",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "",
+   "variants": [
+    {
+     "material": "1145 200 0286",
+     "materialDash": "1145-200-0286",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 12 in. 35.2 cc Gas Chainsaw",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 1049.99,
+     "upc": "886661965823",
+     "aceSku": "7020738D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0288",
+     "materialDash": "1145-200-0288",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 12 in. Rollomatic E Light Bar Gas Chainsaw Picco Micro Mini 3 PM3 3/8 in.",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 1049.99,
+     "upc": "886661965847",
+     "aceSku": "7030700D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0289",
+     "materialDash": "1145-200-0289",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 14 in. 35.2 cc Gas Chainsaw",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 1059.99,
+     "upc": "886661965861",
+     "aceSku": "7020746D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0291",
+     "materialDash": "1145-200-0291",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 14 in. Rollomatic E Light Bar Gas Chainsaw Picco Micro Mini 3 PM3 3/8 in.",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 1059.99,
+     "upc": "886661965892",
+     "aceSku": "7030702D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0290",
+     "materialDash": "1145-200-0290",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 14 in. Rollomatic E Light Bar Gas Chainsaw Picco Super Chain PS3 3/8 in.",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 1089.99,
+     "upc": "886661965885",
+     "aceSku": "7030701D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0292",
+     "materialDash": "1145-200-0292",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 14 in. 35.2 cc Gas Chainsaw",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 1089.99,
+     "upc": "886661965908",
+     "aceSku": "7000572D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0283",
+     "materialDash": "1145-200-0283",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 16 in. 35.2 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 1069.99,
+     "upc": "886661965786",
+     "aceSku": "7019667D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0285",
+     "materialDash": "1145-200-0285",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 16 in. Rollomatic E Light Bar Gas Chainsaw Picco Micro Mini 3 PM3 3/8 in.",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 1069.99,
+     "upc": "886661965816",
+     "aceSku": "7030698D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0284",
+     "materialDash": "1145-200-0284",
+     "desc": "MS 201 C-EM Z 3/8 in.P ErgoStart P ST Chain",
+     "retail": "STIHL MS 201 C-EM 16 in. 35.2 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 1099.99,
+     "upc": "886661965809",
+     "aceSku": "7001623D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 201 TC-M",
+   "model": "MS 201 TC-M",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "",
+   "variants": [
+    {
+     "material": "1145 200 0296",
+     "materialDash": "1145-200-0296",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 TC-M 12 in. 35.2 cc Gas Chainsaw",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 949.99,
+     "upc": "886661102181",
+     "aceSku": "7000575D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0297",
+     "materialDash": "1145-200-0297",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 T C-M 12 in. Rollomatic E Light Bar 35.2 cc Gas Chainsaw Picco Micro Mini 3 PM3",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 949.99,
+     "upc": "886661104536",
+     "aceSku": "7030711D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0299",
+     "materialDash": "1145-200-0299",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 TC-M 14 in. 35.2 cc Gas Chainsaw",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 959.99,
+     "upc": "886661110421",
+     "aceSku": "7001625D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0300",
+     "materialDash": "1145-200-0300",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 T C-M 14 in. Rollomatic E Light Bar Gas Chainsaw Picco Micro Mini 3 PM3 3/8 in.",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 959.99,
+     "upc": "886661110445",
+     "aceSku": "7030555D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0303",
+     "materialDash": "1145-200-0303",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 TC-M 14 in. 35.2 cc Gas Light Chainsaw",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 989.99,
+     "upc": "886661110513",
+     "aceSku": "7001626D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0305",
+     "materialDash": "1145-200-0305",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 T C-M 16 in. Rollomatic E Light Bar 35.2 cc Gas Chainsaw Picco Micro Mini 3 PM3 3/8 in.",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 969.99,
+     "upc": "886661112678",
+     "aceSku": "7030559D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0308",
+     "materialDash": "1145-200-0308",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 TC-M 16 in. 35.2 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 969.99,
+     "upc": "886661112739",
+     "aceSku": "7000574D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0326",
+     "materialDash": "1145-200-0326",
+     "desc": "MS 201 TC-M Z Chainsaw",
+     "retail": "STIHL MS 201 T C-M 16 in. Rollomatic E Light Bar 35.2 cc Gas Chainsaw Picco Super Chain PS3 3/8 in.",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 969.99,
+     "upc": "795711876890",
+     "aceSku": "7033154D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0307",
+     "materialDash": "1145-200-0307",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 T C-M 16 in. 35.2 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 999.99,
+     "upc": "886661112715",
+     "aceSku": "7019534D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0309",
+     "materialDash": "1145-200-0309",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "STIHL MS 201 T C-M 16 in. Rollomatic E Light Bar 35.2 cc Gas Chainsaw Picco Super Chain PS3 3/8 in.",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 999.99,
+     "upc": "886661112753",
+     "aceSku": "7030560D",
+     "status": "A"
+    },
+    {
+     "material": "1145 200 0306",
+     "materialDash": "1145-200-0306",
+     "desc": "MS 201 TC-M Z 3/8 in.P P STIHL M-Tron Chain",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 969.99,
+     "upc": "886661112692",
+     "aceSku": "",
+     "status": ""
     }
    ]
   },
@@ -283,6 +780,112 @@ window.SIGN_DATA = {
    ]
   },
   {
+   "id": "0CS:MS 261",
+   "model": "MS 261",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1141 200 0678",
+     "materialDash": "1141-200-0678",
+     "desc": "MS 261-Z Chainsaw,40cm/16 in.",
+     "retail": "STIHL MS 261 16 in. 50.2 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 759.99,
+     "upc": "886661528080",
+     "aceSku": "7028957D",
+     "status": "A"
+    },
+    {
+     "material": "1141 200 0679",
+     "materialDash": "1141-200-0679",
+     "desc": "MS 261-Z Chainsaw,45cm/18 in.",
+     "retail": "STIHL MS 261 18 in. 50.2 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": null,
+     "msrp": 769.99,
+     "upc": "886661528097",
+     "aceSku": "7028958D",
+     "status": "A"
+    },
+    {
+     "material": "1141 200 0680",
+     "materialDash": "1141-200-0680",
+     "desc": "MS 261-Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 261 20 in. 50.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 779.99,
+     "upc": "886661528103",
+     "aceSku": "7028961D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 261 C-M",
+   "model": "MS 261 C-M",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1141 200 0592",
+     "materialDash": "1141-200-0592",
+     "desc": "MS 261 C-M Z Chainsaw,40cm/16 in.,26RM3",
+     "retail": "STIHL MS 261 C-M 16 in. 50.2 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": "26 RM3",
+     "msrp": 759.99,
+     "upc": "886661576401",
+     "aceSku": "7000555D",
+     "status": "A"
+    },
+    {
+     "material": "1141 200 0675",
+     "materialDash": "1141-200-0675",
+     "desc": "MS 261 C-M Z Chainsaw,40cm/16 in.",
+     "retail": "STIHL MS 261 C-M 16 in. 50.2 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 759.99,
+     "upc": "886661528042",
+     "aceSku": "7028946D",
+     "status": "A"
+    },
+    {
+     "material": "1141 200 0676",
+     "materialDash": "1141-200-0676",
+     "desc": "MS 261 C-M Z Chainsaw,45cm/18 in.",
+     "retail": "STIHL MS 261 C-M 18 in. 50.2 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": null,
+     "msrp": 769.99,
+     "upc": "886661528059",
+     "aceSku": "7028947D",
+     "status": "A"
+    },
+    {
+     "material": "1141 200 0677",
+     "materialDash": "1141-200-0677",
+     "desc": "MS 261 C-M Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 261 C-M 20 in. 50.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 779.99,
+     "upc": "886661528066",
+     "aceSku": "7028948D",
+     "status": "A"
+    }
+   ]
+  },
+  {
    "id": "0CS:MS 271",
    "model": "MS 271",
    "nickname": "FARM BOSS",
@@ -353,47 +956,2093 @@ window.SIGN_DATA = {
    ]
   },
   {
-   "id": "0CS:MSA 60.0 C-B SET",
-   "model": "MSA 60.0 C-B SET",
+   "id": "0CS:MS 311",
+   "model": "MS 311",
    "nickname": "",
    "category": "0CS",
    "categoryName": "Gas Chain Saws",
    "signCategory": "GAS CHAIN SAW",
-   "productType": "",
+   "productType": "Chainsaw",
    "variants": [
     {
-     "material": "MA04 011 5867 US",
-     "materialDash": "MA04-011-5867",
-     "desc": "MSA 60.0 C-B 1/4 in.P SET Cordless chain",
-     "retail": "STIHL MSA 60 C-B PICCO 12 in. Light 01 Bar Battery Chainsaw Kit (Battery & Charger) 1/4 in.",
-     "barIn": 12,
+     "material": "1140 200 0594",
+     "materialDash": "1140-200-0594",
+     "desc": "MS 311-Z Chainsaw,45cm/18 in.,33RS3",
+     "retail": "STIHL MS 311 18 in. 59 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": "33 RS3",
+     "msrp": 759.99,
+     "upc": "886661668816",
+     "aceSku": "7000533D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0595",
+     "materialDash": "1140-200-0595",
+     "desc": "MS 311-Z Chainsaw,50cm/20 in.,33RS3",
+     "retail": "STIHL MS 311 20 in. 59 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS3",
+     "msrp": 769.99,
+     "upc": "886661668823",
+     "aceSku": "7000531D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0754",
+     "materialDash": "1140-200-0754",
+     "desc": "MS 311-Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 311 20 in. Gas Chainsaw Rapid Hexa Chain RH3 3/8 in.",
+     "barIn": 20,
      "chain": null,
-     "msrp": 349.99,
-     "upc": "795711956714",
-     "aceSku": "7033500D",
+     "msrp": 779.99,
+     "upc": "886661732371",
+     "aceSku": "7035310D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0650",
+     "materialDash": "1140-200-0650",
+     "desc": "MS 311-Z 3/8 in. SPUR CHAINSAW,63CM/25 in.",
+     "retail": "",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 779.99,
+     "upc": "886661809431",
+     "aceSku": "",
+     "status": ""
+    },
+    {
+     "material": "1140 200 0755",
+     "materialDash": "1140-200-0755",
+     "desc": "MS 311-Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 311 25 in. Rollomatic E Standard Bar 59 cc Gas Chainsaw Rapid Hexa Chain RH3 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 789.99,
+     "upc": "886661733644",
+     "aceSku": "7030553D",
      "status": "A"
     }
    ]
   },
   {
-   "id": "0CS:MSA 70.0 C-B SET",
-   "model": "MSA 70.0 C-B SET",
+   "id": "0CS:MS 362",
+   "model": "MS 362",
    "nickname": "",
    "category": "0CS",
    "categoryName": "Gas Chain Saws",
    "signCategory": "GAS CHAIN SAW",
-   "productType": "",
+   "productType": "Chainsaw",
    "variants": [
     {
-     "material": "MA04 011 5883 US",
-     "materialDash": "MA04-011-5883",
-     "desc": "MSA 70.0 C-B 1/4 in.P SET Cordless chain",
-     "retail": "STIHL MSA 70 C-B 12 in. 0 cc Battery Chainsaw Kit (Battery & Charger)",
-     "barIn": 12,
+     "material": "1140 200 0641",
+     "materialDash": "1140-200-0641",
+     "desc": "MS 362-Z Chainsaw,45cm/18 in.,33RS3",
+     "retail": "STIHL MS 362 18 in. 59 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": "33 RS3",
+     "msrp": 1109.99,
+     "upc": "886661777426",
+     "aceSku": "7000545D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0642",
+     "materialDash": "1140-200-0642",
+     "desc": "MS 362-Z Chainsaw,50cm/20 in.,33RS3",
+     "retail": "STIHL MS 362 20 in. 59 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS3",
+     "msrp": 1119.99,
+     "upc": "886661777433",
+     "aceSku": "7000546D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0759",
+     "materialDash": "1140-200-0759",
+     "desc": "MS 362-Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 362 20 in. 59 cc Gas Chainsaw",
+     "barIn": 20,
      "chain": null,
-     "msrp": 399.99,
-     "upc": "795711957186",
-     "aceSku": "7029016D",
+     "msrp": 1129.99,
+     "upc": "886661733682",
+     "aceSku": "7028917D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0643",
+     "materialDash": "1140-200-0643",
+     "desc": "MS 362-Z Chainsaw,63cm/25 in.,33RS3",
+     "retail": "STIHL MS 362 25 in. 59 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 1129.99,
+     "upc": "886661777440",
+     "aceSku": "7000547D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0761",
+     "materialDash": "1140-200-0761",
+     "desc": "MS 362-Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 362 25 in. 59 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1139.99,
+     "upc": "886661733705",
+     "aceSku": "7028927D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 362 C-M",
+   "model": "MS 362 C-M",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1140 200 0628",
+     "materialDash": "1140-200-0628",
+     "desc": "MS 362 C-M Z Chainsaw,45cm/18 in.,33RS3",
+     "retail": "STIHL MS 362 C-M 18 in. 59 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": "33 RS3",
+     "msrp": 1109.99,
+     "upc": "886661775873",
+     "aceSku": "7000539D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0629",
+     "materialDash": "1140-200-0629",
+     "desc": "MS 362 C-M Z Chainsaw,50cm/20 in.,33RS3",
+     "retail": "STIHL MS 362 C-M 20 in. 59 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS3",
+     "msrp": 1119.99,
+     "upc": "886661775897",
+     "aceSku": "7000541D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0758",
+     "materialDash": "1140-200-0758",
+     "desc": "MS 362 C-M Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 362 C-M 20 in. 59 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1129.99,
+     "upc": "886661733675",
+     "aceSku": "7028916D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0631",
+     "materialDash": "1140-200-0631",
+     "desc": "MS 362 C-M Z Chainsaw,63cm/25 in.,33RS3",
+     "retail": "STIHL MS 362 C-M 25 in. 59 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 1129.99,
+     "upc": "886661775934",
+     "aceSku": "7000542D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0760",
+     "materialDash": "1140-200-0760",
+     "desc": "MS 362 C-M Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 362 C-M 25 in. 59 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1139.99,
+     "upc": "886661733699",
+     "aceSku": "7028926D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 362 C-M R",
+   "model": "MS 362 C-M R",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1140 200 0636",
+     "materialDash": "1140-200-0636",
+     "desc": "MS 362 C-M RZ Chainsaw,45cm/18 in.,33RS3",
+     "retail": "STIHL MS 362 R C-M 18 in. 59 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": "33 RS3",
+     "msrp": 1159.99,
+     "upc": "886661777327",
+     "aceSku": "7001213D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0637",
+     "materialDash": "1140-200-0637",
+     "desc": "MS 362 C-M RZ Chainsaw,50cm/20 in.,33RS3",
+     "retail": "STIHL MS 362 R C-M 20 in. 59 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS3",
+     "msrp": 1169.99,
+     "upc": "886661777334",
+     "aceSku": "7001214D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0686",
+     "materialDash": "1140-200-0686",
+     "desc": "MS 362 C-M RZ 3/8 in. RIM STIHL M-Tro Chain",
+     "retail": "STIHL MS 362 C-M R 25 in. Gas Chainsaw Rapid Super Chain RS3 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1179.99,
+     "upc": "886661866489",
+     "aceSku": "7035311D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 391",
+   "model": "MS 391",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1140 200 0590",
+     "materialDash": "1140-200-0590",
+     "desc": "MS 391-Z Chainsaw,45cm/18 in.,33RS3",
+     "retail": "STIHL MS 391 18 in. 64.1 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": "33 RS3",
+     "msrp": 839.99,
+     "upc": "886661634828",
+     "aceSku": "7000527D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0591",
+     "materialDash": "1140-200-0591",
+     "desc": "MS 391-Z Chainsaw,50cm/20 in.,33RS3",
+     "retail": "STIHL MS 391 20 in. 64.1 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS3",
+     "msrp": 849.99,
+     "upc": "886661634835",
+     "aceSku": "7000528D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0756",
+     "materialDash": "1140-200-0756",
+     "desc": "MS 391-Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 391 20 in. 64.1 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 859.99,
+     "upc": "886661733651",
+     "aceSku": "7028932D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0592",
+     "materialDash": "1140-200-0592",
+     "desc": "MS 391-Z Chainsaw,63cm/25 in.,33RS3",
+     "retail": "STIHL MS 391 25 in. 64.1 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 859.99,
+     "upc": "886661634842",
+     "aceSku": "7000529D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0600",
+     "materialDash": "1140-200-0600",
+     "desc": "MS 391-Z Chainsaw,63cm/25 in.,33RS3",
+     "retail": "",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 859.99,
+     "upc": "886661668878",
+     "aceSku": "",
+     "status": ""
+    },
+    {
+     "material": "1140 200 0757",
+     "materialDash": "1140-200-0757",
+     "desc": "MS 391-Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 391 25 in. 64.1 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 869.99,
+     "upc": "886661733668",
+     "aceSku": "7028933D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 400 C-M",
+   "model": "MS 400 C-M",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1140 200 0705",
+     "materialDash": "1140-200-0705",
+     "desc": "MS 400 C-M Z Chainsaw 18-, 33RS3 8817",
+     "retail": "STIHL MS 400 C-M 18 in. 66.8 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": "33 RS3",
+     "msrp": 1249.99,
+     "upc": "886661965366",
+     "aceSku": "7020078D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0482",
+     "materialDash": "1140-200-0482",
+     "desc": "MS 400 C-M Z Chainsaw,50cm/20 in.,33RS3",
+     "retail": "STIHL MS 400 C-M 20 in. 66.8 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS3",
+     "msrp": 1259.99,
+     "upc": "886661544608",
+     "aceSku": "7003908D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0706",
+     "materialDash": "1140-200-0706",
+     "desc": "MS 400 C-M Z Chainsaw 20-, 33RS3 8822",
+     "retail": "STIHL MS 400 C-M 20 in. 66.8 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS3",
+     "msrp": 1259.99,
+     "upc": "886661965373",
+     "aceSku": "7019672D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0708",
+     "materialDash": "1140-200-0708",
+     "desc": "MS 400 C-M Z Chainsaw 20-, 33RM3 8822",
+     "retail": "STIHL MS 400 C-M 20 in. 66.8 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RM3",
+     "msrp": 1259.99,
+     "upc": "886661965397",
+     "aceSku": "7020256D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0707",
+     "materialDash": "1140-200-0707",
+     "desc": "MS 400 C-M Z Chainsaw 20-, 33RS3 2221",
+     "retail": "STIHL MS 400 C-M 20 in. Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS3",
+     "msrp": 1309.99,
+     "upc": "886661965380",
+     "aceSku": "7027310D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0483",
+     "materialDash": "1140-200-0483",
+     "desc": "MS 400 C-M Z Chainsaw 25-, 33RS3 4030",
+     "retail": "STIHL MS 400 C-M 25 in. Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 1269.99,
+     "upc": "886661544615",
+     "aceSku": "7027311D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0709",
+     "materialDash": "1140-200-0709",
+     "desc": "MS 400 C-M Z Chainsaw 25-, 33RS3 8830",
+     "retail": "STIHL MS 400 C-M 25 in. 66.8 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 1269.99,
+     "upc": "886661965403",
+     "aceSku": "7028935D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0710",
+     "materialDash": "1140-200-0710",
+     "desc": "MS 400 C-M Z Chainsaw 25-, 33RS 4030",
+     "retail": "STIHL MS 400 C-M 25 in. 66.8 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1269.99,
+     "upc": "886661965410",
+     "aceSku": "7028937D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0762",
+     "materialDash": "1140-200-0762",
+     "desc": "MS 400 C-M Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 400 C-M 25 in. 66.8 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1279.99,
+     "upc": "886661733712",
+     "aceSku": "7028942D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0765",
+     "materialDash": "1140-200-0765",
+     "desc": "MS 400 C-M Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 400 C-M 25 in. 66.8 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1279.99,
+     "upc": "886661738069",
+     "aceSku": "7028945D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0728",
+     "materialDash": "1140-200-0728",
+     "desc": "MS 400 C-M Z Chainsaw,63cm/25 in.,33RS3",
+     "retail": "STIHL MS 400 C-M 25 in. 66.8 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 1319.99,
+     "upc": "886661554539",
+     "aceSku": "7028938D",
+     "status": "A"
+    },
+    {
+     "material": "1140 200 0763",
+     "materialDash": "1140-200-0763",
+     "desc": "MS 400 C-M Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 400 C-M 25 in. 66.8 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1329.99,
+     "upc": "886661734900",
+     "aceSku": "7028943D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 462",
+   "model": "MS 462",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1142 200 0194",
+     "materialDash": "1142-200-0194",
+     "desc": "MS 462-Z Chainsaw,50cm/20 in.,33RS",
+     "retail": "STIHL MS 462 20 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 20,
+     "chain": "33 RS",
+     "msrp": 1609.99,
+     "upc": "886661648146",
+     "aceSku": "7029104D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0236",
+     "materialDash": "1142-200-0236",
+     "desc": "MS 462-Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 462 20 in. Rollomatic E Super Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1619.99,
+     "upc": "886661733859",
+     "aceSku": "7030592D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0203",
+     "materialDash": "1142-200-0203",
+     "desc": "MS 462-Z Chainsaw,50cm/20 in.,33RS",
+     "retail": "STIHL MS 462 20 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 20,
+     "chain": "33 RS",
+     "msrp": 1659.99,
+     "upc": "886661648245",
+     "aceSku": "7029180D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0195",
+     "materialDash": "1142-200-0195",
+     "desc": "MS 462-Z Chainsaw,63cm/25 in.,33RS3",
+     "retail": "STIHL MS 462 25 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 1619.99,
+     "upc": "886661648153",
+     "aceSku": "7029105D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0197",
+     "materialDash": "1142-200-0197",
+     "desc": "MS 462-Z Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 462 25 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1619.99,
+     "upc": "886661648177",
+     "aceSku": "7029106D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0237",
+     "materialDash": "1142-200-0237",
+     "desc": "MS 462-Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 462 25 in. Rollomatic E Super Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1629.99,
+     "upc": "886661733866",
+     "aceSku": "7030593D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0204",
+     "materialDash": "1142-200-0204",
+     "desc": "MS 462-Z Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 462 25 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1669.99,
+     "upc": "886661648252",
+     "aceSku": "7029202D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0198",
+     "materialDash": "1142-200-0198",
+     "desc": "MS 462-Z Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 462 28 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1629.99,
+     "upc": "886661648184",
+     "aceSku": "7029151D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0205",
+     "materialDash": "1142-200-0205",
+     "desc": "MS 462-Z Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 462 28 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1679.99,
+     "upc": "886661648269",
+     "aceSku": "7029205D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0206",
+     "materialDash": "1142-200-0206",
+     "desc": "MS 462-Z Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 462 32 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1689.99,
+     "upc": "886661648276",
+     "aceSku": "7029206D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 462 C-M",
+   "model": "MS 462 C-M",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1142 200 0229",
+     "materialDash": "1142-200-0229",
+     "desc": "MS 462 C-M Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 462 C-M 20 in. Rollomatic E Super Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1619.99,
+     "upc": "886661733729",
+     "aceSku": "7030581D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0230",
+     "materialDash": "1142-200-0230",
+     "desc": "MS 462 C-M Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 462 C-M 25 in. Rollomatic E Super Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1629.99,
+     "upc": "886661733743",
+     "aceSku": "7030582D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0231",
+     "materialDash": "1142-200-0231",
+     "desc": "MS 462 C-M Z Chainsaw,71cm/28 in.",
+     "retail": "STIHL MS 462 C-M 28 in. Rollomatic E Super Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1639.99,
+     "upc": "886661733750",
+     "aceSku": "7030584D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0176",
+     "materialDash": "1142-200-0176",
+     "desc": "MS 462 C-M Z Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 462 C-M 32 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1639.99,
+     "upc": "886661533411",
+     "aceSku": "7029109D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0178",
+     "materialDash": "1142-200-0178",
+     "desc": "MS 462 C-M Z Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 462 C-M 32 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1689.99,
+     "upc": "886661533435",
+     "aceSku": "7029073D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0177",
+     "materialDash": "1142-200-0177",
+     "desc": "MS 462 C-M Z Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL MS 462 C-M 36 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1649.99,
+     "upc": "886661533428",
+     "aceSku": "7029078D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0186",
+     "materialDash": "1142-200-0186",
+     "desc": "MS 462 C-M Z Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL MS 462 C-M 36 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1699.99,
+     "upc": "886661534852",
+     "aceSku": "7029072D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 462 C-M R",
+   "model": "MS 462 C-M R",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chains",
+   "variants": [
+    {
+     "material": "1142 200 0136",
+     "materialDash": "1142-200-0136",
+     "desc": "MS 462 C-M Z 3/8 in. R STIHL M-Troni Chains",
+     "retail": "STIHL MS 462 C-M 20 in. 72.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1609.99,
+     "upc": "886661102785",
+     "aceSku": "7008676D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0155",
+     "materialDash": "1142-200-0155",
+     "desc": "MS 462 C-M RZ 3/8 in. R STIHL M-Troni Chain",
+     "retail": "STIHL MS 462 R C-M 20 in. 72.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1709.99,
+     "upc": "886661320813",
+     "aceSku": "7008677D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0232",
+     "materialDash": "1142-200-0232",
+     "desc": "MS 462 C-M RZ Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 462 R C-M 20 in. Rollomatic E Super Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1719.99,
+     "upc": "886661733767",
+     "aceSku": "7030587D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0148",
+     "materialDash": "1142-200-0148",
+     "desc": "MS 462 C-M RZ 3/8 in. R Rescue STIHL Chains",
+     "retail": "STIHL MS 462 R C-M RESCUE 20 in. 72.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1849.99,
+     "upc": "886661175024",
+     "aceSku": "7008684D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0156",
+     "materialDash": "1142-200-0156",
+     "desc": "MS 462 C-M RZ 3/8 in. R Rescue STIHL Chains",
+     "retail": "STIHL Rescue MS 462 R C-M RESCUE with Depth Limiter Kit 20 in. 72.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 2039.99,
+     "upc": "886661322916",
+     "aceSku": "7008687D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0137",
+     "materialDash": "1142-200-0137",
+     "desc": "MS 462 C-M Z 3/8 in. R STIHL M-Troni Chains",
+     "retail": "STIHL MS 462 C-M 25 in. 72.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1619.99,
+     "upc": "886661102808",
+     "aceSku": "7008691D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0138",
+     "materialDash": "1142-200-0138",
+     "desc": "MS 462 C-M Z 3/8 in. R STIHL M-Troni Chains",
+     "retail": "STIHL MS 462 C-M 25 in. 72.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1619.99,
+     "upc": "886661102815",
+     "aceSku": "7029112D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0139",
+     "materialDash": "1142-200-0139",
+     "desc": "MS 462 C-M Z 3/8 in. R STIHL M-Troni Chains",
+     "retail": "STIHL MS 462 C-M 25 in. 72.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1619.99,
+     "upc": "886661102846",
+     "aceSku": "7008680D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0130",
+     "materialDash": "1142-200-0130",
+     "desc": "MS 462 C-M Z 3/8 in. R STIHL M-Troni Chains",
+     "retail": "STIHL MS 462 C-M 25 in. Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1669.99,
+     "upc": "886661966219",
+     "aceSku": "7027312D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0144",
+     "materialDash": "1142-200-0144",
+     "desc": "MS 462 C-M RZ 3/8 in. R STIHL M-Troni Chain",
+     "retail": "STIHL MS 462 R C-M 25 in. 72.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1719.99,
+     "upc": "886661102921",
+     "aceSku": "7008678D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0233",
+     "materialDash": "1142-200-0233",
+     "desc": "MS 462 C-M RZ Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 462 R C-M 25 in. Rollomatic E Super Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1729.99,
+     "upc": "886661733774",
+     "aceSku": "7030588D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0140",
+     "materialDash": "1142-200-0140",
+     "desc": "MS 462 C-M Z 3/8 in. R STIHL M-Troni Chains",
+     "retail": "STIHL MS 462 C-M 28 in. 72.2 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1629.99,
+     "upc": "886661102860",
+     "aceSku": "7020101D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0141",
+     "materialDash": "1142-200-0141",
+     "desc": "MS 462 C-M Z 3/8 in. R STIHL M-Troni Chains",
+     "retail": "STIHL MS 462 C-M 28 in. 72.2 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1629.99,
+     "upc": "886661102877",
+     "aceSku": "7029113D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0131",
+     "materialDash": "1142-200-0131",
+     "desc": "MS 462 C-M Z 3/8 in. R STIHL M-Troni Chains",
+     "retail": "STIHL MS 462 C-M 28 in. 72.2 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1679.99,
+     "upc": "886661966226",
+     "aceSku": "7028969D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0150",
+     "materialDash": "1142-200-0150",
+     "desc": "MS 462 C-M RZ 3/8 in. R STIHL M-Troni Chain",
+     "retail": "STIHL MS 462 R C-M 28 in. 72.2 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1729.99,
+     "upc": "886661180202",
+     "aceSku": "7029082D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0159",
+     "materialDash": "1142-200-0159",
+     "desc": "MS 462 C-M RZ 3/8 in. R STIHL M-Troni Chain",
+     "retail": "STIHL MS 462 R C-M 28 in. 72.2 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1729.99,
+     "upc": "886661340477",
+     "aceSku": "7020271D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0234",
+     "materialDash": "1142-200-0234",
+     "desc": "MS 462 C-M RZ Chainsaw,71cm/28 in.",
+     "retail": "STIHL MS 462 R C-M 28 in. Rollomatic E Super Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1739.99,
+     "upc": "886661733811",
+     "aceSku": "7030589D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0179",
+     "materialDash": "1142-200-0179",
+     "desc": "MS 462 C-M RZ Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 462 R C-M 32 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1739.99,
+     "upc": "886661533442",
+     "aceSku": "7029074D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 462 R",
+   "model": "MS 462 R",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1142 200 0209",
+     "materialDash": "1142-200-0209",
+     "desc": "MS 462-RZ Chainsaw,45cm/18 in.,33RS",
+     "retail": "STIHL MS 462 R 18 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 18,
+     "chain": "33 RS",
+     "msrp": 1649.99,
+     "upc": "886661648306",
+     "aceSku": "7029209D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0210",
+     "materialDash": "1142-200-0210",
+     "desc": "MS 462-RZ Chainsaw,50cm/20 in.,33RS",
+     "retail": "STIHL MS 462 R 20 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 20,
+     "chain": "33 RS",
+     "msrp": 1659.99,
+     "upc": "886661648313",
+     "aceSku": "7029210D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0238",
+     "materialDash": "1142-200-0238",
+     "desc": "MS 462-RZ Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 462 20 in. Rollomatic E Standard Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1669.99,
+     "upc": "886661733873",
+     "aceSku": "7030594D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0212",
+     "materialDash": "1142-200-0212",
+     "desc": "MS 462-RZ Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 462 R 25 in. 72.2 cc Gas Chainsaw Tool Only",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1669.99,
+     "upc": "886661648351",
+     "aceSku": "7029212D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0239",
+     "materialDash": "1142-200-0239",
+     "desc": "MS 462-RZ Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 462 R 25 in. Rollomatic E Standard Bar 72.2 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1679.99,
+     "upc": "886661733880",
+     "aceSku": "7030599D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0213",
+     "materialDash": "1142-200-0213",
+     "desc": "MS 462-RZ Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 462 R 28 in. Rollomatic E Standard Bar 72.2 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1679.99,
+     "upc": "886661648368",
+     "aceSku": "7030564D",
+     "status": "A"
+    },
+    {
+     "material": "1142 200 0216",
+     "materialDash": "1142-200-0216",
+     "desc": "MS 462-RZ Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 462 R 32 in. Rollomatic E Standard Bar 72.2 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1689.99,
+     "upc": "886661648399",
+     "aceSku": "7030567D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 500i",
+   "model": "MS 500i",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1147 200 0029",
+     "materialDash": "1147-200-0029",
+     "desc": "MS 500i-Z Chainsaw,45cm/18 in.,33RS",
+     "retail": "STIHL MS 500i 18 in. 79.2 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": "33 RS",
+     "msrp": 1759.99,
+     "upc": "886661102952",
+     "aceSku": "7014266D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0030",
+     "materialDash": "1147-200-0030",
+     "desc": "MS 500i-Z Chainsaw,50cm/20 in.,33RS",
+     "retail": "STIHL MS 500i 20 in. 79.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS",
+     "msrp": 1769.99,
+     "upc": "886661102969",
+     "aceSku": "7014278D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0058",
+     "materialDash": "1147-200-0058",
+     "desc": "MS 500i-Z Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 500i 20 in. 79.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1779.99,
+     "upc": "886661733897",
+     "aceSku": "7028981D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0031",
+     "materialDash": "1147-200-0031",
+     "desc": "MS 500i-Z Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 500i 25 in. 79.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1779.99,
+     "upc": "886661102983",
+     "aceSku": "7014294D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0052",
+     "materialDash": "1147-200-0052",
+     "desc": "MS 500i-Z Chainsaw,63cm/25 in.,33RS3",
+     "retail": "STIHL MS 500i 25 in. 79.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 1779.99,
+     "upc": "886661421640",
+     "aceSku": "7014281D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0059",
+     "materialDash": "1147-200-0059",
+     "desc": "MS 500i-Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 500i 25 in. 79.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1789.99,
+     "upc": "886661733903",
+     "aceSku": "7028982D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0032",
+     "materialDash": "1147-200-0032",
+     "desc": "MS 500i-Z Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 500i 25 in. 79.2 cc Gas Chainsaw Tool Only",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1829.99,
+     "upc": "886661102990",
+     "aceSku": "7014268D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0033",
+     "materialDash": "1147-200-0033",
+     "desc": "MS 500i-Z Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 500i 28 in. 79.2 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1789.99,
+     "upc": "886661103010",
+     "aceSku": "7014260D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0034",
+     "materialDash": "1147-200-0034",
+     "desc": "MS 500i-Z Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 500i 28 in. 79.2 cc Gas Light Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1839.99,
+     "upc": "886661103027",
+     "aceSku": "7014265D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0035",
+     "materialDash": "1147-200-0035",
+     "desc": "MS 500i-Z Chainsaw,75cm/30 in.,36RS",
+     "retail": "STIHL MS 500i 30 in. 79.2 cc Gas Chainsaw Tool Only",
+     "barIn": 30,
+     "chain": "36 RS",
+     "msrp": 1799.99,
+     "upc": "886661103041",
+     "aceSku": "7014302D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0036",
+     "materialDash": "1147-200-0036",
+     "desc": "MS 500i-Z Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 500i 32 in. 79.2 cc Gas Chainsaw",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1849.99,
+     "upc": "886661103058",
+     "aceSku": "7014259D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0037",
+     "materialDash": "1147-200-0037",
+     "desc": "MS 500i-Z Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL MS 500i 36 in. 79.2 cc Gas Light Chainsaw",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1859.99,
+     "upc": "886661103072",
+     "aceSku": "7014295D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 500i R",
+   "model": "MS 500i R",
+   "nickname": "",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1147 200 0043",
+     "materialDash": "1147-200-0043",
+     "desc": "MS 500i-RZ 3/8 in. R Chainsaw,40cm/16 in.,33RS",
+     "retail": "STIHL MS 500i R 16 in. 79.2 cc Gas Chainsaw",
+     "barIn": 16,
+     "chain": "33 RS",
+     "msrp": 1789.99,
+     "upc": "886661170029",
+     "aceSku": "7014257D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0038",
+     "materialDash": "1147-200-0038",
+     "desc": "MS 500i-RZ 3/8 in. R Chainsaw,45cm/18 in.,33RS",
+     "retail": "STIHL MS 500i R 18 in. 79.2 cc Gas Chainsaw",
+     "barIn": 18,
+     "chain": "33 RS",
+     "msrp": 1799.99,
+     "upc": "886661103089",
+     "aceSku": "7014264D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0039",
+     "materialDash": "1147-200-0039",
+     "desc": "MS 500i-RZ 3/8 in. R Chainsaw,50cm/20 in.,33RS",
+     "retail": "STIHL MS 500i R 20 in. 79.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS",
+     "msrp": 1809.99,
+     "upc": "886661103102",
+     "aceSku": "7014291D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0060",
+     "materialDash": "1147-200-0060",
+     "desc": "MS 500i-RZ Chainsaw,50cm/20 in.",
+     "retail": "STIHL MS 500i R 20 in. 79.2 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": null,
+     "msrp": 1819.99,
+     "upc": "886661733910",
+     "aceSku": "7028998D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0040",
+     "materialDash": "1147-200-0040",
+     "desc": "MS 500i-RZ 3/8 in. R Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 500i R 25 in. 79.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1819.99,
+     "upc": "886661103119",
+     "aceSku": "7014271D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0053",
+     "materialDash": "1147-200-0053",
+     "desc": "MS 500i-RZ Chainsaw,63cm/25 in.,33RS3",
+     "retail": "STIHL MS 500i R 25 in. 79.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS3",
+     "msrp": 1819.99,
+     "upc": "886661421831",
+     "aceSku": "7014297D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0061",
+     "materialDash": "1147-200-0061",
+     "desc": "MS 500i-RZ Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 500i R 25 in. 79.2 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1829.99,
+     "upc": "886661733927",
+     "aceSku": "7028999D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0050",
+     "materialDash": "1147-200-0050",
+     "desc": "MS 500i-RZ Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 500i R 25 in. 79.2 cc Gas Light Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1869.99,
+     "upc": "886661408948",
+     "aceSku": "7014267D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0041",
+     "materialDash": "1147-200-0041",
+     "desc": "MS 500i-RZ 3/8 in. R Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 500i R 28 in. 79.2 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1829.99,
+     "upc": "886661103140",
+     "aceSku": "7014258D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0042",
+     "materialDash": "1147-200-0042",
+     "desc": "MS 500i-RZ 3/8 in. R Chainsaw,71cm/28 in.",
+     "retail": "STIHL MS 500i R 28 in. Rollomatic ES Light Bar 79.2 cc Gas Chainsaw Rapid Super Full Skip Chain RSF",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1829.99,
+     "upc": "886661103157",
+     "aceSku": "7030563D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0051",
+     "materialDash": "1147-200-0051",
+     "desc": "MS 500i-RZ Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 500i R 28 in. 79.2 cc Gas Light Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1879.99,
+     "upc": "886661408955",
+     "aceSku": "7014290D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0046",
+     "materialDash": "1147-200-0046",
+     "desc": "MS 500i-RZ 3/8 in. R Chainsaw,80cm/32 in.",
+     "retail": "STIHL MS 500i R 32 in. 79.2 cc Gas Chainsaw",
+     "barIn": 32,
+     "chain": null,
+     "msrp": 1889.99,
+     "upc": "886661179190",
+     "aceSku": "7028971D",
+     "status": "A"
+    },
+    {
+     "material": "1147 200 0048",
+     "materialDash": "1147-200-0048",
+     "desc": "MS 500i-RZ 3/8 in. R Chainsaw,90cm/36 in.",
+     "retail": "STIHL MS 500i R 36 in. 79.2 cc Gas Chainsaw",
+     "barIn": 36,
+     "chain": null,
+     "msrp": 1899.99,
+     "upc": "886661180004",
+     "aceSku": "7014262D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 661",
+   "model": "MS 661",
+   "nickname": "MAGNUM",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1144 200 0378",
+     "materialDash": "1144-200-0378",
+     "desc": "MS 661-Z Chainsaw,50cm/20 in.,33RS",
+     "retail": "STIHL Magnum MS 661 20 in. 91.1 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS",
+     "msrp": 1859.99,
+     "upc": "886661439096",
+     "aceSku": "7014282D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0379",
+     "materialDash": "1144-200-0379",
+     "desc": "MS 661-Z Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 661 MAGNUM 25 in. 91.1 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1869.99,
+     "upc": "886661439164",
+     "aceSku": "7014263D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0456",
+     "materialDash": "1144-200-0456",
+     "desc": "MS 661-Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 661 25 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Tool Only Rapid Super Chain RS 3/8 i",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1879.99,
+     "upc": "886661733965",
+     "aceSku": "7030992D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0434",
+     "materialDash": "1144-200-0434",
+     "desc": "MS 661-Z Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 661 25 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1919.99,
+     "upc": "886661599622",
+     "aceSku": "7030991D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0421",
+     "materialDash": "1144-200-0421",
+     "desc": "MS 661-Z Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 661 MAGNUM 28 in. 91.1 cc Gas Light Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1879.99,
+     "upc": "886661571208",
+     "aceSku": "7014300D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0381",
+     "materialDash": "1144-200-0381",
+     "desc": "MS 661-Z Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 661 28 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1929.99,
+     "upc": "886661439188",
+     "aceSku": "7030975D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0422",
+     "materialDash": "1144-200-0422",
+     "desc": "MS 661-Z Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 661 MAGNUM 32 in. 91.1 cc Gas Light Chainsaw",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1889.99,
+     "upc": "886661571215",
+     "aceSku": "7014261D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0382",
+     "materialDash": "1144-200-0382",
+     "desc": "MS 661-Z Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 661 32 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1939.99,
+     "upc": "886661439836",
+     "aceSku": "7030984D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0423",
+     "materialDash": "1144-200-0423",
+     "desc": "MS 661-Z Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL MS 661 MAGNUM 36 in. 91.1 cc Gas Light Chainsaw",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1899.99,
+     "upc": "886661571222",
+     "aceSku": "7014275D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0457",
+     "materialDash": "1144-200-0457",
+     "desc": "MS 661-Z Chainsaw,90cm/36 in.",
+     "retail": "STIHL MS 661 36 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 36,
+     "chain": null,
+     "msrp": 1909.99,
+     "upc": "886661733972",
+     "aceSku": "7030993D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0383",
+     "materialDash": "1144-200-0383",
+     "desc": "MS 661-Z Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL MS 661 36 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1949.99,
+     "upc": "886661440115",
+     "aceSku": "7030987D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 661 C-M",
+   "model": "MS 661 C-M",
+   "nickname": "MAGNUM",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1144 200 0402",
+     "materialDash": "1144-200-0402",
+     "desc": "MS 661 C-M Z Chainsaw,50cm/20 in.,33RS",
+     "retail": "STIHL Magnum MS 661 C-M 20 in. 91.1 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS",
+     "msrp": 1859.99,
+     "upc": "886661524501",
+     "aceSku": "7000402D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0337",
+     "materialDash": "1144-200-0337",
+     "desc": "MS 661 C-M Z  Chainsaw,63cm/25 in.,33RS",
+     "retail": "",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1869.99,
+     "upc": "886661404216",
+     "aceSku": "",
+     "status": ""
+    },
+    {
+     "material": "1144 200 0462",
+     "materialDash": "1144-200-0462",
+     "desc": "MS 661 C-M Z Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 661 C-M 25 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1879.99,
+     "upc": "886661734795",
+     "aceSku": "7030656D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0432",
+     "materialDash": "1144-200-0432",
+     "desc": "MS 661 C-M Z Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 661 C-M 25 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1919.99,
+     "upc": "886661598854",
+     "aceSku": "7030647D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0339",
+     "materialDash": "1144-200-0339",
+     "desc": "MS 661 C-M Z  Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL Magnum MS 661 C-M 28 in. 91.1 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1879.99,
+     "upc": "886661410736",
+     "aceSku": "7001612D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0463",
+     "materialDash": "1144-200-0463",
+     "desc": "MS 661 C-M Z Chainsaw,71cm/28 in.",
+     "retail": "STIHL MS 661 C-M 28 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1889.99,
+     "upc": "886661734801",
+     "aceSku": "7030660D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0404",
+     "materialDash": "1144-200-0404",
+     "desc": "MS 661 C-M Z Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL Magnum MS 661 C-M 28 in. 91.1 cc Gas Light Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1929.99,
+     "upc": "886661524525",
+     "aceSku": "7020080D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0338",
+     "materialDash": "1144-200-0338",
+     "desc": "MS 661 C-M Z  Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 661 C-M 32 in. 91.1 cc Gas Chainsaw",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1889.99,
+     "upc": "886661404247",
+     "aceSku": "7001217D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0405",
+     "materialDash": "1144-200-0405",
+     "desc": "MS 661 C-M Z Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL Magnum MS 661 C-M 32 in. 91.1 cc Gas Chainsaw",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1939.99,
+     "upc": "886661524532",
+     "aceSku": "7020125D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0336",
+     "materialDash": "1144-200-0336",
+     "desc": "MS 661 C-M Z  Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL MS 661 Magnum 36 in. 91.1 cc Gas Chainsaw",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1899.99,
+     "upc": "886661410729",
+     "aceSku": "7027515D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0406",
+     "materialDash": "1144-200-0406",
+     "desc": "MS 661 C-M Z Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL Magnum MS 661 C-M 36 in. 91.1 cc Gas Light Chainsaw",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1949.99,
+     "upc": "886661524549",
+     "aceSku": "7000399D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 661 C-M R",
+   "model": "MS 661 C-M R",
+   "nickname": "MAGNUM",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1144 200 0410",
+     "materialDash": "1144-200-0410",
+     "desc": "MS 661 C-M RZ Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 661 R C-M 25 in. 91.1 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1919.99,
+     "upc": "886661524594",
+     "aceSku": "7000570D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0467",
+     "materialDash": "1144-200-0467",
+     "desc": "MS 661 C-M RZ Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 661 R C-M 25 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1929.99,
+     "upc": "886661734856",
+     "aceSku": "7030670D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0420",
+     "materialDash": "1144-200-0420",
+     "desc": "MS 661 C-M RZ Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL Magnum MS 661 C-M 25 in. 91.1 cc Gas Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1929.99,
+     "upc": "886661567096",
+     "aceSku": "7000401D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0468",
+     "materialDash": "1144-200-0468",
+     "desc": "MS 661 C-M RZ Chainsaw,71cm/28 in.",
+     "retail": "STIHL MS 661 R C-M 28 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 28,
+     "chain": null,
+     "msrp": 1939.99,
+     "upc": "886661734863",
+     "aceSku": "7030672D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0412",
+     "materialDash": "1144-200-0412",
+     "desc": "MS 661 C-M RZ Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 661 R C-M 28 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1979.99,
+     "upc": "886661524617",
+     "aceSku": "7030634D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0342",
+     "materialDash": "1144-200-0342",
+     "desc": "MS 661 C-M RZ  Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 661 R C-M 32 in. 91.1 cc Gas Chainsaw",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1939.99,
+     "upc": "886661404346",
+     "aceSku": "7001216D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0469",
+     "materialDash": "1144-200-0469",
+     "desc": "MS 661 C-M RZ Chainsaw,80cm/32 in.",
+     "retail": "STIHL MS 661 R C-M 32 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 32,
+     "chain": null,
+     "msrp": 1949.99,
+     "upc": "886661734870",
+     "aceSku": "7030677D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0413",
+     "materialDash": "1144-200-0413",
+     "desc": "MS 661 C-M RZ Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 661 R C-M 32 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1989.99,
+     "upc": "886661524624",
+     "aceSku": "7030636D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0340",
+     "materialDash": "1144-200-0340",
+     "desc": "MS 661 C-M RZ  Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL Magnum MS 661 C-M R 28 in. 91.1 cc Gas Chainsaw",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1949.99,
+     "upc": "886661404285",
+     "aceSku": "7000404D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0414",
+     "materialDash": "1144-200-0414",
+     "desc": "MS 661 C-M RZ Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL Magnum MS 661 R C-M 36 in. 91.1 cc Gas Light Chainsaw",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1999.99,
+     "upc": "886661524631",
+     "aceSku": "7020272D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 661 R",
+   "model": "MS 661 R",
+   "nickname": "MAGNUM",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1144 200 0386",
+     "materialDash": "1144-200-0386",
+     "desc": "MS 661-RZ Chainsaw,50cm/20 in.,33RS",
+     "retail": "STIHL Magnum MS 661 R 20 in. 91.1 cc Gas Chainsaw",
+     "barIn": 20,
+     "chain": "33 RS",
+     "msrp": 1909.99,
+     "upc": "886661440801",
+     "aceSku": "7014296D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0387",
+     "materialDash": "1144-200-0387",
+     "desc": "MS 661-RZ Chainsaw,63cm/25 in.,33RS",
+     "retail": "STIHL MS 661 R MAGNUM 25 in. 91.1 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "33 RS",
+     "msrp": 1919.99,
+     "upc": "886661442157",
+     "aceSku": "7014280D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0459",
+     "materialDash": "1144-200-0459",
+     "desc": "MS 661-RZ Chainsaw,63cm/25 in.",
+     "retail": "STIHL MS 661 R 25 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 25,
+     "chain": null,
+     "msrp": 1929.99,
+     "upc": "886661734764",
+     "aceSku": "7030653D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0424",
+     "materialDash": "1144-200-0424",
+     "desc": "MS 661-RZ Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 661 R MAGNUM 28 in. 91.1 cc Gas Light Chainsaw",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1929.99,
+     "upc": "886661572250",
+     "aceSku": "7014270D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0389",
+     "materialDash": "1144-200-0389",
+     "desc": "MS 661-RZ Chainsaw,71cm/28 in.,33RS",
+     "retail": "STIHL MS 661 R 28 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 28,
+     "chain": "33 RS",
+     "msrp": 1979.99,
+     "upc": "886661442751",
+     "aceSku": "7030616D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0390",
+     "materialDash": "1144-200-0390",
+     "desc": "MS 661-RZ Chainsaw,80cm/32 in.,33RS",
+     "retail": "STIHL MS 661 R 32 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 32,
+     "chain": "33 RS",
+     "msrp": 1989.99,
+     "upc": "886661442768",
+     "aceSku": "7030617D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0426",
+     "materialDash": "1144-200-0426",
+     "desc": "MS 661-RZ Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL MS 661 R MAGNUM 36 in. 91.1 cc Gas Light Chainsaw",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1949.99,
+     "upc": "886661572274",
+     "aceSku": "7014288D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0460",
+     "materialDash": "1144-200-0460",
+     "desc": "MS 661-RZ Chainsaw,90cm/36 in.",
+     "retail": "STIHL MS 661 R 36 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Hexa Chain RH 3/8 in.",
+     "barIn": 36,
+     "chain": null,
+     "msrp": 1959.99,
+     "upc": "886661734771",
+     "aceSku": "7030654D",
+     "status": "A"
+    },
+    {
+     "material": "1144 200 0391",
+     "materialDash": "1144-200-0391",
+     "desc": "MS 661-RZ Chainsaw,90cm/36 in.,33RS",
+     "retail": "STIHL MS 661 R 36 in. Rollomatic E Super Bar 91.1 cc Gas Chainsaw Rapid Super Chain RS 3/8 in.",
+     "barIn": 36,
+     "chain": "33 RS",
+     "msrp": 1999.99,
+     "upc": "886661442881",
+     "aceSku": "7030619D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 881",
+   "model": "MS 881",
+   "nickname": "MAGNUM",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1124 200 0221",
+     "materialDash": "1124-200-0221",
+     "desc": "MS 881-Z Chainsaw,63cm/25 in.,46RS",
+     "retail": "STIHL MS 881 MAGNUM 25 in. 121.6 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "46 RS",
+     "msrp": 2659.99,
+     "upc": "886661531325",
+     "aceSku": "7003916D",
+     "status": "A"
+    },
+    {
+     "material": "1124 200 0211",
+     "materialDash": "1124-200-0211",
+     "desc": "MS 881-Z Chainsaw,90cm/36 in.,46RS",
+     "retail": "STIHL MS 881 MAGNUM 36 in. 121.6 cc Gas Chainsaw",
+     "barIn": 36,
+     "chain": "46 RS",
+     "msrp": 2679.99,
+     "upc": "886661402199",
+     "aceSku": "7003924D",
+     "status": "A"
+    },
+    {
+     "material": "1124 200 0218",
+     "materialDash": "1124-200-0218",
+     "desc": "MS 881-Z Chainsaw,105cm/41 in.,46RS",
+     "retail": "STIHL MS 881 MAGNUM 41 in. 121.6 cc Gas Chainsaw",
+     "barIn": 41,
+     "chain": "46 RS",
+     "msrp": 2689.99,
+     "upc": "886661527885",
+     "aceSku": "7003932D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0CS:MS 881 R",
+   "model": "MS 881 R",
+   "nickname": "MAGNUM",
+   "category": "0CS",
+   "categoryName": "Gas Chain Saws",
+   "signCategory": "GAS CHAIN SAW",
+   "productType": "Chainsaw",
+   "variants": [
+    {
+     "material": "1124 200 0222",
+     "materialDash": "1124-200-0222",
+     "desc": "MS 881-RZ Chainsaw,63cm/25 in.,46RS",
+     "retail": "STIHL MS 881 R MAGNUM 25 in. 121.6 cc Gas Chainsaw",
+     "barIn": 25,
+     "chain": "46 RS",
+     "msrp": 2709.99,
+     "upc": "886661531332",
+     "aceSku": "7003965D",
+     "status": "A"
+    },
+    {
+     "material": "1124 200 0219",
+     "materialDash": "1124-200-0219",
+     "desc": "MS 881-RZ Chainsaw,90cm/36 in.,46RS",
+     "retail": "STIHL MS 881 R MAGNUM 36 in. 121.6 cc Gas Chainsaw",
+     "barIn": 36,
+     "chain": "46 RS",
+     "msrp": 2729.99,
+     "upc": "886661528325",
+     "aceSku": "7003957D",
+     "status": "A"
+    },
+    {
+     "material": "1124 200 0220",
+     "materialDash": "1124-200-0220",
+     "desc": "MS 881-RZ Chainsaw,105cm/41 in.,46RS",
+     "retail": "STIHL MS 881 R MAGNUM 41 in. 121.6 cc Gas Chainsaw",
+     "barIn": 41,
+     "chain": "46 RS",
+     "msrp": 2739.99,
+     "upc": "886661528332",
+     "aceSku": "7003973D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0ES:MSE 170 C-BQ",
+   "model": "MSE 170 C-BQ",
+   "nickname": "",
+   "category": "0ES",
+   "categoryName": "Electric Chain Saws",
+   "signCategory": "ELECTRIC CHAIN SAW",
+   "productType": "Electric saw",
+   "variants": [
+    {
+     "material": "1209 200 0060",
+     "materialDash": "1209-200-0060",
+     "desc": "MSE 170 C-BQ Electric saw,40cm/16 in.,63PM3",
+     "retail": "STIHL MSE 170 C-BQ 16 in. 120 V Electric Chainsaw",
+     "barIn": 16,
+     "chain": "63 PM3",
+     "msrp": 569.99,
+     "upc": "886661133673",
+     "aceSku": "7000489D",
+     "status": "A"
+    },
+    {
+     "material": "1209 222 4500",
+     "materialDash": "1209-222-4500",
+     "desc": "MSE 170 C-BQ 12",
+     "retail": "STIHL MSE 170 C-BQ 12 in. 120 V Electric Chainsaw",
+     "barIn": null,
+     "chain": null,
+     "msrp": 549.99,
+     "upc": "886661872183",
+     "aceSku": "7000491D",
+     "status": "A"
+    },
+    {
+     "material": "1209 222 4501",
+     "materialDash": "1209-222-4501",
+     "desc": "MSE 170 C-BQ 14",
+     "retail": "STIHL MSE 170 C-BQ 14 in. 120 V Electric Chainsaw",
+     "barIn": null,
+     "chain": null,
+     "msrp": 559.99,
+     "upc": "886661872190",
+     "aceSku": "7000492D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0GS:GS 461",
+   "model": "GS 461",
+   "nickname": "",
+   "category": "0GS",
+   "categoryName": "Concrete Cutters",
+   "signCategory": "CONCRETE CUTTER",
+   "productType": "Concrete cutter",
+   "variants": [
+    {
+     "material": "4252 200 0065",
+     "materialDash": "4252-200-0065",
+     "desc": "GS 461-Z Concrete cutter",
+     "retail": "STIHL Rock Boss GS 461-Z 16 in. Gas Concrete Cutter Tool Only",
+     "barIn": null,
+     "chain": null,
+     "msrp": 2719.99,
+     "upc": "886661729920",
+     "aceSku": "7036632D",
+     "status": "A"
+    },
+    {
+     "material": "4252 200 0050",
+     "materialDash": "4252-200-0050",
+     "desc": "GS 461-Z Concrete cutter",
+     "retail": "STIHL Rock Boss GS 461 16 in. 76.5 cc Gas Concrete Cutter",
+     "barIn": null,
+     "chain": null,
+     "msrp": 2819.99,
+     "upc": "886661659074",
+     "aceSku": "7020233D",
+     "status": "A"
+    },
+    {
+     "material": "4252 200 0035",
+     "materialDash": "4252-200-0035",
+     "desc": "GS 461-Z Concrete cutter",
+     "retail": "STIHL Rock Boss GS 461 18 in. Gas Concrete Cutter",
+     "barIn": null,
+     "chain": null,
+     "msrp": 2849.99,
+     "upc": "886661408573",
+     "aceSku": "7036631D",
      "status": "A"
     }
    ]
@@ -487,6 +3136,29 @@ window.SIGN_DATA = {
      "upc": "886661771981",
      "aceSku": "7006926D",
      "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0KM:KMA 120.0 R SET",
+   "model": "KMA 120.0 R SET",
+   "nickname": "",
+   "category": "0KM",
+   "categoryName": "Kombi Powerheads",
+   "signCategory": "KOMBI SYSTEM",
+   "productType": "CORDLESS KOMBIMOTO",
+   "variants": [
+    {
+     "material": "FA08 011 6833 US",
+     "materialDash": "FA08-011-6833",
+     "desc": "KMA 120.0 R SET CORDLESS KOMBIMOTOR",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 869.99,
+     "upc": "198520111273",
+     "aceSku": "",
+     "status": ""
     }
    ]
   },
@@ -625,6 +3297,18 @@ window.SIGN_DATA = {
      "upc": "886661874828",
      "aceSku": "7035315D",
      "status": "C"
+    },
+    {
+     "material": "MA03 200 0044",
+     "materialDash": "MA03-200-0044",
+     "desc": "MSA 160.0 C-B Cordless chain saw",
+     "retail": "STIHL MSA 160 C-B 14 in. Light 01 Bar Battery Chainsaw Tool Only Picco Micro Mini 3 PM3 1/4 in.",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 409.99,
+     "upc": "886661247387",
+     "aceSku": "7033886D",
+     "status": "A"
     }
    ]
   },
@@ -648,6 +3332,53 @@ window.SIGN_DATA = {
      "upc": "886661936601",
      "aceSku": "7020120D",
      "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0LB:MSA 190.0 T",
+   "model": "MSA 190.0 T",
+   "nickname": "",
+   "category": "0LB",
+   "categoryName": "Battery Chain Saws",
+   "signCategory": "BATTERY CHAIN SAW",
+   "productType": "Cordless chain saw",
+   "variants": [
+    {
+     "material": "MA05 200 0017",
+     "materialDash": "MA05-200-0017",
+     "desc": "MSA 190.0 T Cordless chain saw,30cm/12 in.",
+     "retail": "STIHL MSA 190 T 12 in. Battery Chainsaw Tool Only",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 399.99,
+     "upc": "198520048111",
+     "aceSku": "7053807D",
+     "status": "A"
+    },
+    {
+     "material": "MA05 200 0018",
+     "materialDash": "MA05-200-0018",
+     "desc": "MSA 190.0 T Cordless chain saw,35cm/14 in.",
+     "retail": "STIHL MSA 190 T 14 in. Rollomatic E Standard Bar 36 V Battery Chainsaw Tool Only Picco Super Chain P",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 409.99,
+     "upc": "198520048128",
+     "aceSku": "7062357D",
+     "status": "A"
+    },
+    {
+     "material": "MA05 200 0014",
+     "materialDash": "MA05-200-0014",
+     "desc": "MSA 190.0 T Cordless chain saw",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 409.99,
+     "upc": "795711976279",
+     "aceSku": "",
+     "status": ""
     }
    ]
   },
@@ -682,6 +3413,18 @@ window.SIGN_DATA = {
      "msrp": 409.99,
      "upc": "886661874880",
      "aceSku": "7035377D",
+     "status": "A"
+    },
+    {
+     "material": "MA03 200 0043",
+     "materialDash": "MA03-200-0043",
+     "desc": "MSA 200.0 C-B Cordless chain saw",
+     "retail": "STIHL MSA 200 C-B 16 in. Light 04 Bar Battery Chainsaw Picco Super Chain PS3 3/8 in.",
+     "barIn": 16,
+     "chain": null,
+     "msrp": 419.99,
+     "upc": "886661235995",
+     "aceSku": "7035379D",
      "status": "A"
     }
    ]
@@ -764,6 +3507,18 @@ window.SIGN_DATA = {
      "msrp": 459.99,
      "upc": "886661584703",
      "aceSku": "7027510D",
+     "status": "A"
+    },
+    {
+     "material": "MA01 200 0057",
+     "materialDash": "MA01-200-0057",
+     "desc": "MSA 220.0 TC-O Cordless chain saw",
+     "retail": "STIHL MSA 220 TC-O 14 in. Light 01 Bar Battery Chainsaw Tool Only Picco Super Chain PS3 3/8 in.",
+     "barIn": 14,
+     "chain": null,
+     "msrp": 459.99,
+     "upc": "886661581238",
+     "aceSku": "7033892D",
      "status": "A"
     },
     {
@@ -852,6 +3607,52 @@ window.SIGN_DATA = {
    ]
   },
   {
+   "id": "0LB:MSA 300.1 C-O SET",
+   "model": "MSA 300.1 C-O SET",
+   "nickname": "",
+   "category": "0LB",
+   "categoryName": "Battery Chain Saws",
+   "signCategory": "BATTERY CHAIN SAW",
+   "productType": "Cordless chain saw",
+   "variants": [
+    {
+     "material": "MA02 211 0000 US",
+     "materialDash": "MA02-211-0000",
+     "desc": "MSA 300.1 C-O SET Cordless chain saw",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 1249.99,
+     "upc": "198520093692",
+     "aceSku": "",
+     "status": ""
+    }
+   ]
+  },
+  {
+   "id": "0LB:MSA 60.0 C-B SET",
+   "model": "MSA 60.0 C-B SET",
+   "nickname": "",
+   "category": "0LB",
+   "categoryName": "Battery Chain Saws",
+   "signCategory": "BATTERY CHAIN SAW",
+   "productType": "",
+   "variants": [
+    {
+     "material": "MA04 011 5867 US",
+     "materialDash": "MA04-011-5867",
+     "desc": "MSA 60.0 C-B 1/4 in.P SET Cordless chain",
+     "retail": "STIHL MSA 60 C-B PICCO 12 in. Light 01 Bar Battery Chainsaw Kit (Battery & Charger) 1/4 in.",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 349.99,
+     "upc": "795711956714",
+     "aceSku": "7033500D",
+     "status": "A"
+    }
+   ]
+  },
+  {
    "id": "0LB:MSA 70.0 C-B",
    "model": "MSA 70.0 C-B",
    "nickname": "",
@@ -871,6 +3672,29 @@ window.SIGN_DATA = {
      "upc": "886661683352",
      "aceSku": "",
      "status": ""
+    }
+   ]
+  },
+  {
+   "id": "0LB:MSA 70.0 C-B SET",
+   "model": "MSA 70.0 C-B SET",
+   "nickname": "",
+   "category": "0LB",
+   "categoryName": "Battery Chain Saws",
+   "signCategory": "BATTERY CHAIN SAW",
+   "productType": "",
+   "variants": [
+    {
+     "material": "MA04 011 5883 US",
+     "materialDash": "MA04-011-5883",
+     "desc": "MSA 70.0 C-B 1/4 in.P SET Cordless chain",
+     "retail": "STIHL MSA 70 C-B 12 in. 0 cc Battery Chainsaw Kit (Battery & Charger)",
+     "barIn": 12,
+     "chain": null,
+     "msrp": 399.99,
+     "upc": "795711957186",
+     "aceSku": "7029016D",
+     "status": "A"
     }
    ]
   },
@@ -1416,6 +4240,52 @@ window.SIGN_DATA = {
    ]
   },
   {
+   "id": "0TR:FSA 120.0 R SET",
+   "model": "FSA 120.0 R SET",
+   "nickname": "",
+   "category": "0TR",
+   "categoryName": "Trimmers & Brushcutters",
+   "signCategory": "TRIMMER / BRUSHCUTTER",
+   "productType": "CORDLESS TRIMMER",
+   "variants": [
+    {
+     "material": "FA08 011 5772 US",
+     "materialDash": "FA08-011-5772",
+     "desc": "FSA 120.0 R SET CORDLESS TRIMMER",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 779.99,
+     "upc": "198520111280",
+     "aceSku": "",
+     "status": ""
+    }
+   ]
+  },
+  {
+   "id": "0TR:FSA 120.0 SET",
+   "model": "FSA 120.0 SET",
+   "nickname": "",
+   "category": "0TR",
+   "categoryName": "Trimmers & Brushcutters",
+   "signCategory": "TRIMMER / BRUSHCUTTER",
+   "productType": "Cordless trimmer",
+   "variants": [
+    {
+     "material": "FA08 011 5761 US",
+     "materialDash": "FA08-011-5761",
+     "desc": "FSA 120.0 SET Cordless trimmer",
+     "retail": "STIHL FSA 120 15 in. 36 V Battery Edger/Trimmer Kit (Battery & Charger)",
+     "barIn": null,
+     "chain": null,
+     "msrp": 789.99,
+     "upc": "198520012921",
+     "aceSku": "7063121D",
+     "status": "A"
+    }
+   ]
+  },
+  {
    "id": "0TR:FSA 130 R",
    "model": "FSA 130 R",
    "nickname": "",
@@ -1458,6 +4328,29 @@ window.SIGN_DATA = {
      "upc": "886661520640",
      "aceSku": "7003833D",
      "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "0TR:FSA 140.0",
+   "model": "FSA 140.0",
+   "nickname": "",
+   "category": "0TR",
+   "categoryName": "Trimmers & Brushcutters",
+   "signCategory": "TRIMMER / BRUSHCUTTER",
+   "productType": "Cordless trimmer",
+   "variants": [
+    {
+     "material": "FA01 011 5706 US",
+     "materialDash": "FA01-011-5706",
+     "desc": "FSA 140.0 Cordless trimmer",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 579.99,
+     "upc": "886661512034",
+     "aceSku": "",
+     "status": ""
     }
    ]
   },
@@ -2704,6 +5597,29 @@ window.SIGN_DATA = {
    ]
   },
   {
+   "id": "1HB:HLA 56",
+   "model": "HLA 56",
+   "nickname": "",
+   "category": "1HB",
+   "categoryName": "Battery Hedge Trimmers",
+   "signCategory": "BATTERY HEDGE TRIMMER",
+   "productType": "Cordless Hedgetrimmer",
+   "variants": [
+    {
+     "material": "HA01 200 0042",
+     "materialDash": "HA01-200-0042",
+     "desc": "HLA 56 Cordless Hedgetrimmer",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 519.99,
+     "upc": "795711985158",
+     "aceSku": "",
+     "status": ""
+    }
+   ]
+  },
+  {
    "id": "1HS:HL 56 K",
    "model": "HL 56 K",
    "nickname": "",
@@ -3483,7 +6399,7 @@ window.SIGN_DATA = {
    "category": "1HS",
    "categoryName": "Hedge Trimmers",
    "signCategory": "HEDGE TRIMMER",
-   "productType": "Pole pruner",
+   "productType": "Cordless Pole pruner",
    "variants": [
     {
      "material": "LA01 200 0001 US",
@@ -3506,7 +6422,7 @@ window.SIGN_DATA = {
    "category": "1HS",
    "categoryName": "Hedge Trimmers",
    "signCategory": "HEDGE TRIMMER",
-   "productType": "Pole pruner",
+   "productType": "Cordless Pole pruner",
    "variants": [
     {
      "material": "LA01 200 0024 US",
@@ -3529,7 +6445,7 @@ window.SIGN_DATA = {
    "category": "1HS",
    "categoryName": "Hedge Trimmers",
    "signCategory": "HEDGE TRIMMER",
-   "productType": "Pole pruner",
+   "productType": "Cordless Pole pruner",
    "variants": [
     {
      "material": "LA03 011 6411 US",
@@ -3552,7 +6468,7 @@ window.SIGN_DATA = {
    "category": "1HS",
    "categoryName": "Hedge Trimmers",
    "signCategory": "HEDGE TRIMMER",
-   "productType": "Pole pruner",
+   "productType": "Cordless Pole pruner",
    "variants": [
     {
      "material": "LA03 011 6431 US",
@@ -3684,13 +6600,36 @@ window.SIGN_DATA = {
    ]
   },
   {
+   "id": "1HT:HTA 160.1",
+   "model": "HTA 160.1",
+   "nickname": "",
+   "category": "1HT",
+   "categoryName": "Pole Pruners",
+   "signCategory": "POLE PRUNER",
+   "productType": "Cordless Pole pruner",
+   "variants": [
+    {
+     "material": "LA01 200 0097 US",
+     "materialDash": "LA01-200-0097",
+     "desc": "HTA 160.1 Cordless Pole pruner,25cm/10 in.",
+     "retail": "",
+     "barIn": 10,
+     "chain": null,
+     "msrp": 749.99,
+     "upc": "198520002267",
+     "aceSku": "",
+     "status": ""
+    }
+   ]
+  },
+  {
    "id": "1HT:HTA 50.0",
    "model": "HTA 50.0",
    "nickname": "",
    "category": "1HT",
    "categoryName": "Pole Pruners",
    "signCategory": "POLE PRUNER",
-   "productType": "Pole pruner",
+   "productType": "Cordless Pole pruner",
    "variants": [
     {
      "material": "LA02 011 6401 US",
@@ -3702,6 +6641,29 @@ window.SIGN_DATA = {
      "msrp": 239.99,
      "upc": "886661624379",
      "aceSku": "7027495D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "1IB:SGA 60.0 SET",
+   "model": "SGA 60.0 SET",
+   "nickname": "",
+   "category": "1IB",
+   "categoryName": "Battery Sprayers",
+   "signCategory": "BATTERY SPRAYER",
+   "productType": "Cordless sprayer",
+   "variants": [
+    {
+     "material": "SA10 011 7011 US",
+     "materialDash": "SA10-011-7011",
+     "desc": "SGA 60.0 SET Cordless sprayer",
+     "retail": "STIHL SGA 60 Backpack Sprayer Kit",
+     "barIn": null,
+     "chain": null,
+     "msrp": 309.99,
+     "upc": "198520003202",
+     "aceSku": "7061523D",
      "status": "A"
     }
    ]
@@ -4450,7 +7412,7 @@ window.SIGN_DATA = {
    "category": "1LB",
    "categoryName": "Battery Units",
    "signCategory": "BATTERY POWER TOOL",
-   "productType": "Pole pruner",
+   "productType": "Cordless Pole pruner",
    "variants": [
     {
      "material": "LA02 200 0018",
@@ -4891,6 +7853,18 @@ window.SIGN_DATA = {
      "status": "A"
     },
     {
+     "material": "6372 200 0050",
+     "materialDash": "6372-200-0050",
+     "desc": "RMA 510.0 V (USA) Cordless lawn mower",
+     "retail": "STIHL RMA 510 V 21 in. Battery Self-Propelled Lawn Mower Kit (Battery & Charger)",
+     "barIn": null,
+     "chain": null,
+     "msrp": 749.99,
+     "upc": "886661425556",
+     "aceSku": "7033983D",
+     "status": "A"
+    },
+    {
      "material": "6372 200 0048",
      "materialDash": "6372-200-0048",
      "desc": "RMA 510.0 V (USA) Cordless lawn mower",
@@ -5016,6 +7990,18 @@ window.SIGN_DATA = {
      "upc": "886661876068",
      "aceSku": "7050798D",
      "status": "A"
+    },
+    {
+     "material": "6392 200 0022",
+     "materialDash": "6392-200-0022",
+     "desc": "RMA 765.0 V (USA) Cordless lawn mower",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 3909.99,
+     "upc": "198520003257",
+     "aceSku": "",
+     "status": ""
     }
    ]
   },
@@ -5337,6 +8323,18 @@ window.SIGN_DATA = {
      "msrp": 529.99,
      "upc": "886661424528",
      "aceSku": "7001603D",
+     "status": "A"
+    },
+    {
+     "material": "4604 200 0004",
+     "materialDash": "4604-200-0004",
+     "desc": "MM 56 C-E Z MultiEngine",
+     "retail": "STIHL MM 56 C-E 9 in. 27 cc Cultivator/Tiller",
+     "barIn": null,
+     "chain": null,
+     "msrp": 569.99,
+     "upc": "886661452439",
+     "aceSku": "7036296D",
      "status": "A"
     }
    ]
@@ -6078,6 +9076,29 @@ window.SIGN_DATA = {
    ]
   },
   {
+   "id": "1SE:SEA 100.0 SET",
+   "model": "SEA 100.0 SET",
+   "nickname": "",
+   "category": "1SE",
+   "categoryName": "Wet/Dry Vacuums",
+   "signCategory": "WET/DRY VACUUM",
+   "productType": "",
+   "variants": [
+    {
+     "material": "SA04 211 0002 US",
+     "materialDash": "SA04-211-0002",
+     "desc": "SEA 100.0 SET Battery Vacuum",
+     "retail": "STIHL SEA 100 3.2 gal Cordless Wet/Dry Vacuum Kit (Battery & Charger)",
+     "barIn": null,
+     "chain": null,
+     "msrp": 499.99,
+     "upc": "198520106187",
+     "aceSku": "2053038D",
+     "status": "A"
+    }
+   ]
+  },
+  {
    "id": "1SE:SEA 20.0 SET",
    "model": "SEA 20.0 SET",
    "nickname": "",
@@ -6097,6 +9118,52 @@ window.SIGN_DATA = {
      "upc": "886661968053",
      "aceSku": "1030215D",
      "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "1SE:SEA 50.0 SET",
+   "model": "SEA 50.0 SET",
+   "nickname": "",
+   "category": "1SE",
+   "categoryName": "Wet/Dry Vacuums",
+   "signCategory": "WET/DRY VACUUM",
+   "productType": "",
+   "variants": [
+    {
+     "material": "SA08 211 0000 US",
+     "materialDash": "SA08-211-0000",
+     "desc": "SEA 50.0 SET Battery Vacuum",
+     "retail": "STIHL SEA 50 2.2 gal Cordless Wet/Dry Vacuum Kit Kit (Battery) 8.3 amps 36 V",
+     "barIn": null,
+     "chain": null,
+     "msrp": 409.99,
+     "upc": "198520065248",
+     "aceSku": "2053143D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "1SE:SEA 60.0 SET",
+   "model": "SEA 60.0 SET",
+   "nickname": "",
+   "category": "1SE",
+   "categoryName": "Wet/Dry Vacuums",
+   "signCategory": "WET/DRY VACUUM",
+   "productType": "",
+   "variants": [
+    {
+     "material": "SA04 211 0000 US",
+     "materialDash": "SA04-211-0000",
+     "desc": "SEA 60.0 SET Battery Vacuum",
+     "retail": "",
+     "barIn": null,
+     "chain": null,
+     "msrp": 439.99,
+     "upc": "198520065286",
+     "aceSku": "",
+     "status": ""
     }
    ]
   },

@@ -42,7 +42,34 @@ UNIT_CATEGORIES = {
     "1RZ": ("Front Mowers", "FRONT MOWER"),
     "1SE": ("Wet/Dry Vacuums", "WET/DRY VACUUM"),
     "1ZB": ("Battery Front Mowers", "BATTERY FRONT MOWER"),
+    "0ES": ("Electric Chain Saws", "ELECTRIC CHAIN SAW"),
+    "0GS": ("Concrete Cutters", "CONCRETE CUTTER"),
 }
+
+# Pro saws and some newer battery tools ship as powerhead "kits" (9KP) or
+# under one-off codes; resolve those rows to a unit category by brand code.
+KIT_CATEGORIES = {"9KP", "0CB", "0KB", "0TB", "1PB", "1SB"}
+BRAND_CATEGORY = {
+    "MS": "0CS", "MSA": "0LB", "MSE": "0ES", "GS": "0GS",
+    "HLA": "1HB", "HL": "1HS", "MM": "1MM", "RMA": "1LB", "RZA": "1LB",
+    "KMA": "0KM", "KM": "0KM", "FSA": "0TR", "FS": "0TR",
+    "HTA": "1HT", "HT": "1HT", "HSA": "1HB", "HS": "1HS",
+    "SEA": "1SE", "SE": "1SE", "SGA": "1IB",
+    "BGA": "1BH", "BG": "1BH", "BRA": "1BB", "BR": "1BB",
+}
+
+
+def resolve_category(cat: str, desc: str):
+    """Unit category for a row, or None if it isn't a sellable power tool."""
+    brand = desc.split()[0] if desc.split() else ""
+    if cat in UNIT_CATEGORIES:
+        # the dealer file misfiles a couple of battery-saw SETs under gas
+        if cat == "0CS" and brand == "MSA":
+            return "0LB"
+        return cat
+    if cat in KIT_CATEGORIES:
+        return BRAND_CATEGORY.get(brand)
+    return None
 
 # Words that mark the start of the product-type portion of a description.
 TYPE_WORDS = (
@@ -53,10 +80,15 @@ TYPE_WORDS = (
     "Earth auger|Hand held drill|Cordless trimmer|Cordless sweeper|"
     "Cordless sprayer|Electric Trimmer|Electric Blower|Electric hedge trimmer|"
     "Robotic mower|Cordless lawn mower|Lawn mower|High-pressure washer|"
-    "High-pressure cleaner|Vacuums|yard boss MultiEngine|Magnum Blower"
+    "High-pressure cleaner|Vacuums|yard boss MultiEngine|Magnum Blower|"
+    "CHAINSAW|Electric saw|Concrete cutter|MultiEngine|"
+    "CORDLESS KOMBIMOTO|CORDLESS TRIMMER|Cordless Pole pruner|Chains\\b"
 )
 TYPE_RE = re.compile(r"\s*(%s)" % TYPE_WORDS)
-BAR_RE = re.compile(r"(\d+)\s*(?:cm|mm)/(\d+)\s*in")
+BAR_RE = re.compile(r"(\d+)\s*(?:cm|mm)/(\d+)\s*in", re.IGNORECASE)
+# 'MS 400 C-M Z Chainsaw 20-, 33RS3 8822' carries the bar length after the
+# type word instead of the usual 'cm/in' form
+BAR_ALT_RE = re.compile(r"Chainsaw\s+(\d{2})-", re.IGNORECASE)
 CHAIN_RE = re.compile(r"\b(\d{2}\s?(?:RS|RM|RH|PM|PMM|PS|PD)[A-Z0-9]{0,3})\b")
 NICKNAMES = ["Farm Boss", "Wood Boss", "Magnum", "yard boss", "Yard Boss",
              "Dirt Boss"]
@@ -77,7 +109,7 @@ def dash_part(material: str) -> str:
 BRAND_RE = re.compile(r"^i?[A-Z]{2,4}$")           # MS, MSA, iMOW, RZ, WP…
 NUM_RE = re.compile(r"^\d+(\.\d+)?[a-z]?(-[A-Z])?$")  # 271, 60.0, 752.0i, 280.0-B
 SUFFIX_RE = re.compile(r"^([A-Z]{1,3}(-[A-Z]{1,3})?|SET|PLUS|CONTROL|EVO)$")
-SKIP_TOKENS = {"(USA)", "1/4", "3/8", "in.P"}
+SKIP_TOKENS = {"(USA)", "1/4", "3/8", "in.P", "in.", "Z", "P", "SPUR", "RIM"}
 
 
 def extract_model(head: str) -> str:
@@ -91,16 +123,23 @@ def extract_model(head: str) -> str:
         return head  # outliers ('Deflector', 'Mulching kit AMK 056.0') pass through
     kept = tokens[:2]
     for i in range(2, len(tokens)):
-        t = tokens[i]
-        if t in SKIP_TOKENS:
+        # config-code Z rides along inside suffix tokens: 'T-Z' -> 'T'
+        t = re.sub(r"-A?Z$", "", tokens[i])
+        if not t or t in SKIP_TOKENS:
             continue
-        # bare integer followed by an inch marker is a size spec, not the name
-        if t.isdigit() and i + 1 < len(tokens) and tokens[i + 1].startswith("in"):
+        # a bare integer after the model number is a size spec, not the name
+        if t.isdigit():
+            break
+        # a repeated suffix token means we've drifted into spec text
+        # ('… C-M R 3/8 in. R Rescue …' must stop at the second R)
+        if t == kept[-1]:
             break
         if SUFFIX_RE.match(t) or NUM_RE.match(t):
             kept.append(t)
             continue
         break
+    # the model number token itself may carry the Z: 'MS 311-Z'
+    kept[1] = re.sub(r"-A?Z$", "", kept[1])
     return " ".join(kept)
 
 
@@ -112,6 +151,9 @@ def parse_unit(desc: str):
     else:
         head, ptype, tail = desc, "", ""
     head = head.strip().rstrip(",")
+    # Wrap-handle versions are 'RZ' in dealer descriptions ('MS 462-RZ');
+    # the R is part of the product name, the Z is a config code.
+    head = re.sub(r"[- ]RZ\b", " R", head)
     # Drop dealer config suffixes: trailing 'Z', '-Z', '-AZ', 'LZ' tokens.
     head = re.sub(r"[- ](?:A?Z|LZ)$", "", head).strip()
     model = extract_model(head)
@@ -119,6 +161,10 @@ def parse_unit(desc: str):
     bm = BAR_RE.search(desc)
     if bm:
         bar_in = int(bm.group(2))
+    else:
+        bm = BAR_ALT_RE.search(desc)
+        if bm:
+            bar_in = int(bm.group(1))
     chain = None
     cm = CHAIN_RE.search(tail)
     if cm:
@@ -211,7 +257,8 @@ def main():
             )
             continue
 
-        if cat not in UNIT_CATEGORIES:
+        cat = resolve_category(cat, desc)
+        if not cat:
             continue
 
         model, ptype, bar_in, chain = parse_unit(desc)
@@ -260,7 +307,7 @@ def main():
 
     model_list = sorted(models.values(), key=lambda g: (g["category"], g["model"]))
     for g in model_list:
-        g["variants"].sort(key=lambda v: (v["barIn"] or 0, v["msrp"]))
+        g["variants"].sort(key=lambda v: (v["barIn"] or 999, v["msrp"]))
         if not g["nickname"] and g["model"] in NICKNAME_BY_MODEL:
             g["nickname"] = NICKNAME_BY_MODEL[g["model"]]
 

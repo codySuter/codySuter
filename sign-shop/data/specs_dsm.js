@@ -64,7 +64,7 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
- "SEA 60.0": {
+ "SEA 60.0 SET": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
    [
@@ -85,7 +85,7 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
- "SEA 100.0": {
+ "SEA 100.0 SET": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
    [
@@ -694,6 +694,48 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "FSA 120.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 200 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "11.4 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 50 min"
+   ],
+   [
+    "CUTTING WIDTH",
+    ""
+   ]
+  ]
+ },
+ "FSA 120.0 R SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 200 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "11.0 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 50 min"
+   ],
+   [
+    "CUTTING WIDTH",
+    ""
+   ]
+  ]
+ },
  "FSA 135 R": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
@@ -880,6 +922,27 @@ window.SIGN_SPECS_DSM = {
    [
     "CHAIN TYPE",
     "1/4\" STIHL PICCO™ For in-tree…"
+   ]
+  ]
+ },
+ "MSA 190.0 T": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "5.7 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 48 min"
+   ],
+   [
+    "CHAIN TYPE",
+    "3/8\" PS3"
    ]
   ]
  },
@@ -1807,6 +1870,27 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "MSE 170 C-BQ": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "POWER SOURCE",
+    "120 V corded"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.6 kW (13.1 A)"
+   ],
+   [
+    "WEIGHT",
+    "8.4 lb"
+   ],
+   [
+    "PERFORMANCE",
+    ""
+   ]
+  ]
+ },
  "RE 80.0": {
   "title": "SPECIFICATIONS",
   "specs": [
@@ -2038,6 +2122,48 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "MS 194 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "31.8 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.88 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "7.6 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "9.1 oz."
+   ]
+  ]
+ },
+ "MS 201 C-EM": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "35.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.8 kW / 2.41 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "8.6 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "10.5 oz."
+   ]
+  ]
+ },
  "MS 212 C-BE": {
   "title": "ENGINE & PERFORMANCE",
   "specs": [
@@ -2122,6 +2248,48 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "MS 261": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "50.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.0 kW / 4.0 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "10.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "16.9 oz."
+   ]
+  ]
+ },
+ "MS 261 C-M": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "50.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.0 kW / 4.0 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "10.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "16.9 oz."
+   ]
+  ]
+ },
  "MS 271": {
   "title": "ENGINE & PERFORMANCE",
   "specs": [
@@ -2161,6 +2329,384 @@ window.SIGN_SPECS_DSM = {
    [
     "FUEL CAPACITY",
     "16.9 oz."
+   ]
+  ]
+ },
+ "MS 311": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "59.0 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.1 kW / 4.2 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "13.67 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "20.3 oz."
+   ]
+  ]
+ },
+ "MS 362": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "59.0 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.4 kW / 4.6 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "12.3 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "20.3 oz."
+   ]
+  ]
+ },
+ "MS 362 C-M": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "59.0 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.4 kW / 4.6 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "12.3 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "20.3 oz."
+   ]
+  ]
+ },
+ "MS 391": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "64.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.3 kW / 4.4 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "20.3 oz."
+   ]
+  ]
+ },
+ "MS 400 C-M": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "66.8 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "5.4 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "12.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "20.3 oz."
+   ]
+  ]
+ },
+ "MS 462": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "72.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "4.4 kW / 5.9 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "13.2 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.3 oz"
+   ]
+  ]
+ },
+ "MS 462 C-M": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "72.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "4.4 kW / 5.9 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "13.2 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.3 oz"
+   ]
+  ]
+ },
+ "MS 500i": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "79.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "5.0 kW / 6.7 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "13.9 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "26.5 oz."
+   ]
+  ]
+ },
+ "MS 661": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "91.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "5.4 kW / 7.2 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "16.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "28.7 oz."
+   ]
+  ]
+ },
+ "MS 661 C-M": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "91.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "5.4 kW / 7.2 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "16.3 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "28.7 oz."
+   ]
+  ]
+ },
+ "MS 881": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "121.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "6.4 kW / 8.6 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "21.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "44.0 oz."
+   ]
+  ]
+ },
+ "MS 462 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "72.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "4.4 kW / 5.9 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "13.9 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.3 oz"
+   ]
+  ]
+ },
+ "MS 500i R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "79.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "5.0 kW / 6.7 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "14.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "26.5 oz."
+   ]
+  ]
+ },
+ "MS 661 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "91.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "5.4 kW / 7.2 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "27.9 oz."
+   ]
+  ]
+ },
+ "MS 881 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "121.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "6.4 kW / 8.6 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "22.0 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "44.0 oz."
+   ]
+  ]
+ },
+ "MS 151 TC-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "23.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.0 kW / 1.3 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "5.7 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "6.8 oz."
+   ]
+  ]
+ },
+ "MS 194 T": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "31.8 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.88 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "7.28 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "9.1 oz."
+   ]
+  ]
+ },
+ "MS 201 TC-M": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "35.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.8 kW / 2.41 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "8.16 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "10.5 oz."
    ]
   ]
  },
@@ -3550,6 +4096,27 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "GS 461": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "76.5 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "4.3 kW / 5.8 bhp"
+   ],
+   [
+    "WEIGHT",
+    "16.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "26.4 oz."
+   ]
+  ]
+ },
  "RZ 142.0": {
   "title": "ENGINE & PERFORMANCE",
   "specs": [
@@ -4054,6 +4621,48 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "KMA 120.0 R SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "7.70 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Varies based on attachment…"
+   ],
+   [
+    "PERFORMANCE",
+    ""
+   ]
+  ]
+ },
+ "MSA 300.1 C-O SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 500 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "6.4 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 18 min"
+   ],
+   [
+    "CHAIN TYPE",
+    "3/8\" RDR \"RESCUE\" chain"
+   ]
+  ]
+ },
  "MSA 60.0 C-B SET": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
@@ -4180,6 +4789,27 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "SGA 60.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 10"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "11 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 270 min (4+ hours)"
+   ],
+   [
+    "PERFORMANCE",
+    ""
+   ]
+  ]
+ },
  "GTA 30.0 SET": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
@@ -4282,6 +4912,69 @@ window.SIGN_SPECS_DSM = {
    [
     "PERFORMANCE",
     ""
+   ]
+  ]
+ },
+ "MS 362 C-M R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "59.0 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.5 kW / 4.7 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "13.2 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "20.3 oz."
+   ]
+  ]
+ },
+ "MS 462 C-M R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "72.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "4.4 kW / 5.9 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.3 oz"
+   ]
+  ]
+ },
+ "MS 661 C-M R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "91.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "7.2 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "28.7 oz."
    ]
   ]
  },
@@ -4828,6 +5521,48 @@ window.SIGN_SPECS_DSM = {
    [
     "AREA MOWED (UP TO)",
     "Approx. 8,072 sq.\""
+   ]
+  ]
+ },
+ "SEA 100.0": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "16.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 30 min."
+   ],
+   [
+    "PERFORMANCE",
+    "210 mbar"
+   ]
+  ]
+ },
+ "SEA 60.0": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 20"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "19.1 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    ""
+   ],
+   [
+    "PERFORMANCE",
+    ""
    ]
   ]
  }
