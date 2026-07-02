@@ -239,7 +239,7 @@ window.SIGN_DATA = {
   {
    "id": "0CS:MS 251",
    "model": "MS 251",
-   "nickname": "",
+   "nickname": "WOOD BOSS",
    "category": "0CS",
    "categoryName": "Gas Chain Saws",
    "signCategory": "GAS CHAIN SAW",
@@ -5367,7 +5367,7 @@ window.SIGN_DATA = {
   {
    "id": "1RB:RB 400",
    "model": "RB 400",
-   "nickname": "",
+   "nickname": "DIRT BOSS",
    "category": "1RB",
    "categoryName": "Pressure Washers",
    "signCategory": "PRESSURE WASHER",

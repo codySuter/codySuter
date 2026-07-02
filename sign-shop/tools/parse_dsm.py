@@ -35,20 +35,31 @@ KEY_FIRST_WORDS = {
     "Grass", "Blowing", "Max", "Avg", "Air", "Sound", "Mechanical",
     "Electrical", "Bar", "Guide", "Shrub", "Cuts", "Battery", "Voltage",
     "Displacement", "Engine", "Power", "Fuel", "Oil", "Nozzle", "Water",
-    "Pressure", "Flow", "Recommended", "Stroke", "Working", "Spray", "Tank",
-    "Vacuum", "Suction", "Hose", "Cord", "Charge", "Solid", "Length",
-    "Torque", "Drilling", "Sweeping", "Total",
+    "Pressure", "Flow", "Recommended", "Stroke", "Strokes", "Working",
+    "Spray", "Tank", "Vacuum", "Suction", "Hose", "Cord", "Charge", "Solid",
+    "Length", "Torque", "Drilling", "Sweeping", "Total", "Horsepower",
 }
 KEY_RE = re.compile(r"\b([A-Z][A-Za-z0-9()®™ /&.'-]{2,48}?):\s+")
 # keys anchored to the allowed vocabulary, so values ("Up to 25 minutes …")
 # can never be consumed as keys
 KEY_HEAD_RE = re.compile(
-    r"\b((?:" + "|".join(sorted(KEY_FIRST_WORDS)) + r")[A-Za-z0-9()®™ /&.'-]{0,46}?):\s+")
-STRAY_COLON_RE = re.compile(r"\s[A-Z][A-Za-z0-9()®™ /&.'-]{2,45}:")
+    r"\b((?:" + "|".join(sorted(KEY_FIRST_WORDS)) + r")[A-Za-z0-9()®™ /&.'*-]{0,46}?):\s+")
+STRAY_COLON_RE = re.compile(r"\s[A-Z][A-Za-z0-9()®™ /&.'*-]{2,45}:")
+# gas one-liners, two layouts:
+#   saws:   '3.06 cu. in. (50.2 cc), 3.5 bhp (2.6 kW)'
+#   others: '64.8 cc (3.95 cu. in.), 2.8 kW (3.8 bhp), 9.8 kg (21.6 Ibs.…'
+GAS_INLINE_RE = re.compile(
+    r"([\d.]+)\s*cu\.?\s*in\.?\s*\(([\d.]+)\s*cc\),?\s*([\d.]+)\s*bhp\s*\(([\d.]+)\s*kW\)"
+    r"(?:,?\s*(?:[A-Za-z-]+ \(Shown\):\s*)?([\d.]+)\s*kg\s*\(([\d.]+)\s*lbs?)?")
+GAS_INLINE2_RE = re.compile(
+    r"([\d.]+)\s*cc\s*\(([\d.]+)\s*cu\.?\s*in\.?\),?\s*([\d.]+)\s*kW\s*\(([\d.]+)\s*b?hp\)"
+    r"(?:,?\s*([\d.]+)\s*kg\s*\(([\d.]+)\s*lbs?)?"
+    r"(?:,?\s*([\d.]+)\s*L\s*\(([\d.]+)\s*qt)?")
 TABLE_START_RE = re.compile(r"Description\s+(Part Number|Case Qty)|Part Number\s+Description")
 PRICE_RE = re.compile(r"\$[\d,]+\.\d\d")
 ELECTRIC_HDR_RE = re.compile(
-    r"120 V \(60 ?[Hh]z\),\s*([\d.]+) kW \(([\d.]+) amps?\),\s*[\d.]+ kg \(([\d.]+) lbs?\.?\)")
+    r"120 [Vv](?:olts?)? \(60 ?[Hh]z\),\s*([\d.]+) kW \(([\d.]+) amps?\),\s*"
+    r"(?:[\d.]+ kg \()?([\d.]+) lbs?\.?\)?")
 
 MODEL_CATS_BATTERY = {"0LB", "1HB", "1LB", "1ZB", "1IB"}
 
@@ -64,17 +75,33 @@ def norm_model(name: str) -> str:
 
 
 def clean_value(v: str) -> str:
-    v = re.sub(r"\s+", " ", v).strip().rstrip(":;,")
-    # prefer the imperial value in parentheses: '3.1 kg (6.8 lbs.)' -> '6.8 lb'
-    m = re.search(r"\(([\d.,]+ ?(?:lbs?|oz|mph|cfm|gal|in|ft)\.?\)?\"?)\)?", v)
+    v = re.sub(r"\s+", " ", v).replace("*", "").strip().rstrip(":;,")
+    v = re.sub(r"^\([^)]{1,12}\)\s*", "", v)  # leading '(144 Wh)' etc.
+    v = v.replace('sq. "', "sq. ft")  # 'ft' ligature extracts as '"'
+    v = re.sub(r"\bminutes?\b", "min", v, flags=re.I)
+    # capacity typo guard: when 'NNN cc (M oz.)' disagree (HL 56 K says
+    # '340 cc (1.5 oz.)'), recompute ounces from the metric value
+    cm = re.match(r"^(\d{2,4})\s*cc\s*\(([\d.]+)\s*oz", v)
+    if cm and abs(int(cm.group(1)) / 29.5735 - float(cm.group(2))) > 1:
+        return str(round(int(cm.group(1)) / 29.5735, 1)) + " oz"
+    # 'Engine Power: 0.8 kW (1.1 bhp), 6.1 kg (13.5 lbs)' -> '0.8 kW / 1.1 bhp'
+    m = re.match(r"^([\d.]+) kW \(([\d.]+) bhp\)", v)
+    if m:
+        return m.group(1) + " kW / " + m.group(2) + " bhp"
+    # prefer the imperial value in parentheses: '3.1 kg (6.8 lbs.)' -> '6.8 lb',
+    # 'Fuel Capacity: 710 cc (24.0 oz.)' -> '24.0 oz'
+    m = re.search(r"\(([\d.,]+ ?(?:lbs?|oz|mph|cfm|gal|in|ft|psi|gpm|GPM)\.?\)?\"?)\)?", v)
     if m:
         v = m.group(1).rstrip(")")
+    elif re.match(r"^[\d.]+ cc\b", v):
+        # 'Displacement: 27.2 cc (1.7 cu. in.)' -> '27.2 cc'
+        return re.match(r"^([\d.]+ cc)\b", v).group(1)
     else:
         # inch values: '51.0 cm (20")' or '53.3 cm (21)"' -> '20″'
         m = re.search(r"\(([\d.]+)\s*\)?\s*\"", v)
         if m:
             v = m.group(1).rstrip(".0") + "″" if "." in m.group(1) else m.group(1) + "″"
-    v = v.replace("lbs.", "lb").replace("lbs", "lb").replace("minutes", "min")
+    v = v.replace("lbs.", "lb").replace("lbs", "lb")
     # run-time values sometimes glue the next line's first word on
     if v.startswith("Up to"):
         v = re.sub(r"\s+[A-Z][a-z]+$", "", v)
@@ -91,7 +118,7 @@ def parse_block_specs(block: str):
     specs = {}
     matches = list(KEY_HEAD_RE.finditer(region))
     for i, m in enumerate(matches):
-        key = re.sub(r"\s+", " ", m.group(1)).strip()
+        key = re.sub(r"\s+", " ", m.group(1)).replace("*", "").strip()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(region)
         val = region[m.end():end]
         # cut at any unrecognized "Some Phrase:" gluing onto the value,
@@ -101,6 +128,25 @@ def parse_block_specs(block: str):
             val = val[:stray.start()]
         val = val.split("PLEASE NOTE")[0]
         specs.setdefault(key, clean_value(val))
+    # gas pages carry displacement/power (/weight) as an inline line
+    gm = GAS_INLINE_RE.search(region)
+    if gm:
+        specs.setdefault("Displacement", gm.group(2) + " cc")
+        specs.setdefault("Power Output", gm.group(4) + " kW / " + gm.group(3) + " bhp")
+        if gm.group(6):
+            specs.setdefault("Weight", gm.group(6) + " lb")
+    gm = GAS_INLINE2_RE.search(region)
+    if gm:
+        specs.setdefault("Displacement", gm.group(1) + " cc")
+        specs.setdefault("Power Output", gm.group(3) + " kW / " + gm.group(4) + " bhp")
+        if gm.group(6):
+            specs.setdefault("Weight", gm.group(6) + " lb")
+        if gm.group(8):
+            specs.setdefault("Fuel Capacity", gm.group(8) + " qt")
+    # engines described without a power figure ('190 cc (11.59 cu. in.), …')
+    gm = re.search(r"([\d.]+)\s*cc\s*\(([\d.]+)\s*cu\.?\s*in", region)
+    if gm:
+        specs.setdefault("Displacement", gm.group(1) + " cc")
     em = ELECTRIC_HDR_RE.search(block[:400])
     if em:
         specs.setdefault("Power Source", "120 V corded")
@@ -126,15 +172,16 @@ def slot_specs(model, specs):
     is_electric = bool(specs.get("Power Source"))
 
     if is_battery:
-        battery = pick(specs, "Recommended Battery")
-        weight = pick(specs, "Weight without battery", "Weight (Powerhead",
-                      "Weight w/o", "Weight")
-        runtime = pick(specs, "Run time", "Runtime", "Run Time")
+        battery = re.sub(r"\s+Recommend\w*$", "", pick(specs, "Recommended Battery"))
+        weight = pick(specs, "Weight without battery", "Weight Without Battery",
+                      "Weight (Powerhead", "Weight w/o", "Weight")
+        runtime = pick(specs, "Run time", "Runtime", "Run Time", "Run- Time",
+                       "Run-time", "Run-Time")
         title = "BATTERY & PERFORMANCE"
         rows = [["BATTERY SYSTEM", battery], ["WEIGHT (W/O BATTERY)", weight]]
         if cat in ("0LB",) or name.startswith(("MSA", "GTA", "HTA")):
             rows += [["RUN TIME (UP TO)", runtime],
-                     ["CHAIN TYPE", pick(specs, "Chain Type", "Bar & Chain", "Chain")]]
+                     ["CHAIN TYPE", pick(specs, "Chain Type", "Bar & Chain")]]
         elif name.startswith(("BGA", "BRA")):
             rows += [["AIR VOLUME", pick(specs, "Air Volume")],
                      ["MAX AIR VELOCITY", pick(specs, "Max Air Velocity", "Avg. Air Velocity")]]
@@ -152,9 +199,26 @@ def slot_specs(model, specs):
                      fourth]
         else:
             extra = pick(specs, "Cutting", "Blowing Force", "Max Pressure",
-                         "Water Flow", "Suction", "Sweeping", "Drilling", "Torque")
+                         "Water Flow", "Maximum Suction", "Suction Power",
+                         "Sweeping", "Drilling", "Torque")
             rows += [["RUN TIME (UP TO)", runtime], ["PERFORMANCE", extra]]
         return title, rows
+
+    # pressure washers (gas RB and corded RE share the layout)
+    if cat == "1RB":
+        displacement = pick(specs, "Displacement")
+        if displacement:
+            fourth = ["DISPLACEMENT", displacement]
+        elif name.startswith("RE"):  # RE washers are the corded line
+            fourth = ["POWER SOURCE", "120 V corded"]
+        else:
+            fourth = ["DISPLACEMENT", ""]
+        return "SPECIFICATIONS", [
+            ["MAX PRESSURE", pick(specs, "Water Pressure", "Max Pressure", "Working Pressure")],
+            ["WATER FLOW", pick(specs, "Water Flow", "Flow")],
+            ["WEIGHT", pick(specs, "Weight")],
+            fourth,
+        ]
 
     if is_electric:
         title = "SPECIFICATIONS"
@@ -165,13 +229,22 @@ def slot_specs(model, specs):
             fourth_label, fourth = "SUCTION POWER", pick(specs, "Suction", "Vacuum")
         elif name.startswith(("HSE",)):
             fourth_label, fourth = "BLADE LENGTH", pick(specs, "Blade Length", "Cutting Length")
-        elif name.startswith(("RE",)):
-            fourth_label, fourth = "MAX PRESSURE", pick(specs, "Max Pressure", "Working Pressure", "Pressure")
+        elif name.startswith(("FSE",)):
+            fourth_label, fourth = "CUTTING WIDTH", pick(specs, "Cutting Swath", "Cutting Width")
         return title, [
             ["POWER SOURCE", specs.get("Power Source", "")],
             ["POWER OUTPUT", specs.get("Power Output", "")],
             ["WEIGHT", pick(specs, "Weight")],
             [fourth_label, fourth],
+        ]
+
+    # gas zero-turns / front mowers
+    if cat in ("1RZ", "8RZ"):
+        return "ENGINE & PERFORMANCE", [
+            ["DISPLACEMENT", pick(specs, "Displacement")],
+            ["POWER OUTPUT", pick(specs, "Horsepower", "Engine Power", "Power Output")],
+            ["WEIGHT", pick(specs, "Weight")],
+            ["DECK WIDTH", pick(specs, "Deck Width", "Cutting Width")],
         ]
 
     # gas units
@@ -189,34 +262,61 @@ def slot_specs(model, specs):
     return title, rows
 
 
-def parse_saw_parts(block: str, model, bars_set, chains_by_part, variants_set):
-    """Pull per-configuration guide bar / chain part numbers out of a saw table.
+def fmt_part(digits: str) -> str:
+    """'30038123317' -> '3003-812-3317'; unit materials may start with letters."""
+    return digits[:4] + "-" + digits[4:7] + "-" + digits[7:]
 
-    Rows look like (after removing $prices):
-      '... MA03 200 0015 14" 3005 000 14" 4409 0000 792 9172 61 PS3 50 3699 005 0050 ...'
-    Emits only entries where unit material, bar part, and chain part all
-    validate against the dealer price file data.
+
+def parse_parts_tables(text: str, bars_set, chains_by_part, variant_models):
+    """Pull per-configuration guide bar / chain part numbers out of the DSM's
+    'Bar Length | Guide Bar | [Scabbard] | Chain | Chain PN | Part Number'
+    tables, wherever they appear.
+
+    Rows (pypdf extraction, digit groups may have stray spaces):
+      '18" 3003 812 3317 0000 792 9175 23RM3 7 4 3695 005 007 4 1141 200 0681 US $529.99'
+      '14" 3005 000 4409 0000 792 9172 61 PS3 50 3699 005 0050 MA03 200 0015 $439.99'
+    An entry is emitted only when the unit material matches a known saw
+    variant AND the bar and chain part numbers validate against the dealer
+    price file lists AND the chain's marketing number agrees.
     """
-    tm = TABLE_START_RE.search(block)
-    if not tm:
-        return {}
-    table = PRICE_RE.sub(" ", block[tm.start():])
-    table = re.sub(r"\s+", " ", table)
     out = {}
     row_re = re.compile(
-        r"(?P<unit>[A-Z0-9]{4} \d{3} \d{4})(?: US)?"          # unit material
-        r"[^\d]{0,40}?(?P<len>\d{1,2})\" "                     # bar length
-        r"(?P<barA>\d{4} \d{3}) (?:(?P=len)\" )?(?P<barB>\d{4})"  # split bar P/N
-        r".{0,40}? (?P<mktA>\d{2}) ?(?P<mktB>[A-Z]{1,4}\d?) "  # chain marketing
-        r"(?P<links>\d{2,3}) (?P<chA>\d{4}) (?:US )?(?P<chB>\d{3} \d{4})")
-    for m in row_re.finditer(table):
-        unit = m.group("unit").replace(" ", "-")
-        bar = (m.group("barA") + " " + m.group("barB")).replace(" ", "-")
-        chain = (m.group("chA") + " " + m.group("chB")).replace(" ", "-")
-        chain_name = f'{m.group("mktA")}{m.group("mktB")} {m.group("links")}'
-        if unit not in variants_set:
+        r"(?P<len>\d{1,2})\"\s+"
+        r"(?P<left>[\d ]{11,30}?)\s*"
+        r"(?P<mkt>\d{2}\s?[A-Z]{2,4}\d?)\s+"
+        r"(?P<right>[\d ]{13,34}?)"
+        r"(?:(?P<unitpfx>[A-Z]{2}\d{2})\s?(?P<unitrest>\d{3}\s?\d{4}))?"
+        r"\s*(?:US)?\s*\$")
+    for m in row_re.finditer(text):
+        left = re.sub(r"\s", "", m.group("left"))
+        right = re.sub(r"\s", "", m.group("right"))
+        if len(left) not in (11, 22):
             continue
-        if bar not in bars_set or chain not in chains_by_part:
+        bar = fmt_part(left[:11])  # second 11 digits, if present, are the scabbard
+        if m.group("unitpfx"):     # battery saws: unit material is alphanumeric
+            links, chain_digits = None, None
+            for l in (2, 3):
+                if len(right) - l == 11:
+                    links, chain_digits = right[:l], right[l:]
+            unit = m.group("unitpfx") + re.sub(r"\s", "", m.group("unitrest"))
+        else:                      # gas saws: unit material is all digits
+            links = chain_digits = unit = None
+            for l in (2, 3):
+                if len(right) - l == 22:
+                    links, chain_digits, unit = right[:l], right[l:l + 11], right[l + 11:]
+        if not links or not chain_digits or not unit:
+            continue
+        chain = fmt_part(chain_digits)
+        unit = fmt_part(unit)
+        chain_name = re.sub(r"\s", "", m.group("mkt")) + " " + links
+        if unit not in variant_models:
+            continue
+        # bars that ship only on saws aren't in the price file's bar list;
+        # accept them when column alignment is proven by the scabbard
+        # column's invariant '0000 792' prefix next to the bar digits
+        bar_ok = bar in bars_set or (
+            len(left) == 22 and left[11:18] == "0000792")
+        if not bar_ok or chain not in chains_by_part:
             continue
         mkt = chains_by_part[chain].get("marketing", "")
         if mkt and mkt.replace(" ", "") != chain_name.replace(" ", ""):
@@ -231,6 +331,19 @@ def main(paths):
     text = text.replace("\\!", "!").replace("“", '"').replace("”", '"')
     text = text.replace(" ", " ")
 
+    # pypdf extraction artifacts: split decimals ('7 .6 kg'), split capitals
+    # ('Chain T ype', 'T ooth'), fl/fi ligatures, 'Ibs' OCR, manual typos,
+    # words hyphenated across line breaks ('Displace-\nment')
+    text = re.sub(r"([A-Za-z])-\s*\n\s*([a-z])", r"\1\2", text)
+    text = re.sub(r"(\d) \.(\d)", r"\1.\2", text)
+    text = re.sub(r"\bT (?=[a-z])", "T", text)
+    text = text.replace("/uniFB02", "fl").replace("/uniFB01", "fi")
+    text = re.sub(r"\bIbs\b", "lbs", text)
+    text = re.sub(r"\b[Uu]p t[po]\b", "Up to", text)
+    text = text.replace("1/ 4", "1/4")
+    text = re.sub(r'([&\s])!(?=["”])', r"\g<1>1/4", text)  # '¼' extracts as '!'
+    text = re.sub(r"Chain Type,\s", "Chain Type: ", text)  # comma-for-colon typo
+
     products = load_products()
     bars_set = {b["part"] for b in products["bars"]}
     chains_by_part = {c["part"]: c for c in products["chains"]}
@@ -242,67 +355,152 @@ def main(paths):
     def name_regex(name, flex):
         parts = []
         for t in name.split():
-            base = t[:-2] if flex and t.endswith(".0") else t
-            p = re.escape(base)
-            if flex and base and base[-1].isdigit():
-                p += r"(?:\.0)?"
+            if flex and re.search(r"\d\.0", t):
+                # '.0' is optional anywhere in a numeric token: 752.0i ~ 752i
+                p = re.escape(t).replace(re.escape(".0"), r"(?:\.0)?")
+            elif flex and re.match(r"^[A-Z]{2}-[A-Z]+$", t):
+                # suffixes may gain a space in the manual: 'RC-E' ~ 'R C-E'
+                p = t[0] + r" ?" + re.escape(t[1:])
+            else:
+                p = re.escape(t)
             parts.append(p)
-        return re.compile(r"(?<![A-Za-z0-9])" + r"\s+".join(parts) + r"(?![A-Za-z0-9.])")
+        return re.compile(r"(?<![A-Za-z0-9])" + r"\s+".join(parts) + r"(?![A-Za-z0-9.])",
+                          re.IGNORECASE if flex else 0)
+
+    # 'MS 251' must not match at an 'MS 251 C-BE' heading (sibling product)
+    norm_names = {norm_model(n).upper() for n in all_names}
+
+    def is_sibling_heading(name, following):
+        t = re.match(r"\s+([A-Za-z][A-Za-z0-9.\-]{0,7})", following)
+        if not t:
+            return False
+        cand = norm_model(name + " " + t.group(1)).upper()
+        return cand != norm_model(name).upper() and cand in norm_names
+
+    def count_keys(chunk):
+        return sum(1 for km in KEY_RE.finditer(chunk)
+                   if km.group(1).split()[0] in KEY_FIRST_WORDS)
 
     def find_best(name, flex):
         best = None
         for m in name_regex(name, flex).finditer(text):
+            if is_sibling_heading(name, text[m.end(): m.end() + 12]):
+                continue
             window = text[m.end(): m.end() + 1500]
-            score = sum(1 for km in KEY_RE.finditer(window)
-                        if km.group(1).split()[0] in KEY_FIRST_WORDS)
-            # a real spec page opens with '<MODEL> … Series …' (or the
-            # electric '120 V (60 hz)' header); comparison charts don't
-            if re.search(r"Series|120 V", window[:80]):
-                score += 100
-            if score >= 2 and (best is None or score > best[1]):
+            near = count_keys(window[:300])  # keys right after the heading
+            far = count_keys(window)
+            if near == 0 and far < 2:
+                continue
+            score = near * 10 + far
+            # a real spec page opens with '<MODEL> … Series …', the electric
+            # '120 V (60 hz)' header, or the mower 'WB01/ Professional' tag;
+            # TOC pages and comparison charts don't. A '$' on the model's own
+            # line means this is a price row, not a heading. And the marker
+            # must belong to THIS heading — if another model's heading line
+            # sits between the name and the marker, the marker is the
+            # neighbor's (e.g. an 'FSA 30.0 set…' row right before the
+            # FSA 50.0 page must not borrow FSA 50's 'Series' line).
+            nl = text.find("\n", m.end())
+            rest_of_line = text[m.end(): m.end() + 80 if nl == -1 else min(nl, m.end() + 80)]
+            marker = re.search(r"Series|120 V|W[AB]\d\d\s*/", window[:80])
+            own_marker = False
+            if marker and "$" not in rest_of_line:
+                between = window[:marker.start()]
+                own_marker = not re.search(r"\n\s*(?:STIHL )?[A-Z]{2,4} ?\d", between)
+            if own_marker:
+                score += 1000
+            if best is None or score > best[1]:
                 best = (m.start(), score)
         return best
 
     positions = []
     for model in products["models"]:
-        hit = find_best(model["model"], flex=False)
-        if not hit:
-            # version-flexible match ('MSA 160 C-B' ~ 'MSA 160.0 C-B'), but only
-            # when the flexed name is not itself a different catalog model —
-            # successor generations must not inherit each other's specs
-            flexed = norm_model(model["model"])
-            conflict = any(n != model["model"] and norm_model(n) == flexed
-                           for n in all_names)
-            if not conflict:
-                hit = find_best(model["model"], flex=True)
+        # only real model designations get spec lookups — free-text entries
+        # like 'Deflector' would match accessory prose
+        if not re.match(r"^i?[A-Z]{2,4} ?\d", model["model"]):
+            continue
+        # version-flexible matching ('MSA 160 C-B' ~ 'MSA 160.0 C-B') is a
+        # superset of exact matching, so use it whenever the flexed name is
+        # not itself a different catalog model — successor generations must
+        # not inherit each other's specs. This matters: a model's exact name
+        # often appears only in price rows while its heading drops the '.0'.
+        flexed = norm_model(model["model"])
+        conflict = any(n != model["model"] and norm_model(n) == flexed
+                       for n in all_names)
+        hit = find_best(model["model"], flex=not conflict)
         if hit:
             positions.append((hit[0], model))
     positions.sort(key=lambda x: x[0])
 
-    specs_out, parts_out = {}, {}
+    def clip_block(block):
+        """A model's block never spans past its page footer — the next page
+        may describe a different variant (e.g. the RESCUE saws)."""
+        w = block.find("WARNING!", 100)
+        return block[:w] if w > 0 else block
+
+    specs_out = {}
     for i, (pos, model) in enumerate(positions):
         end = positions[i + 1][0] if i + 1 < len(positions) else min(len(text), pos + 4000)
-        block = text[pos:min(end, pos + 6000)]
+        block = clip_block(text[pos:min(end, pos + 6000)])
         raw = parse_block_specs(block)
         if raw:
             title, rows = slot_specs(model, raw)
             if any(v for _, v in rows):
                 specs_out[model["model"]] = {"title": title, "specs": rows}
-        if model["category"] in ("0CS", "0LB"):
-            variants_set = {v["materialDash"] for v in model["variants"]}
-            parts_out.update(parse_saw_parts(block, model, bars_set,
-                                             chains_by_part, variants_set))
 
-    # SET packages share the base tool's hardware specs
+    # part-number tables are matched globally; validation ties rows to models
+    variant_models = {}
+    for model in products["models"]:
+        if model["category"] in ("0CS", "0LB"):
+            for v in model["variants"]:
+                variant_models[v["materialDash"]] = model["model"]
+    parts_out = parse_parts_tables(text, bars_set, chains_by_part, variant_models)
+
+    # R/T handle variants share a page headed by the bare model (HS 87 R/T
+    # -> 'HS 87'); parse that shared block, whose R/T-specific weight bullets
+    # are ignored by the key vocabulary, leaving the common engine specs.
+    # If the variant matched directly (e.g. at its bullet), keep whichever
+    # block fills more cells.
+    def filled(entry):
+        return sum(1 for _, v in entry["specs"] if v) if entry else 0
+
     for model in products["models"]:
         name = model["model"]
-        if name in specs_out or " SET" not in name:
-            continue
-        for base in (name.replace(" SET", ""),
-                     name.replace(" SET", "").replace(" (USA)", "")):
-            if base in specs_out:
-                specs_out[name] = specs_out[base]
-                break
+        bases = []
+        if re.search(r" [RT]$", name):
+            bases.append(name[:-2])
+        if " SET" in name:
+            b = name.replace(" SET", "").strip()
+            bases += [b, b.replace("(USA)", "").strip()]
+        for base in dict.fromkeys(bases):
+            if not base or base == name or base in all_names:
+                continue  # a real product owns that page; don't borrow it
+            hit = find_best(base, flex=True)
+            if not hit:
+                continue
+            raw = parse_block_specs(clip_block(text[hit[0]: hit[0] + 4000]))
+            if not raw:
+                continue
+            title, rows = slot_specs(model, raw)
+            cand = {"title": title, "specs": rows}
+            # ties go to the base page: a SET/R/T model's own direct match
+            # is usually a bundle price row bleeding the next page's specs
+            if filled(cand) >= filled(specs_out.get(name)):
+                specs_out[name] = cand
+
+    # SET packages share the base tool's hardware specs (and vice versa).
+    # A SET never has its own spec page — any direct match was a price row,
+    # so the base product's specs always win for a SET.
+    for model in products["models"]:
+        name = model["model"]
+        if " SET" in name:
+            for base in (name.replace(" SET", "").strip(),
+                         name.replace(" SET", "").replace("(USA)", "").strip()):
+                if base in all_names and base in specs_out:
+                    specs_out[name] = specs_out[base]
+                    break
+        elif name not in specs_out and (name + " SET") in specs_out:
+            specs_out[name] = specs_out[name + " SET"]
 
     (DATA / "specs_dsm.js").write_text(
         "// Generated by tools/parse_dsm.py from the " + SOURCE_LABEL + ".\n"

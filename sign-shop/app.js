@@ -119,9 +119,16 @@
   function defaultSpecs(model) {
     const dsm = SPECS_DSM[model.model];
     if (dsm) {
+      // fill any cell the manual leaves blank (e.g. gas saw powerhead
+      // weight) from the curated library, matched by label
+      const curatedRows = (SPECS[model.model] || {}).specs || [];
+      const byLabel = {};
+      curatedRows.forEach(([l, v]) => { byLabel[l.toUpperCase()] = v; });
+      const rows = dsm.specs.map(([l, v]) =>
+        [l, v || byLabel[l.toUpperCase()] || ""]);
       return {
         title: dsm.title,
-        specs: dsm.specs.map(s => s.slice()),
+        specs: rows,
         source: "from the 2026 Dealer Support Manual V2"
       };
     }
@@ -210,9 +217,11 @@
       const w = lengthWord(category);
       parts.push(barIn + "″" + (w ? " " + w : ""));
     }
-    // '61PS3 50' from the DSM displays as '61 PS3 50'
-    const chain = v.chain ||
-      (dsm.chainName ? dsm.chainName.replace(/^(\d{2})(\S)/, "$1 $2") : "");
+    // the DSM chain name carries the drive-link count ('61PS3 50'), so it
+    // beats the dealer description's bare family code; display as '61 PS3 50'
+    const chain = (dsm.chainName
+      ? dsm.chainName.replace(/^(\d{2})\s?(\S)/, "$1 $2")
+      : "") || v.chain;
     if (chain) parts.push(chain);
     if (!parts.length) {
       const tail = meaningfulTail(v);
@@ -730,7 +739,10 @@
   ].join("|") + ")");
   const BAR_LEN_RE = /(\d+)\s*(?:cm|mm)\/(\d+)\s*in/;
   const CHAIN_CODE_RE = /\b(\d{2}\s?(?:RS|RM|RH|PM|PMM|PS|PD)[A-Z0-9]{0,3})\b/;
-  const NICKNAME_RE = /(Farm Boss|Wood Boss|Magnum|Yard Boss)/i;
+  const NICKNAME_RE = /(Farm Boss|Wood Boss|Magnum|Yard Boss|Dirt Boss)/i;
+  // marketing names confirmed by the Dealer Support Manual where retail
+  // descriptions don't carry them (keep in sync with tools/build_data.py)
+  const NICKNAME_BY_MODEL = { "MS 251": "WOOD BOSS", "RB 400": "DIRT BOSS" };
 
   function dashPart(material) {
     return material.replace(/ US$/, "").trim().replace(/\s+/g, "-");
@@ -856,7 +868,10 @@
     }
     const models = Object.values(groups)
       .sort((a, b) => (a.category + a.model).localeCompare(b.category + b.model));
-    models.forEach(g => g.variants.sort((a, b) => (a.barIn || 0) - (b.barIn || 0) || a.msrp - b.msrp));
+    models.forEach(g => {
+      g.variants.sort((a, b) => (a.barIn || 0) - (b.barIn || 0) || a.msrp - b.msrp);
+      if (!g.nickname && NICKNAME_BY_MODEL[g.model]) g.nickname = NICKNAME_BY_MODEL[g.model];
+    });
 
     // display date pulled from STIHL's file name, e.g. …_07_01_2026_10_47_56_AM.csv
     const dm = /(\d{2})_(\d{2})_(\d{4})/.exec(fileName || "");

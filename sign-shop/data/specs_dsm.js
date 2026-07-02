@@ -39,7 +39,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "CHAIN TYPE",
-    "Light 01 bar & ¼\" PM3"
+    "Light 01 bar & 1/4\" PM3"
    ]
   ]
  },
@@ -81,7 +81,70 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "PERFORMANCE",
-    "180 mbar"
+    ""
+   ]
+  ]
+ },
+ "SEA 100.0": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "16.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 30 min."
+   ],
+   [
+    "PERFORMANCE",
+    "210 mbar"
+   ]
+  ]
+ },
+ "REA 60.0 PLUS": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 30 / AK 30S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "14.3 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 25 min"
+   ],
+   [
+    "PERFORMANCE",
+    "230 L/Hr ( 1 GPM)"
+   ]
+  ]
+ },
+ "REA 100.0 PLUS SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "14.3 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 45 min"
+   ],
+   [
+    "PERFORMANCE",
+    "270 L/Hr ( 1.2 GPM)"
    ]
   ]
  },
@@ -123,7 +186,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "PERFORMANCE",
-    ""
+    "8 N"
    ]
   ]
  },
@@ -153,7 +216,7 @@ window.SIGN_SPECS_DSM = {
   "specs": [
    [
     "BATTERY SYSTEM",
-    "AS 2 Recommend"
+    "AS 2"
    ],
    [
     "WEIGHT (W/O BATTERY)",
@@ -166,6 +229,48 @@ window.SIGN_SPECS_DSM = {
    [
     "MAX AIR VELOCITY",
     "96 mph"
+   ]
+  ]
+ },
+ "BGA 30.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AS 2"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "3.3 lb"
+   ],
+   [
+    "AIR VOLUME",
+    "253 cfm"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "96 mph"
+   ]
+  ]
+ },
+ "BGA 50.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 20"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "4.8 lb"
+   ],
+   [
+    "AIR VOLUME",
+    "455 cfm"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "123 mph"
    ]
   ]
  },
@@ -405,19 +510,40 @@ window.SIGN_SPECS_DSM = {
   "specs": [
    [
     "BATTERY SYSTEM",
-    "AK 10"
+    "AS 2"
    ],
    [
     "WEIGHT (W/O BATTERY)",
-    "6.6 lb"
+    "4.6 lb"
    ],
    [
     "RUN TIME (UP TO)",
-    "Up to 20 min"
+    "Up to 19 min"
    ],
    [
     "CUTTING WIDTH",
-    "11.8″"
+    "9″"
+   ]
+  ]
+ },
+ "FSA 30.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AS 2"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "4.6 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 19 min"
+   ],
+   [
+    "CUTTING WIDTH",
+    "9″"
    ]
   ]
  },
@@ -577,7 +703,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "WEIGHT (W/O BATTERY)",
-    "10.1 lb"
+    "10.8 lb"
    ],
    [
     "RUN TIME (UP TO)",
@@ -732,7 +858,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "CHAIN TYPE",
-    "7.1 oz."
+    ""
    ]
   ]
  },
@@ -833,11 +959,11 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "RUN TIME (UP TO)",
-    "up to 44 min Chain Type,…"
+    "Up to 44 min"
    ],
    [
     "CHAIN TYPE",
-    "10.5 oz."
+    ".325\" RS3 chain"
    ]
   ]
  },
@@ -1047,7 +1173,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "AREA MOWED (UP TO)",
-    "Approx. 8,072 sq.ft"
+    "Approx. 8,072 sq.\""
    ]
   ]
  },
@@ -1114,6 +1240,90 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "HSA 40.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AS 2"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "4.62 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 80 min with two AS2"
+   ],
+   [
+    "BLADE LENGTH",
+    "20″"
+   ]
+  ]
+ },
+ "HSA 50.1": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 10"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "6.4 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 50 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "20″"
+   ]
+  ]
+ },
+ "HSA 50.1 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 10"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "6.4 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 50 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "20″"
+   ]
+  ]
+ },
+ "HSA 100.1": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "7.7 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 150 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "24″"
+   ]
+  ]
+ },
  "HSA 130.0 R": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
@@ -1123,11 +1333,11 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "WEIGHT (W/O BATTERY)",
-    "9.0 lb"
+    "9.5 lb"
    ],
    [
     "RUN TIME (UP TO)",
-    "Up to 690 min"
+    "Up to 150 min"
    ],
    [
     "BLADE LENGTH",
@@ -1144,15 +1354,99 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "WEIGHT (W/O BATTERY)",
-    "8.6 lb"
+    "9.5 lb"
    ],
    [
     "RUN TIME (UP TO)",
-    "Up to 690 min"
+    "Up to 150 min"
    ],
    [
     "BLADE LENGTH",
     "24″"
+   ]
+  ]
+ },
+ "HSA 140.0 R": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "9.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 150 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "24″"
+   ]
+  ]
+ },
+ "HSA 140.0 T": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "9.3 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 150 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "24″"
+   ]
+  ]
+ },
+ "HSA 150.0 R": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "10.1 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 150 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "30″"
+   ]
+  ]
+ },
+ "HSA 150.0 T": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "9.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 140 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "30″"
    ]
   ]
  },
@@ -1169,7 +1463,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "RUN TIME (UP TO)",
-    "(144 Wh) Up to 100 min"
+    "Up to 100 min"
    ],
    [
     "BLADE LENGTH",
@@ -1228,7 +1522,28 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "WEIGHT (W/O BATTERY)",
-    "10.4 lb"
+    "11.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 64 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "24″"
+   ]
+  ]
+ },
+ "HLA 135": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 200"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "12.4 lb"
    ],
    [
     "RUN TIME (UP TO)",
@@ -1345,6 +1660,27 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "KMA 80.0 R SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 30"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "7.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    ""
+   ],
+   [
+    "PERFORMANCE",
+    "15 Newtons"
+   ]
+  ]
+ },
  "KMA 135 R": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
@@ -1359,6 +1695,69 @@ window.SIGN_SPECS_DSM = {
    [
     "RUN TIME (UP TO)",
     "Varies based on attachment…"
+   ],
+   [
+    "PERFORMANCE",
+    ""
+   ]
+  ]
+ },
+ "KMA 200.0 R": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 500 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "8.6 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    ""
+   ],
+   [
+    "PERFORMANCE",
+    "17.7″"
+   ]
+  ]
+ },
+ "KGA 770.0": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "37.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 260 min"
+   ],
+   [
+    "PERFORMANCE",
+    "30″"
+   ]
+  ]
+ },
+ "SGA 30.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AS 2"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "4.6 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 30 min"
    ],
    [
     "PERFORMANCE",
@@ -1409,23 +1808,107 @@ window.SIGN_SPECS_DSM = {
   ]
  },
  "RE 80.0": {
-  "title": "ENGINE & PERFORMANCE",
+  "title": "SPECIFICATIONS",
   "specs": [
    [
-    "DISPLACEMENT",
+    "MAX PRESSURE",
     ""
    ],
    [
-    "POWER OUTPUT",
-    ""
+    "WATER FLOW",
+    "1.2 GPM"
    ],
    [
     "WEIGHT",
     "16.5 lb"
    ],
    [
-    "FUEL CAPACITY",
-    ""
+    "POWER SOURCE",
+    "120 V corded"
+   ]
+  ]
+ },
+ "RE 90.0 PLUS": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "MAX PRESSURE",
+    "1,800 psi"
+   ],
+   [
+    "WATER FLOW",
+    "1.2 GPM"
+   ],
+   [
+    "WEIGHT",
+    "19.8 lb"
+   ],
+   [
+    "POWER SOURCE",
+    "120 V corded"
+   ]
+  ]
+ },
+ "RE 110 PLUS": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "MAX PRESSURE",
+    "2,000 psi"
+   ],
+   [
+    "WATER FLOW",
+    "1.2 GPM"
+   ],
+   [
+    "WEIGHT",
+    "42 lb"
+   ],
+   [
+    "POWER SOURCE",
+    "120 V corded"
+   ]
+  ]
+ },
+ "FSE 60": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "POWER SOURCE",
+    "120 V corded"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.6 kW (5.3 A)"
+   ],
+   [
+    "WEIGHT",
+    "8.8 lb"
+   ],
+   [
+    "CUTTING WIDTH",
+    "14″"
+   ]
+  ]
+ },
+ "SE 33": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "POWER SOURCE",
+    "120 V corded"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.0 kW (8.3 A)"
+   ],
+   [
+    "WEIGHT",
+    "11.7 lb"
+   ],
+   [
+    "SUCTION POWER",
+    "84 in"
    ]
   ]
  },
@@ -1471,6 +1954,2337 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "MS 162": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "30.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.2 kW / 1.6 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "9.9 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "13.5 oz."
+   ]
+  ]
+ },
+ "MS 172 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "31.8 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.9 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "10.4 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "13.5 oz."
+   ]
+  ]
+ },
+ "MS 182": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "35.8 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.6 kW / 2.1 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "10.1 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "13.5 oz."
+   ]
+  ]
+ },
+ "MS 182 C-BE": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "35.8 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.6 kW / 2.1 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "10.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "13.5 oz."
+   ]
+  ]
+ },
+ "MS 212 C-BE": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "38.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.8 kW / 2.4 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "10.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "13.5 oz."
+   ]
+  ]
+ },
+ "MS 250": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "45.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.2 kW / 3.0 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    "10.1 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "15.9 oz."
+   ]
+  ]
+ },
+ "MS 251": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "45.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.2 kW / 3.0 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "13.2 oz."
+   ]
+  ]
+ },
+ "MS 251 C-BE": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "45.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.2 kW / 3.0 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "13.2 oz."
+   ]
+  ]
+ },
+ "MS 271": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "50.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.6 kW / 3.5 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "16.9 oz."
+   ]
+  ]
+ },
+ "MS 291": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "55.5 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.8 kW / 3.8 bhp"
+   ],
+   [
+    "POWERHEAD WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "16.9 oz."
+   ]
+  ]
+ },
+ "FC 56 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.8 kW / 1.1 bhp"
+   ],
+   [
+    "WEIGHT",
+    "13.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz."
+   ]
+  ]
+ },
+ "FC 91": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "28.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.1 kW / 1.3 bhp"
+   ],
+   [
+    "WEIGHT",
+    "13.2 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "FC 96": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "28.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.95 kW / 1.3 bhp"
+   ],
+   [
+    "WEIGHT",
+    "13.7 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "FS 38": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.7 kW / 0.9 bhp"
+   ],
+   [
+    "WEIGHT",
+    "9.3 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.2 oz."
+   ]
+  ]
+ },
+ "FS 40 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.7 kW / 0.9 bhp"
+   ],
+   [
+    "WEIGHT",
+    "9.9 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz."
+   ]
+  ]
+ },
+ "FS 50 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.8 kW / 1.1 bhp"
+   ],
+   [
+    "WEIGHT",
+    "10.1 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz."
+   ]
+  ]
+ },
+ "FS 56 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.8 kW / 1.1 bhp"
+   ],
+   [
+    "WEIGHT",
+    "11.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz."
+   ]
+  ]
+ },
+ "FS 56 RC-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.8 kW / 1.07 bhp"
+   ],
+   [
+    "WEIGHT",
+    "10.6 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz."
+   ]
+  ]
+ },
+ "FS 70 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.9 kW / 1.2 bhp"
+   ],
+   [
+    "WEIGHT",
+    "10.6 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz."
+   ]
+  ]
+ },
+ "FS 91.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "28.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.95 kW / 1.27 bhp"
+   ],
+   [
+    "WEIGHT",
+    "12.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "FS 91 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "28.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.95 kW / 1.27 bhp"
+   ],
+   [
+    "WEIGHT",
+    "12.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "FS 94 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "24.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.9 kW / 1.2 bhp"
+   ],
+   [
+    "WEIGHT",
+    "10.1 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "18.3 oz."
+   ]
+  ]
+ },
+ "FS 131.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "36.3 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.9 bhp"
+   ],
+   [
+    "WEIGHT",
+    "12.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "FS 131.0 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "36.3 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.9 bhp"
+   ],
+   [
+    "WEIGHT",
+    "12.1 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "FS 251.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "41.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.0 kW / 2.7 bhp"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "25.4 oz."
+   ]
+  ]
+ },
+ "FS 251.0 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "41.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.0 kW / 2.7 bhp"
+   ],
+   [
+    "WEIGHT",
+    "14.6 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "25.4 oz."
+   ]
+  ]
+ },
+ "FS 461.0 C-EM": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "45.6 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.2 kW / 3.0 bhp"
+   ],
+   [
+    "WEIGHT",
+    "19.2 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "25.4 oz."
+   ]
+  ]
+ },
+ "FS 561.0 C-EM": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "57.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "2.8 kW / 3.75 bhp"
+   ],
+   [
+    "WEIGHT",
+    "22.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "33.5 oz."
+   ]
+  ]
+ },
+ "KM 56 RC-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.8 kW / 1.07 bhp"
+   ],
+   [
+    "WEIGHT",
+    "9.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz."
+   ]
+  ]
+ },
+ "KM 91 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "28.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.95 kW / 1.27 bhp"
+   ],
+   [
+    "WEIGHT",
+    "9.7 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "KM 94 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "24.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.9 kW / 1.2 bhp"
+   ],
+   [
+    "WEIGHT",
+    "8.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "18.3 oz."
+   ]
+  ]
+ },
+ "KM 131 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "36.3 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.9 bhp"
+   ],
+   [
+    "WEIGHT",
+    "9.7 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "MM 56 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.85 kW / 1.14 bhp"
+   ],
+   [
+    "WEIGHT",
+    "21.8 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz"
+   ]
+  ]
+ },
+ "BR 200": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "400 cfm"
+   ],
+   [
+    "WEIGHT",
+    "12.6 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "150 mph"
+   ]
+  ]
+ },
+ "BR 430": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "63.3 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "500 cfm"
+   ],
+   [
+    "WEIGHT",
+    "22.3 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "219 mph"
+   ]
+  ]
+ },
+ "BR 450": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "63.3 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "642 cfm"
+   ],
+   [
+    "WEIGHT",
+    "23.4 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "219 mph"
+   ]
+  ]
+ },
+ "BR 600": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "64.8 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "677 cfm"
+   ],
+   [
+    "WEIGHT",
+    "21.6 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "238 mph"
+   ]
+  ]
+ },
+ "BR 700": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "64.8 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "912 cfm"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "197 mph"
+   ]
+  ]
+ },
+ "BR 800 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "79.9 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "912 cfm"
+   ],
+   [
+    "WEIGHT",
+    "25.8 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "239 mph"
+   ]
+  ]
+ },
+ "BR 800 X": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "79.9 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "912 cfm"
+   ],
+   [
+    "WEIGHT",
+    "23 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "239 mph"
+   ]
+  ]
+ },
+ "BG 50": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "412 cfm"
+   ],
+   [
+    "WEIGHT",
+    "7.9 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "159 mph"
+   ]
+  ]
+ },
+ "BG 56 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "412 cfm"
+   ],
+   [
+    "WEIGHT",
+    "9.3 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "159 mph"
+   ]
+  ]
+ },
+ "BG 86": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "365 cfm"
+   ],
+   [
+    "WEIGHT",
+    "9.7 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "190 mph"
+   ]
+  ]
+ },
+ "BG 86 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "365 cfm"
+   ],
+   [
+    "WEIGHT",
+    "9.9 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "190 mph"
+   ]
+  ]
+ },
+ "SH 56 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "412 cfm"
+   ],
+   [
+    "WEIGHT",
+    "11.5 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "159 mph"
+   ]
+  ]
+ },
+ "SH 86 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "444 cfm"
+   ],
+   [
+    "WEIGHT",
+    "12.3 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    "170 mph"
+   ]
+  ]
+ },
+ "SR 200": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "391 cfm"
+   ],
+   [
+    "WEIGHT",
+    "18.7 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    ""
+   ]
+  ]
+ },
+ "SR 430": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "63.3 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "542 cfm"
+   ],
+   [
+    "WEIGHT",
+    "27.3 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    ""
+   ]
+  ]
+ },
+ "SR 450": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "63.3 cc"
+   ],
+   [
+    "AIR VOLUME",
+    "542 cfm"
+   ],
+   [
+    "WEIGHT",
+    "28.2 lb"
+   ],
+   [
+    "MAX AIR VELOCITY",
+    ""
+   ]
+  ]
+ },
+ "HL 56 K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.8 kW / 1.07 bhp"
+   ],
+   [
+    "WEIGHT",
+    "12.6 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz"
+   ]
+  ]
+ },
+ "HL 91 K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "24.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.9 kW / 1.2 bhp"
+   ],
+   [
+    "WEIGHT",
+    "11.9 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "18.3 oz."
+   ]
+  ]
+ },
+ "HL 94": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "24.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.9 kW / 1.2 bhp"
+   ],
+   [
+    "WEIGHT",
+    "13.7 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "18.3 oz."
+   ]
+  ]
+ },
+ "HL 94 K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "24.1 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.9 kW / 1.2 bhp"
+   ],
+   [
+    "WEIGHT",
+    "12.1 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "18.3 oz."
+   ]
+  ]
+ },
+ "HS 45": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.75 kW / 1.01 bhp"
+   ],
+   [
+    "WEIGHT",
+    "10.4 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "7.8 oz."
+   ]
+  ]
+ },
+ "HS 46 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "21.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.65 kW / 0.87 bhp"
+   ],
+   [
+    "WEIGHT",
+    "9.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "9.5 oz."
+   ]
+  ]
+ },
+ "HS 56": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "21.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.65 kW / 0.87 bhp"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "9.5 oz."
+   ]
+  ]
+ },
+ "HS 82 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "22.7 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.7 kW / 0.94 bhp"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "15.6 oz."
+   ]
+  ]
+ },
+ "HS 87 R": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "22.7 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.7 kW / 0.94 bhp"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "15.6 oz."
+   ]
+  ]
+ },
+ "HT 56 C-E": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.8 kW / 1.1 bhp"
+   ],
+   [
+    "WEIGHT",
+    "14.1 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "11.5 oz."
+   ]
+  ]
+ },
+ "HT 105": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "31.4 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.05 kW / 1.4 bhp"
+   ],
+   [
+    "WEIGHT",
+    "17.3 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "17.9 oz."
+   ]
+  ]
+ },
+ "HT 134": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "36.3 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.9 bhp"
+   ],
+   [
+    "WEIGHT",
+    "14.0 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "17.9 oz."
+   ]
+  ]
+ },
+ "HT 135": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "36.3 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.9 bhp"
+   ],
+   [
+    "WEIGHT",
+    "17.3 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "17.9 oz."
+   ]
+  ]
+ },
+ "HT 250": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "40.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.6 kW / 2.1 bhp"
+   ],
+   [
+    "WEIGHT",
+    "13.9 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "21.6 oz."
+   ]
+  ]
+ },
+ "RB 200.0": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "MAX PRESSURE",
+    "2,500 psi"
+   ],
+   [
+    "WATER FLOW",
+    "2.3 gpm"
+   ],
+   [
+    "WEIGHT",
+    "57.32 lb (26kg)"
+   ],
+   [
+    "DISPLACEMENT",
+    "190 cc"
+   ]
+  ]
+ },
+ "RB 400": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "MAX PRESSURE",
+    "2,700 psi"
+   ],
+   [
+    "WATER FLOW",
+    "2.7 gpm"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "DISPLACEMENT",
+    "196 cc"
+   ]
+  ]
+ },
+ "RB 600": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "MAX PRESSURE",
+    "3,200 psi"
+   ],
+   [
+    "WATER FLOW",
+    "3.0 gpm"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "DISPLACEMENT",
+    "208 cc"
+   ]
+  ]
+ },
+ "RB 800": {
+  "title": "SPECIFICATIONS",
+  "specs": [
+   [
+    "MAX PRESSURE",
+    "4,200 psi"
+   ],
+   [
+    "WATER FLOW",
+    "4.0 gpm"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "DISPLACEMENT",
+    "429 cc"
+   ]
+  ]
+ },
+ "WP 300.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "212 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "57.32 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "WP 600.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "212 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "63.93 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "WP 900.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "252 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "83.77 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "TS 410": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "66.7 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.2 kW / 4.4 bhp"
+   ],
+   [
+    "WEIGHT",
+    "20.7 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24 oz."
+   ]
+  ]
+ },
+ "TS 420": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "66.7 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.2 kW / 4.4 bhp"
+   ],
+   [
+    "WEIGHT",
+    "21.2 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24 oz."
+   ]
+  ]
+ },
+ "TS 440": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    ""
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz"
+   ]
+  ]
+ },
+ "TS 500i": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "72.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "3.9 kW / 5.2 bhp"
+   ],
+   [
+    "WEIGHT",
+    "22.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.5 oz."
+   ]
+  ]
+ },
+ "TS 710.0i": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "92 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "5.2 kW / 7.0 bhp"
+   ],
+   [
+    "WEIGHT",
+    "26.9 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "42.3 oz."
+   ]
+  ]
+ },
+ "TS 910.0i": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "102 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "6.2 kW / 8.3 bhp"
+   ],
+   [
+    "WEIGHT",
+    "28.2 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "42.3 oz"
+   ]
+  ]
+ },
+ "RZ 142.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "724 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "23 hp"
+   ],
+   [
+    "WEIGHT",
+    "815 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 152.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "724 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "25 hp"
+   ],
+   [
+    "WEIGHT",
+    "925 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 261.0": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "724 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "25 hp"
+   ],
+   [
+    "WEIGHT",
+    "965 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 560.0 K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "726 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "24 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,197 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 752.0i": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "810 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "28 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,319 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 752.0 K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "852 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "25.5 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,319 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 752.0i K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "726 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "26 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,319 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 760.0i": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "810 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "28 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,398 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 760.0i K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "726 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "26 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,398 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 960.0i": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "993 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "40 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,608 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 960.0i K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "999 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "38.5 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,608 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 972.0i": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "993 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "40 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,717 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZ 972.0i K": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "999 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "38.5 hp"
+   ],
+   [
+    "WEIGHT",
+    "1,717 lb"
+   ],
+   [
+    "DECK WIDTH",
+    ""
+   ]
+  ]
+ },
+ "RZA 748.0": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    ""
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "1,539 lb"
+   ],
+   [
+    "CUTTING WIDTH",
+    ""
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 8 hrs."
+   ]
+  ]
+ },
+ "RZA 752.0": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    ""
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "1,572 lb"
+   ],
+   [
+    "CUTTING WIDTH",
+    ""
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 8 hrs."
+   ]
+  ]
+ },
+ "RZA 760.0": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    ""
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "1,623 lb"
+   ],
+   [
+    "CUTTING WIDTH",
+    ""
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 8 hrs."
+   ]
+  ]
+ },
+ "RM 453.3 T": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    ""
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "70.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "RM 453.3 V": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    ""
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "72.7 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "RM 655.0 V": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "173 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "101.4 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "RM 655.1 VS": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "173 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "101.4 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "RM 655.1 YS": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "173 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "123.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "RM 756.1 YC": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "200 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    ""
+   ],
+   [
+    "WEIGHT",
+    "134.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    ""
+   ]
+  ]
+ },
+ "BT 45": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "27.2 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.8 kW / 1.07 bhp"
+   ],
+   [
+    "WEIGHT",
+    "10.5 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "8.5 oz."
+   ]
+  ]
+ },
+ "BT 131": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "36.3 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "1.4 kW / 1.9 bhp"
+   ],
+   [
+    "WEIGHT",
+    "22.0 lb"
+   ],
+   [
+    "FUEL CAPACITY",
+    "24.0 oz."
+   ]
+  ]
+ },
+ "MSA 60.0 C-B SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 20"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "6.0 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 40 min"
+   ],
+   [
+    "CHAIN TYPE",
+    "1/4\" STIHL PICCO™"
+   ]
+  ]
+ },
+ "FCA 80.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 30"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "10.8 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 30 min"
+   ],
+   [
+    "CUTTING WIDTH",
+    ""
+   ]
+  ]
+ },
+ "FSA 50.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 10"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "6.6 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 20 min"
+   ],
+   [
+    "CUTTING WIDTH",
+    "11.8″"
+   ]
+  ]
+ },
+ "HLA 40.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AS 2"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "7.7 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 40 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "17.7\""
+   ]
+  ]
+ },
+ "HS 82 T": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "22.7 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.7 kW / 0.94 bhp"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "15.6 oz."
+   ]
+  ]
+ },
+ "HS 87 T": {
+  "title": "ENGINE & PERFORMANCE",
+  "specs": [
+   [
+    "DISPLACEMENT",
+    "22.7 cc"
+   ],
+   [
+    "POWER OUTPUT",
+    "0.7 kW / 0.94 bhp"
+   ],
+   [
+    "WEIGHT",
+    ""
+   ],
+   [
+    "FUEL CAPACITY",
+    "15.6 oz."
+   ]
+  ]
+ },
+ "GTA 30.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AS 2"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "3.4 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 50 min"
+   ],
+   [
+    "CHAIN TYPE",
+    "Light 01 bar & 1/4\" PM3"
+   ]
+  ]
+ },
+ "HSA 60.1 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 10"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "7.7 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 60 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "24″"
+   ]
+  ]
+ },
+ "RCA 20.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AS 2"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "2.2 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 20 min."
+   ],
+   [
+    "PERFORMANCE",
+    "350 psi"
+   ]
+  ]
+ },
+ "WSA 40.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    ""
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "6.8 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    ""
+   ],
+   [
+    "PERFORMANCE",
+    ""
+   ]
+  ]
+ },
+ "SEA 20.0 SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AS 2"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "2.4 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 14 min"
+   ],
+   [
+    "PERFORMANCE",
+    ""
+   ]
+  ]
+ },
  "MSA 70.0 C-B SET": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
@@ -1510,27 +4324,6 @@ window.SIGN_SPECS_DSM = {
    [
     "CHAIN TYPE",
     "1/4\" STIHL PICCO™"
-   ]
-  ]
- },
- "FSA 30.0 SET": {
-  "title": "BATTERY & PERFORMANCE",
-  "specs": [
-   [
-    "BATTERY SYSTEM",
-    "AK 10"
-   ],
-   [
-    "WEIGHT (W/O BATTERY)",
-    "6.6 lb"
-   ],
-   [
-    "RUN TIME (UP TO)",
-    "Up to 20 min"
-   ],
-   [
-    "CUTTING WIDTH",
-    "11.8″"
    ]
   ]
  },
@@ -1660,27 +4453,6 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
- "BGA 30.0 SET": {
-  "title": "BATTERY & PERFORMANCE",
-  "specs": [
-   [
-    "BATTERY SYSTEM",
-    "AS 2 Recommend"
-   ],
-   [
-    "WEIGHT (W/O BATTERY)",
-    "3.3 lb"
-   ],
-   [
-    "AIR VOLUME",
-    "253 cfm"
-   ],
-   [
-    "MAX AIR VELOCITY",
-    "96 mph"
-   ]
-  ]
- },
  "BGA 60 SET": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
@@ -1699,6 +4471,90 @@ window.SIGN_SPECS_DSM = {
    [
     "MAX AIR VELOCITY",
     "154 mph"
+   ]
+  ]
+ },
+ "HSA 140.0 R SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "9.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 150 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "24″"
+   ]
+  ]
+ },
+ "HSA 140.0 T SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "9.3 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 150 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "24″"
+   ]
+  ]
+ },
+ "HSA 150.0 R SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "10.1 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 150 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "30″"
+   ]
+  ]
+ },
+ "HSA 150.0 T SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 300 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "9.5 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 140 min"
+   ],
+   [
+    "BLADE LENGTH",
+    "30″"
    ]
   ]
  },
@@ -1741,27 +4597,6 @@ window.SIGN_SPECS_DSM = {
    [
     "BLADE LENGTH",
     "18″"
-   ]
-  ]
- },
- "HSA 40.0 SET": {
-  "title": "BATTERY & PERFORMANCE",
-  "specs": [
-   [
-    "BATTERY SYSTEM",
-    "AS 2"
-   ],
-   [
-    "WEIGHT (W/O BATTERY)",
-    "4.62 lb"
-   ],
-   [
-    "RUN TIME (UP TO)",
-    "Up to 80 min with two AS2"
-   ],
-   [
-    "BLADE LENGTH",
-    "20″"
    ]
   ]
  },
@@ -1845,7 +4680,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "CHAIN TYPE",
-    "Light 01 bar & ¼\" PM3"
+    "Light 01 bar & 1/4\" PM3"
    ]
   ]
  },
@@ -1867,6 +4702,27 @@ window.SIGN_SPECS_DSM = {
    [
     "PERFORMANCE",
     ""
+   ]
+  ]
+ },
+ "REA 60.0 PLUS SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AK 30 / AK 30S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "14.3 lb"
+   ],
+   [
+    "RUN TIME (UP TO)",
+    "Up to 25 min"
+   ],
+   [
+    "PERFORMANCE",
+    "230 L/Hr ( 1 GPM)"
    ]
   ]
  },
@@ -1971,7 +4827,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "AREA MOWED (UP TO)",
-    "Approx. 8,072 sq.ft"
+    "Approx. 8,072 sq.\""
    ]
   ]
  }

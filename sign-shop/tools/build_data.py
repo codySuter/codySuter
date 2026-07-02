@@ -58,7 +58,14 @@ TYPE_WORDS = (
 TYPE_RE = re.compile(r"\s*(%s)" % TYPE_WORDS)
 BAR_RE = re.compile(r"(\d+)\s*(?:cm|mm)/(\d+)\s*in")
 CHAIN_RE = re.compile(r"\b(\d{2}\s?(?:RS|RM|RH|PM|PMM|PS|PD)[A-Z0-9]{0,3})\b")
-NICKNAMES = ["Farm Boss", "Wood Boss", "Magnum", "yard boss", "Yard Boss"]
+NICKNAMES = ["Farm Boss", "Wood Boss", "Magnum", "yard boss", "Yard Boss",
+             "Dirt Boss"]
+# marketing names confirmed by the 2026 Dealer Support Manual where the
+# retail descriptions don't carry them
+NICKNAME_BY_MODEL = {
+    "MS 251": "WOOD BOSS",
+    "RB 400": "DIRT BOSS",
+}
 
 
 def dash_part(material: str) -> str:
@@ -254,6 +261,8 @@ def main():
     model_list = sorted(models.values(), key=lambda g: (g["category"], g["model"]))
     for g in model_list:
         g["variants"].sort(key=lambda v: (v["barIn"] or 0, v["msrp"]))
+        if not g["nickname"] and g["model"] in NICKNAME_BY_MODEL:
+            g["nickname"] = NICKNAME_BY_MODEL[g["model"]]
 
     data = {
         "categories": [
