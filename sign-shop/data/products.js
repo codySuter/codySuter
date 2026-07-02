@@ -105,6 +105,16 @@ window.SIGN_DATA = {
    "code": "1ZB",
    "name": "Battery Front Mowers",
    "signLabel": "BATTERY FRONT MOWER"
+  },
+  {
+   "code": "3MA",
+   "name": "Yard Boss Attachments",
+   "signLabel": "YARD BOSS ATTACHMENT"
+  },
+  {
+   "code": "3TT",
+   "name": "Kombi Attachments",
+   "signLabel": "KOMBI ATTACHMENT"
   }
  ],
  "models": [
@@ -3215,7 +3225,7 @@ window.SIGN_DATA = {
    "category": "0KM",
    "categoryName": "Kombi Powerheads",
    "signCategory": "KOMBI SYSTEM",
-   "productType": "",
+   "productType": "Trimmer",
    "variants": [
     {
      "material": "FA08 011 6811 US",
@@ -7925,29 +7935,6 @@ window.SIGN_DATA = {
    ]
   },
   {
-   "id": "1LB:RMA 756.0 V",
-   "model": "RMA 756.0 V",
-   "nickname": "",
-   "category": "1LB",
-   "categoryName": "Battery Units",
-   "signCategory": "BATTERY POWER TOOL",
-   "productType": "Cordless lawn mower",
-   "variants": [
-    {
-     "material": "WA71 011 1403 US",
-     "materialDash": "WA71-011-1403",
-     "desc": "RMA 756.0 V (USA) Cordless lawn mower",
-     "retail": "STIHL RMA 756 V 22 in. Battery Self-Propelled Lawn Mower Tool Only",
-     "barIn": null,
-     "chain": null,
-     "msrp": 0.0,
-     "upc": "795711835804",
-     "aceSku": "7050782D",
-     "status": "A"
-    }
-   ]
-  },
-  {
    "id": "1LB:RMA 756.0 V SET",
    "model": "RMA 756.0 V SET",
    "nickname": "",
@@ -9232,6 +9219,560 @@ window.SIGN_DATA = {
      "msrp": 30999.99,
      "upc": "886661375325",
      "aceSku": "7035455D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3MA:BF-MM",
+   "model": "BF-MM",
+   "nickname": "",
+   "category": "3MA",
+   "categoryName": "Yard Boss Attachments",
+   "signCategory": "YARD BOSS ATTACHMENT",
+   "productType": "Cultivator",
+   "variants": [
+    {
+     "material": "4601 740 4605 US",
+     "materialDash": "4601-740-4605",
+     "desc": "BF-MM Cultivator",
+     "retail": "STIHL Pick Tines",
+     "barIn": null,
+     "chain": null,
+     "msrp": 69.99,
+     "upc": "795711210472",
+     "aceSku": "7001354D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3MA:BK-MM",
+   "model": "BK-MM",
+   "nickname": "",
+   "category": "3MA",
+   "categoryName": "Yard Boss Attachments",
+   "signCategory": "YARD BOSS ATTACHMENT",
+   "productType": "Bolo tines",
+   "variants": [
+    {
+     "material": "4601 740 4606 US",
+     "materialDash": "4601-740-4606",
+     "desc": "BK-MM Bolo tines",
+     "retail": "STIHL Bolo Tines",
+     "barIn": null,
+     "chain": null,
+     "msrp": 69.99,
+     "upc": "795711210489",
+     "aceSku": "7001353D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3MA:FC-MM",
+   "model": "FC-MM",
+   "nickname": "",
+   "category": "3MA",
+   "categoryName": "Yard Boss Attachments",
+   "signCategory": "YARD BOSS ATTACHMENT",
+   "productType": "Edger",
+   "variants": [
+    {
+     "material": "4601 740 4603 US",
+     "materialDash": "4601-740-4603",
+     "desc": "FC-MM Edger",
+     "retail": "STIHL FC-MM Bed Edger Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 59.99,
+     "upc": "795711198114",
+     "aceSku": "7001365D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3MA:FS-MM",
+   "model": "FS-MM",
+   "nickname": "",
+   "category": "3MA",
+   "categoryName": "Yard Boss Attachments",
+   "signCategory": "YARD BOSS ATTACHMENT",
+   "productType": "Trimmer",
+   "variants": [
+    {
+     "material": "4601 740 4609 US",
+     "materialDash": "4601-740-4609",
+     "desc": "FS-MM Trimmer",
+     "retail": "STIHL FS-MM Trimmer Head Edger Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 117.99,
+     "upc": "886661087785",
+     "aceSku": "7001553D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3MA:KB-MM",
+   "model": "KB-MM",
+   "nickname": "",
+   "category": "3MA",
+   "categoryName": "Yard Boss Attachments",
+   "signCategory": "YARD BOSS ATTACHMENT",
+   "productType": "Bristle brush",
+   "variants": [
+    {
+     "material": "4601 740 4608 US",
+     "materialDash": "4601-740-4608",
+     "desc": "KB-MM Bristle brush",
+     "retail": "STIHL Bristle Brush",
+     "barIn": null,
+     "chain": null,
+     "msrp": 159.99,
+     "upc": "795711353193",
+     "aceSku": "7001358D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3MA:KW-MM",
+   "model": "KW-MM",
+   "nickname": "",
+   "category": "3MA",
+   "categoryName": "Yard Boss Attachments",
+   "signCategory": "YARD BOSS ATTACHMENT",
+   "productType": "Sweeper drum assembly",
+   "variants": [
+    {
+     "material": "4601 740 4604 US",
+     "materialDash": "4601-740-4604",
+     "desc": "KW-MM Sweeper drum assembly",
+     "retail": "STIHL KW-MM Power Sweep Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 219.99,
+     "upc": "795711198121",
+     "aceSku": "7001355D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3MA:MF-MM",
+   "model": "MF-MM",
+   "nickname": "",
+   "category": "3MA",
+   "categoryName": "Yard Boss Attachments",
+   "signCategory": "YARD BOSS ATTACHMENT",
+   "productType": "Dethatcher",
+   "variants": [
+    {
+     "material": "4601 740 4607 US",
+     "materialDash": "4601-740-4607",
+     "desc": "MF-MM Dethatcher",
+     "retail": "STIHL Dehatcher Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 279.99,
+     "upc": "795711353186",
+     "aceSku": "7001352D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3MA:RL-MM",
+   "model": "RL-MM",
+   "nickname": "",
+   "category": "3MA",
+   "categoryName": "Yard Boss Attachments",
+   "signCategory": "YARD BOSS ATTACHMENT",
+   "productType": "Aerator",
+   "variants": [
+    {
+     "material": "4601 740 4600 US",
+     "materialDash": "4601-740-4600",
+     "desc": "RL-MM Aerator",
+     "retail": "STIHL Aerator",
+     "barIn": null,
+     "chain": null,
+     "msrp": 79.99,
+     "upc": "795711195151",
+     "aceSku": "7001356D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:BF-KM",
+   "model": "BF-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Cultivator",
+   "variants": [
+    {
+     "material": "4601 740 5001 US",
+     "materialDash": "4601-740-5001",
+     "desc": "BF-KM Cultivator",
+     "retail": "STIHL KombiSystem 2 in. Cultivator",
+     "barIn": null,
+     "chain": null,
+     "msrp": 224.99,
+     "upc": "795711319083",
+     "aceSku": "7001347D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:BG-KM",
+   "model": "BG-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Axial blower",
+   "variants": [
+    {
+     "material": "4606 740 5001 US",
+     "materialDash": "4606-740-5001",
+     "desc": "BG-KM Axial blower",
+     "retail": "STIHL BG-KM Leaf Blower Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 159.99,
+     "upc": "795711380755",
+     "aceSku": "7000352D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:FBD-KM",
+   "model": "FBD-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Bed-Redefiner",
+   "variants": [
+    {
+     "material": "4180 740 5000 US",
+     "materialDash": "4180-740-5000",
+     "desc": "FBD-KM Bed-Redefiner",
+     "retail": "STIHL FBD-KM Bed Redefiner",
+     "barIn": null,
+     "chain": null,
+     "msrp": 289.99,
+     "upc": "795711928254",
+     "aceSku": "7001566D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:FCB-KM",
+   "model": "FCB-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Edger",
+   "variants": [
+    {
+     "material": "4180 740 5003 US",
+     "materialDash": "4180-740-5003",
+     "desc": "FCB-KM Edger",
+     "retail": "STIHL FCB-KM Lawn Edger Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 117.99,
+     "upc": "886661111862",
+     "aceSku": "7001565D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:FCS-KM",
+   "model": "FCS-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Edger",
+   "variants": [
+    {
+     "material": "4180 740 5009 US",
+     "materialDash": "4180-740-5009",
+     "desc": "FCS-KM Edger",
+     "retail": "STIHL FCS Lawn Edger Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 214.99,
+     "upc": "886661522613",
+     "aceSku": "7020603D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:FH-KM 145\u00b0",
+   "model": "FH-KM 145\u00b0",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Scrub cutter",
+   "variants": [
+    {
+     "material": "4243 740 5007 US",
+     "materialDash": "4243-740-5007",
+     "desc": "FH-KM 145\u00b0 Scrub cutter",
+     "retail": "STIHL 42437405007US Manual Power Scythe Attachment Tool Only",
+     "barIn": null,
+     "chain": null,
+     "msrp": 289.99,
+     "upc": "886661163175",
+     "aceSku": "7001350D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:FS-KM",
+   "model": "FS-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Scythe",
+   "variants": [
+    {
+     "material": "4180 200 0471 US",
+     "materialDash": "4180-200-0471",
+     "desc": "FS-KM Scythe,AutoCut 27-2",
+     "retail": "STIHL FS-KM Line Head Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 117.99,
+     "upc": "886661212736",
+     "aceSku": "7001555D",
+     "status": "A"
+    },
+    {
+     "material": "4180 200 0472 US",
+     "materialDash": "4180-200-0472",
+     "desc": "FS-KM Scythe,GSB 230-4",
+     "retail": "STIHL FS-KM Brushcutter Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 117.99,
+     "upc": "886661212743",
+     "aceSku": "7001554D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:FSB-KM",
+   "model": "FSB-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Scythe",
+   "variants": [
+    {
+     "material": "4137 740 5009 US",
+     "materialDash": "4137-740-5009",
+     "desc": "FSB-KM Scythe",
+     "retail": "STIHL FSB-KM Gas Trimmer",
+     "barIn": null,
+     "chain": null,
+     "msrp": 79.99,
+     "upc": "886661449880",
+     "aceSku": "7006923D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:FSS-KM",
+   "model": "FSS-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Scythe",
+   "variants": [
+    {
+     "material": "FA03 200 0021 US",
+     "materialDash": "FA03-200-0021",
+     "desc": "FSS-KM Scythe",
+     "retail": "STIHL FSS-KM KombiSystem Line Head Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 129.99,
+     "upc": "886661494408",
+     "aceSku": "7042433D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:HL-KM 0\u00b0",
+   "model": "HL-KM 0\u00b0",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Hedgetrimmer",
+   "variants": [
+    {
+     "material": "4243 740 5001 US",
+     "materialDash": "4243-740-5001",
+     "desc": "HL-KM 0\u00b0 Hedgetrimmer",
+     "retail": "STIHL HL-KM 42.3 in. L Hedge Trimmer Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 204.99,
+     "upc": "886661156863",
+     "aceSku": "7001363D",
+     "status": "A"
+    },
+    {
+     "material": "4243 740 5010 US",
+     "materialDash": "4243-740-5010",
+     "desc": "HL-KM 0\u00b0 Hedgetrimmer",
+     "retail": "STIHL HL-KM 0 deg. 24 in. 36 V Battery Hedge Trimmer Attachment Tool Only",
+     "barIn": null,
+     "chain": null,
+     "msrp": 215.99,
+     "upc": "886661596737",
+     "aceSku": "7020836D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:HL-KM 145\u00b0",
+   "model": "HL-KM 145\u00b0",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Hedgetrimmer",
+   "variants": [
+    {
+     "material": "4243 740 5004 US",
+     "materialDash": "4243-740-5004",
+     "desc": "HL-KM 145\u00b0 Hedgetrimmer",
+     "retail": "STIHL HL-KM 58.3 in. L Hedge Trimmer Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 299.99,
+     "upc": "886661157266",
+     "aceSku": "7001362D",
+     "status": "A"
+    },
+    {
+     "material": "4243 740 5009 US",
+     "materialDash": "4243-740-5009",
+     "desc": "HL-KM 145\u00b0 Hedgetrimmer",
+     "retail": "STIHL HL-KM 145 24 in. 36 V Battery Hedge Trimmer Attachment Tool Only",
+     "barIn": null,
+     "chain": null,
+     "msrp": 319.99,
+     "upc": "886661903863",
+     "aceSku": "7008558D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:HT-KM",
+   "model": "HT-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Pole pruner",
+   "variants": [
+    {
+     "material": "4182 200 0219 US",
+     "materialDash": "4182-200-0219",
+     "desc": "HT-KM Pole pruner,25cm/10 in.,71PM3",
+     "retail": "STIHL HT-KM Pole Pruner 10\" Pole Pruner",
+     "barIn": 10,
+     "chain": "71 PM3",
+     "msrp": 204.99,
+     "upc": "886661649105",
+     "aceSku": "7031021D",
+     "status": "A"
+    },
+    {
+     "material": "4182 200 0210 US",
+     "materialDash": "4182-200-0210",
+     "desc": "HT-KM Pole pruner,30cm/12 in.,71PM3",
+     "retail": "STIHL HT-KM Pole Pruner Attachment",
+     "barIn": 12,
+     "chain": "71 PM3",
+     "msrp": 214.99,
+     "upc": "886661545544",
+     "aceSku": "7020463D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:KB-KM",
+   "model": "KB-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Bristle brush",
+   "variants": [
+    {
+     "material": "4601 740 4901 US",
+     "materialDash": "4601-740-4901",
+     "desc": "KB-KM Bristle brush",
+     "retail": "STIHL KB KM Brush Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 319.99,
+     "upc": "795711312091",
+     "aceSku": "7001357D",
+     "status": "A"
+    }
+   ]
+  },
+  {
+   "id": "3TT:KW-KM",
+   "model": "KW-KM",
+   "nickname": "",
+   "category": "3TT",
+   "categoryName": "Kombi Attachments",
+   "signCategory": "KOMBI ATTACHMENT",
+   "productType": "Sweeper drum assembly",
+   "variants": [
+    {
+     "material": "4601 740 4900 US",
+     "materialDash": "4601-740-4900",
+     "desc": "KW-KM Sweeper drum assembly",
+     "retail": "STIHL KW-KM Power Sweep Attachment",
+     "barIn": null,
+     "chain": null,
+     "msrp": 379.99,
+     "upc": "795711312107",
+     "aceSku": "7001351D",
      "status": "A"
     }
    ]

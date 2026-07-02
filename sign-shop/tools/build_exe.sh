@@ -11,6 +11,7 @@ GO="${GO:-/usr/local/go/bin/go}"
 rm -rf "$LAUNCHER/app"
 mkdir -p "$LAUNCHER/app/data" "$LAUNCHER/app/fonts" "$DIST"
 cp "$ROOT/index.html" "$ROOT/styles.css" "$ROOT/app.js" "$ROOT/fonts.css" "$LAUNCHER/app/"
+[ -f "$ROOT/poster.html" ] && cp "$ROOT/poster.html" "$LAUNCHER/app/"
 cp "$ROOT"/data/*.js "$LAUNCHER/app/data/"
 cp "$ROOT"/fonts/*.woff2 "$LAUNCHER/app/fonts/"
 

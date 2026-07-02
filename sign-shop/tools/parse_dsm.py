@@ -38,6 +38,7 @@ KEY_FIRST_WORDS = {
     "Pressure", "Flow", "Recommended", "Stroke", "Strokes", "Working",
     "Spray", "Tank", "Vacuum", "Suction", "Hose", "Cord", "Charge", "Solid",
     "Length", "Torque", "Drilling", "Sweeping", "Total", "Horsepower",
+    "Overall",
 }
 KEY_RE = re.compile(r"\b([A-Z][A-Za-z0-9()®™ /&.'-]{2,48}?):\s+")
 # keys anchored to the allowed vocabulary, so values ("Up to 25 minutes …")
@@ -224,6 +225,15 @@ def slot_specs(model, specs):
             rows += [["RUN TIME (UP TO)", runtime], ["PERFORMANCE", extra]]
         return title, rows
 
+    # powerhead attachments have no engine of their own
+    if cat in ("3TT", "3MA"):
+        return "SPECIFICATIONS", [
+            ["FITS", "STIHL KombiMotors" if cat == "3TT" else "MM 56 YARD BOSS"],
+            ["WEIGHT", pick(specs, "Weight")],
+            ["OVERALL LENGTH", pick(specs, "Overall Length", "Length")],
+            ["", ""],
+        ]
+
     # pressure washers (gas RB and corded RE share the layout)
     if cat == "1RB":
         displacement = pick(specs, "Displacement")
@@ -343,6 +353,28 @@ def parse_parts_tables(text: str, bars_set, chains_by_part, variant_models):
             continue  # chain P/N and marketing number disagree — skip
         out[unit] = {"bar": bar, "chain": chain,
                      "chainName": mkt or chain_name, "barLen": int(m.group("len"))}
+
+    # pole pruner attachment pages use a parenthesized layout:
+    #   '10" Bar (3005 008 3403)\nChain (3670 005 0056) 71PM3 56\n
+    #    Scabbard (…)\n4182 200 0219 US … $204.99'
+    paren_re = re.compile(
+        r'(?P<len>\d{1,2})"\s*Bar\s*\((?P<bar>\d{4}\s\d{3}\s\d{4})\)\s*'
+        r"Chain\s*\((?P<chain>\d{4}\s\d{3}\s\d{4})\)\s*"
+        r"(?P<mkt>\d{2}\s?[A-Z]{2,4}\d?)\s?(?P<links>\d{2,3})"
+        r"[\s\S]{0,90}?(?P<unit>\d{4}\s\d{3}\s\d{4})\s*US")
+    for m in paren_re.finditer(text):
+        unit = m.group("unit").replace(" ", "-")
+        bar = m.group("bar").replace(" ", "-")
+        chain = m.group("chain").replace(" ", "-")
+        chain_name = re.sub(r"\s", "", m.group("mkt")) + " " + m.group("links")
+        if unit not in variant_models or chain not in chains_by_part:
+            continue
+        mkt = chains_by_part[chain].get("marketing", "")
+        if mkt and mkt.replace(" ", "") != chain_name.replace(" ", ""):
+            continue
+        out.setdefault(unit, {"bar": bar, "chain": chain,
+                              "chainName": mkt or chain_name,
+                              "barLen": int(m.group("len"))})
     return out
 
 
@@ -486,7 +518,7 @@ def main(paths):
     # part-number tables are matched globally; validation ties rows to models
     variant_models = {}
     for model in products["models"]:
-        if model["category"] in ("0CS", "0LB", "0ES", "0GS"):
+        if model["category"] in ("0CS", "0LB", "0ES", "0GS", "1HT", "3TT"):
             for v in model["variants"]:
                 variant_models[v["materialDash"]] = model["model"]
     parts_out = parse_parts_tables(text, bars_set, chains_by_part, variant_models)

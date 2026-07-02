@@ -78,3 +78,11 @@ pricing.
 To rebuild the Windows executable after any app or data change, run
 `tools/build_exe.sh` (requires Go; cross-compiles from any OS). It embeds
 the current app + data into `dist/SignShop.exe`.
+
+## Chain finder wall poster
+
+`dist/chain-poster-24x36.pdf` is a print-ready 24×36 in. poster that maps
+every saw model + bar length to its factory chain (marketing number, part
+number, store SKU), generated from the same verified data by
+`tools/build_poster.py`. The launcher also serves it at
+`http://localhost:8377/poster.html` for reprinting after data updates.

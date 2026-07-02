@@ -140,6 +140,20 @@
         source: "STIHL published specs — review before printing"
       };
     }
+    // powerhead attachments have no engine of their own
+    if (model.category === "3TT" || model.category === "3MA") {
+      return {
+        title: "SPECIFICATIONS",
+        specs: [
+          ["FITS", model.category === "3TT"
+            ? "STIHL KombiMotors" : "MM 56 YARD BOSS"],
+          ["WEIGHT", ""],
+          ["OVERALL LENGTH", ""],
+          ["", ""]
+        ],
+        source: "attachment — fill in from the Kombi pages as needed"
+      };
+    }
     const h = specHints(model);
     const isBattery = BATTERY_CATS[model.category] ||
       /^[A-Z]{2,3}A\s/.test(model.model + " ") || h.volts;
@@ -701,8 +715,13 @@
     "1SE": ["Wet/Dry Vacuums", "WET/DRY VACUUM"],
     "1ZB": ["Battery Front Mowers", "BATTERY FRONT MOWER"],
     "0ES": ["Electric Chain Saws", "ELECTRIC CHAIN SAW"],
-    "0GS": ["Concrete Cutters", "CONCRETE CUTTER"]
+    "0GS": ["Concrete Cutters", "CONCRETE CUTTER"],
+    "3TT": ["Kombi Attachments", "KOMBI ATTACHMENT"],
+    "3MA": ["Yard Boss Attachments", "YARD BOSS ATTACHMENT"]
   };
+
+  // Attachment rows are 'XX-KM …' / 'XX-MM …'; the rest are spare parts.
+  const ATTACHMENT_RE = /^[A-Z]{2,3}-[KM]M\b/;
 
   // Pro saws and some newer battery tools ship as powerhead "kits" (9KP) or
   // under one-off codes; resolve those rows by brand (mirror build_data.py).
@@ -718,6 +737,9 @@
 
   function resolveCategory(cat, desc) {
     const brand = (desc.split(/\s+/)[0] || "");
+    if (cat === "3TT" || cat === "3MA") {
+      return ATTACHMENT_RE.test(desc) ? cat : null;
+    }
     if (UNIT_CATEGORIES[cat]) {
       if (cat === "0CS" && brand === "MSA") return "0LB"; // dealer-file misfile
       return cat;
@@ -767,7 +789,9 @@
     "Vacuums", "yard boss MultiEngine", "Magnum Blower",
     "CHAINSAW", "Electric saw", "Concrete cutter", "MultiEngine",
     "CORDLESS KOMBIMOTO", "CORDLESS TRIMMER", "Cordless Pole pruner",
-    "Chains\\b"
+    "Chains\\b", "Scythe", "Bed-Redefiner", "Scrub cutter",
+    "Sweeper drum assembly", "Bristle brush", "Cultivator", "Aerator",
+    "Bolo tines", "Dethatcher", "Axial blower", "Trimmer"
   ].join("|") + ")");
   const BAR_LEN_RE = /(\d+)\s*(?:cm|mm)\/(\d+)\s*in/i;
   const BAR_ALT_RE = /Chainsaw\s+(\d{2})-/i;
@@ -852,7 +876,7 @@
       const upc = iUpc === undefined ? "" : (row[iUpc] || "").trim();
       const ace = iAce === undefined ? "" : (row[iAce] || "").trim();
       const cat = (row[iCat] || "").trim();
-      if (!mat || isNaN(msrp)) continue;
+      if (!mat || isNaN(msrp) || msrp <= 0) continue;
 
       if (cat === "2BR") {
         const bm = BAR_LEN_RE.exec(desc);

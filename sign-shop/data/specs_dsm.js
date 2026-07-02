@@ -1219,7 +1219,7 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
- "RMA 756.0 V": {
+ "RMA 7.0 RV SET": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
    [
@@ -1228,15 +1228,15 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "WEIGHT (W/O BATTERY)",
-    "116.2 lb"
+    "101.0 lb"
    ],
    [
     "CUTTING WIDTH",
-    "21″"
+    "20.1″"
    ],
    [
     "AREA MOWED (UP TO)",
-    "Approx. 8,072 sq.\""
+    "Approx. 9.795 sq. ft"
    ]
   ]
  },
@@ -1698,7 +1698,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "CHAIN TYPE",
-    "3/8\" STIHL PICCO™ Micro™ Mini…"
+    "3/8\" STIHL PICCO™ Micro™ Mini"
    ]
   ]
  },
@@ -1719,7 +1719,7 @@ window.SIGN_SPECS_DSM = {
    ],
    [
     "CHAIN TYPE",
-    "3/8\" STIHL PICCO™ Micro™ Mini…"
+    "3/8\" STIHL PICCO™ Micro™ Mini"
    ]
   ]
  },
@@ -4873,6 +4873,27 @@ window.SIGN_SPECS_DSM = {
    ]
   ]
  },
+ "RMA 756.0 V SET": {
+  "title": "BATTERY & PERFORMANCE",
+  "specs": [
+   [
+    "BATTERY SYSTEM",
+    "AP 500 S"
+   ],
+   [
+    "WEIGHT (W/O BATTERY)",
+    "116.2 lb"
+   ],
+   [
+    "CUTTING WIDTH",
+    "21″"
+   ],
+   [
+    "AREA MOWED (UP TO)",
+    "Approx. 8,072 sq.\""
+   ]
+  ]
+ },
  "WSA 40.0 SET": {
   "title": "BATTERY & PERFORMANCE",
   "specs": [
@@ -5479,48 +5500,6 @@ window.SIGN_SPECS_DSM = {
    [
     "AREA MOWED (UP TO)",
     "Approx. 9,687 sq. ft (on a…"
-   ]
-  ]
- },
- "RMA 7.0 RV SET": {
-  "title": "BATTERY & PERFORMANCE",
-  "specs": [
-   [
-    "BATTERY SYSTEM",
-    "AP 500 S"
-   ],
-   [
-    "WEIGHT (W/O BATTERY)",
-    "101.0 lb"
-   ],
-   [
-    "CUTTING WIDTH",
-    "20.1″"
-   ],
-   [
-    "AREA MOWED (UP TO)",
-    "Approx. 9.795 sq. ft"
-   ]
-  ]
- },
- "RMA 756.0 V SET": {
-  "title": "BATTERY & PERFORMANCE",
-  "specs": [
-   [
-    "BATTERY SYSTEM",
-    "AP 500 S"
-   ],
-   [
-    "WEIGHT (W/O BATTERY)",
-    "116.2 lb"
-   ],
-   [
-    "CUTTING WIDTH",
-    "21″"
-   ],
-   [
-    "AREA MOWED (UP TO)",
-    "Approx. 8,072 sq.\""
    ]
   ]
  },

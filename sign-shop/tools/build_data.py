@@ -44,7 +44,13 @@ UNIT_CATEGORIES = {
     "1ZB": ("Battery Front Mowers", "BATTERY FRONT MOWER"),
     "0ES": ("Electric Chain Saws", "ELECTRIC CHAIN SAW"),
     "0GS": ("Concrete Cutters", "CONCRETE CUTTER"),
+    "3TT": ("Kombi Attachments", "KOMBI ATTACHMENT"),
+    "3MA": ("Yard Boss Attachments", "YARD BOSS ATTACHMENT"),
 }
+
+# Attachment rows are named 'XX-KM …' / 'XX-MM …'; anything else in those
+# categories is a spare part (drive tubes, wheel kits).
+ATTACHMENT_RE = re.compile(r"^[A-Z]{2,3}-[KM]M\b")
 
 # Pro saws and some newer battery tools ship as powerhead "kits" (9KP) or
 # under one-off codes; resolve those rows to a unit category by brand code.
@@ -62,6 +68,8 @@ BRAND_CATEGORY = {
 def resolve_category(cat: str, desc: str):
     """Unit category for a row, or None if it isn't a sellable power tool."""
     brand = desc.split()[0] if desc.split() else ""
+    if cat in ("3TT", "3MA"):
+        return cat if ATTACHMENT_RE.match(desc) else None
     if cat in UNIT_CATEGORIES:
         # the dealer file misfiles a couple of battery-saw SETs under gas
         if cat == "0CS" and brand == "MSA":
@@ -82,7 +90,9 @@ TYPE_WORDS = (
     "Robotic mower|Cordless lawn mower|Lawn mower|High-pressure washer|"
     "High-pressure cleaner|Vacuums|yard boss MultiEngine|Magnum Blower|"
     "CHAINSAW|Electric saw|Concrete cutter|MultiEngine|"
-    "CORDLESS KOMBIMOTO|CORDLESS TRIMMER|Cordless Pole pruner|Chains\\b"
+    "CORDLESS KOMBIMOTO|CORDLESS TRIMMER|Cordless Pole pruner|Chains\\b|"
+    "Scythe|Bed-Redefiner|Scrub cutter|Sweeper drum assembly|Bristle brush|"
+    "Cultivator|Aerator|Bolo tines|Dethatcher|Axial blower|Trimmer"
 )
 TYPE_RE = re.compile(r"\s*(%s)" % TYPE_WORDS)
 BAR_RE = re.compile(r"(\d+)\s*(?:cm|mm)/(\d+)\s*in", re.IGNORECASE)
@@ -239,7 +249,7 @@ def main():
         msrp = r["MSRP"].strip()
         upc = r["UPC"].strip()
         ace = r["ACE SKU"].strip()
-        if not mat or not msrp:
+        if not mat or not msrp or float(msrp) <= 0:
             continue
         master = upc_map.get(upc, {})
         ace = ace or master.get("aceSku", "")
