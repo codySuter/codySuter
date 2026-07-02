@@ -1250,10 +1250,52 @@
     }
   }
 
+  // Combined US Letter PDF, two 5×3in signs per 8.5×11in page (stacked),
+  // with thin cut-guide borders — one file, ready to bulk-print.
+  async function exportLetter2up(ids, statusFn) {
+    ids = ids.filter(id => modelById[id]);
+    if (!ids.length) return 0;
+    const priorSelected = selectedId;
+    await document.fonts.ready;
+    const W = 8.5, H = 11, sw = SIGN_W_IN, sh = SIGN_H_IN;
+    const x = (W - sw) / 2;                 // centered horizontally
+    const ys = [(H / 2 - sh) / 2, H / 2 + (H / 2 - sh) / 2]; // one per half-page
+    const pdf = new window.jspdf.jsPDF({ unit: "in", format: "letter", orientation: "portrait" });
+    for (let i = 0; i < ids.length; i++) {
+      const model = modelById[ids[i]];
+      if (statusFn) statusFn("Rendering " + (i + 1) + " of " + ids.length + " — " + queueLabel(model) + "…");
+      const canvas = await signToCanvas(model);
+      const slot = i % 2;
+      if (i > 0 && slot === 0) pdf.addPage();
+      if (slot === 0) {
+        // dashed cut guide across the middle of each page
+        pdf.setDrawColor(200); pdf.setLineWidth(0.006);
+        pdf.setLineDashPattern([0.06, 0.06], 0);
+        pdf.line(0.4, H / 2, W - 0.4, H / 2);
+        pdf.setLineDashPattern([], 0);
+      }
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", x, ys[slot], sw, sh, undefined, "FAST");
+      pdf.setDrawColor(170); pdf.setLineWidth(0.008);
+      pdf.rect(x, ys[slot], sw, sh);         // border = cut line for each sign
+    }
+    downloadBlob(pdf.output("blob"), "STIHL-signs-2up-" + new Date().toISOString().slice(0, 10) + ".pdf");
+    if (priorSelected && modelById[priorSelected]) {
+      selectedId = priorSelected;
+      refresh(true);
+    }
+    return ids.length;
+  }
+
   function currentFormat() {
     const active = document.querySelector("#queue-format .seg-btn.active");
     return active ? active.dataset.fmt : "pdf";
   }
+
+  const FORMAT_HINT = {
+    pdf: "— one 5×3in file per sign",
+    png: "— one 5×3in PNG per sign (300 DPI)",
+    letter2: "— two signs per US Letter page, one combined PDF"
+  };
 
   async function exportQueue() {
     if (!queue.length) return;
@@ -1263,11 +1305,19 @@
     const btnExport = $("#btn-queue-export"), btnClear = $("#btn-queue-clear");
     btnExport.disabled = true; btnClear.disabled = true;
     try {
-      await exportModels(ids, fmt, setQueueStatus);
-      setQueueStatus("Done — " + ids.length + " " + fmt.toUpperCase() +
-        (ids.length === 1 ? " file" : " files") + " exported" +
-        (missing ? " (" + missing + " no longer in the current data, skipped)" : "") +
-        ". If your browser asked to allow multiple downloads, choose Allow.");
+      if (fmt === "letter2") {
+        const n = await exportLetter2up(ids, setQueueStatus);
+        const pages = Math.ceil(n / 2);
+        setQueueStatus("Done — " + n + " sign" + (n === 1 ? "" : "s") + " on " +
+          pages + " Letter page" + (pages === 1 ? "" : "s") + " (one PDF)" +
+          (missing ? " (" + missing + " no longer in the current data, skipped)" : "") + ".");
+      } else {
+        await exportModels(ids, fmt, setQueueStatus);
+        setQueueStatus("Done — " + ids.length + " " + fmt.toUpperCase() +
+          (ids.length === 1 ? " file" : " files") + " exported" +
+          (missing ? " (" + missing + " no longer in the current data, skipped)" : "") +
+          ". If your browser asked to allow multiple downloads, choose Allow.");
+      }
     } catch (err) {
       setQueueStatus("Export failed: " + err.message, true);
     } finally {
@@ -1324,6 +1374,7 @@
     b.addEventListener("click", () => {
       document.querySelectorAll("#queue-format .seg-btn").forEach(x => x.classList.remove("active"));
       b.classList.add("active");
+      $("#queue-hint").textContent = FORMAT_HINT[b.dataset.fmt] || "";
     });
   });
   $("#btn-save-pdf").addEventListener("click", () => exportSingle("pdf"));

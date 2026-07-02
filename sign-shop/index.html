@@ -23,11 +23,12 @@
 
 <div class="queue-panel" id="queue-panel" hidden>
   <div class="queue-head">
-    <div class="queue-title">EXPORT QUEUE <span class="hint">— one 5×3in file per sign</span></div>
+    <div class="queue-title">EXPORT QUEUE <span class="hint" id="queue-hint">— one 5×3in file per sign</span></div>
     <div class="queue-head-actions">
       <div class="seg" id="queue-format" role="group" aria-label="Export format">
-        <button class="seg-btn active" data-fmt="pdf">PDF</button>
-        <button class="seg-btn" data-fmt="png">PNG</button>
+        <button class="seg-btn active" data-fmt="pdf" title="One 5×3in PDF per sign">PDF</button>
+        <button class="seg-btn" data-fmt="png" title="One 5×3in PNG per sign (1500×900 px)">PNG</button>
+        <button class="seg-btn" data-fmt="letter2" title="One combined PDF, two signs per US Letter page">2-UP PDF</button>
       </div>
       <button id="btn-queue-export" class="btn btn-orange" disabled>EXPORT ALL</button>
       <button id="btn-queue-clear" class="btn">CLEAR</button>

@@ -44,10 +44,15 @@ as individual files (no zip):
    click **+ ADD TO QUEUE**, or add an entire category at once from the
    **Add a whole category** dropdown in the queue panel.
 2. Click **QUEUE** in the top bar to review, remove items, or clear it.
-3. Choose **PDF** or **PNG**, then click **EXPORT ALL**. Each queued sign
-   downloads as its own file. The first time, the browser may ask permission
-   to download multiple files — choose **Allow**. The queue is remembered
-   between visits until you clear it.
+3. Pick an export format, then click **EXPORT ALL**:
+   - **PDF** / **PNG** — each queued sign downloads as its own 5×3in file.
+     The first time, the browser may ask permission to download multiple
+     files — choose **Allow**.
+   - **2-UP PDF** — one combined PDF with two signs per US Letter (8.5×11in)
+     page, each with a thin cut-guide border. Print it on any office printer,
+     then trim — the easiest way to run a stack of signs at once.
+
+   The queue is remembered between visits until you clear it.
 
 The top-bar **PRINT / SAVE PDF** button still opens the browser's print dialog
 for sending a single sign straight to a label printer.
