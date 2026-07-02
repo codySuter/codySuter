@@ -37,3 +37,5 @@ yarn-error.log*
 /supabase/.env
 sign-shop/tools/source/
 __pycache__/
+sign-shop/launcher/app/
+sign-shop/dist/signshop-linux

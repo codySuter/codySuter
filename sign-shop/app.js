@@ -1027,6 +1027,12 @@
   renderResults();
   fitPreview();
 
+  // When run from the SignShop launcher (served on localhost), heartbeat so
+  // the launcher can exit once every app tab has closed.
+  if (location.protocol === "http:" && location.hostname === "localhost") {
+    setInterval(() => { fetch("/__ping").catch(() => {}); }, 2000);
+  }
+
   // Deep link: #model=0CS:MS 271
   const hash = decodeURIComponent(location.hash.replace(/^#model=/, ""));
   if (hash && modelById[hash]) { selectedId = hash; refresh(true); renderResults(); }
