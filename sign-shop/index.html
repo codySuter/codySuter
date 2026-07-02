@@ -23,12 +23,21 @@
 
 <div class="queue-panel" id="queue-panel" hidden>
   <div class="queue-head">
-    <div class="queue-title">PRINT QUEUE <span class="hint">— each item exports as its own 5×3in page</span></div>
+    <div class="queue-title">EXPORT QUEUE <span class="hint">— one 5×3in file per sign</span></div>
     <div class="queue-head-actions">
-      <button id="btn-queue-export" class="btn btn-orange" disabled>EXPORT ALL AS ZIP</button>
+      <div class="seg" id="queue-format" role="group" aria-label="Export format">
+        <button class="seg-btn active" data-fmt="pdf">PDF</button>
+        <button class="seg-btn" data-fmt="png">PNG</button>
+      </div>
+      <button id="btn-queue-export" class="btn btn-orange" disabled>EXPORT ALL</button>
       <button id="btn-queue-clear" class="btn">CLEAR</button>
       <button id="btn-queue-close" class="btn btn-icon" aria-label="Close">✕</button>
     </div>
+  </div>
+  <div class="queue-catadd">
+    <span class="qc-label">Add a whole category:</span>
+    <select id="queue-cat"></select>
+    <button id="btn-queue-addcat" class="btn btn-sm">ADD ALL</button>
   </div>
   <div class="queue-list" id="queue-list"></div>
   <div class="queue-status" id="queue-status" hidden></div>
@@ -55,6 +64,12 @@
           <div class="sign-empty">Search and select a product to build its sign</div>
         </div>
       </div>
+    </div>
+    <div class="preview-actions" id="preview-actions" hidden>
+      <span class="pa-label">Save this sign:</span>
+      <button id="btn-save-pdf" class="btn btn-sm">PDF</button>
+      <button id="btn-save-png" class="btn btn-sm">PNG</button>
+      <span class="pa-status" id="pa-status" hidden></span>
     </div>
 
     <div class="editor" id="editor" hidden>
@@ -106,7 +121,6 @@
 <script src="data/catalog_fitment.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
-<script src="vendor/jszip.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -29,20 +29,28 @@ server or install needed; fonts are bundled).
    the original template PDF). In the print dialog choose the label printer, or
    "Save as PDF".
 
-## Printing a batch of signs at once
+## Saving signs as files (PDF / PNG)
 
-To print several signs in one go, build a **queue** instead of printing one at
-a time:
+Every sign exports at print quality as an exact 5×3in file — a **PDF**, or a
+**PNG** sized to 1500×900 px (300 DPI).
 
-1. Add signs to the queue — hover a search result and click the **+** that
-   appears, or open a product and click **+ ADD TO QUEUE** in the top bar.
-2. Click **QUEUE** in the top bar to review what's queued, remove anything,
-   or clear it out.
-3. Click **EXPORT ALL AS ZIP**. Each queued sign is rendered at print quality
-   and saved as its own 5×3in PDF, all bundled into one ZIP file that
-   downloads automatically (e.g. `STIHL-signs-2026-07-02.zip`) — ready to hand
-   to a print shop or batch-print yourself. The queue is remembered between
-   visits until you clear it or export.
+**One sign:** select a product and use the **Save this sign: PDF / PNG**
+buttons under the preview.
+
+**Many signs at once:** build an export **queue**, then export the whole batch
+as individual files (no zip):
+
+1. Add signs — hover a search result and click the **+**, open a product and
+   click **+ ADD TO QUEUE**, or add an entire category at once from the
+   **Add a whole category** dropdown in the queue panel.
+2. Click **QUEUE** in the top bar to review, remove items, or clear it.
+3. Choose **PDF** or **PNG**, then click **EXPORT ALL**. Each queued sign
+   downloads as its own file. The first time, the browser may ask permission
+   to download multiple files — choose **Allow**. The queue is remembered
+   between visits until you clear it.
+
+The top-bar **PRINT / SAVE PDF** button still opens the browser's print dialog
+for sending a single sign straight to a label printer.
 
 ## Keeping prices current
 
@@ -94,10 +102,10 @@ To rebuild the Windows executable after any app or data change, run
 `tools/build_exe.sh` (requires Go; cross-compiles from any OS). It embeds
 the current app + data into `dist/SignShop.exe`.
 
-`vendor/` holds three MIT-licensed libraries, pinned and bundled locally (no
-CDN, so the app keeps working offline): JSZip 3.10.1 (zips the batch export),
-jsPDF 2.5.2 (builds each PDF), and html2canvas 1.4.1 (rasterizes a sign for
-the PDF page). They're plain vendored files, not an npm dependency tree.
+`vendor/` holds two MIT-licensed libraries, pinned and bundled locally (no
+CDN, so the app keeps working offline): jsPDF 2.5.2 (builds each PDF) and
+html2canvas 1.4.1 (rasterizes a sign to a canvas for PDF/PNG export). They're
+plain vendored files, not an npm dependency tree.
 
 ## Chain finder wall posters
 

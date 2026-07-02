@@ -1029,7 +1029,7 @@
       a.onclick = () => {
         localStorage.removeItem(LS_DATA_KEY);
         adoptDataset(BUNDLED);
-        pruneQueue(); renderQueue();
+        pruneQueue(); renderQueueCats(); renderQueue();
         renderDataStatus();
         renderCats(); renderResults();
         if (selectedId && !modelById[selectedId]) selectedId = null;
@@ -1054,7 +1054,7 @@
         }
         clearFileFieldOverrides();
         adoptDataset(fresh);
-        pruneQueue(); renderQueue();
+        pruneQueue(); renderQueueCats(); renderQueue();
         if (selectedId && !modelById[selectedId]) selectedId = null;
         renderDataStatus("Imported " + file.name + ": " + diff.changed +
           " price change" + (diff.changed === 1 ? "" : "s") +
@@ -1104,6 +1104,18 @@
     return model.model + (model.nickname ? " " + model.nickname : "");
   }
 
+  function queueAddCategory(catCode) {
+    const ids = DATA.models.filter(m => m.category === catCode).map(m => m.id);
+    let added = 0;
+    ids.forEach(id => {
+      if (queue.indexOf(id) === -1) { queue.push(id); added++; }
+    });
+    if (added) saveQueue();
+    renderQueue();
+    renderResults();
+    return added;
+  }
+
   function renderQueue() {
     $("#queue-count").textContent = queue.length;
     $("#btn-queue-export").disabled = queue.length === 0;
@@ -1117,7 +1129,7 @@
     list.innerHTML = "";
     if (!queue.length) {
       list.appendChild(el("div", "queue-empty",
-        "No signs queued yet — hover a search result and click + , or add the sign you're editing."));
+        "No signs queued yet — hover a search result and click + , add the sign you're editing, or add a whole category above."));
       return;
     }
     queue.forEach(id => {
@@ -1135,6 +1147,23 @@
     });
   }
 
+  // Populate the "add a whole category" dropdown with the categories that
+  // actually have products in the current dataset.
+  function renderQueueCats() {
+    const sel = $("#queue-cat");
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = "";
+    DATA.categories.forEach(c => {
+      const n = DATA.models.filter(m => m.category === c.code).length;
+      if (!n) return;
+      const o = el("option", "", c.name + " (" + n + ")");
+      o.value = c.code;
+      sel.appendChild(o);
+    });
+    if (prev) sel.value = prev;
+  }
+
   function setQueueStatus(msg, isErr) {
     const s = $("#queue-status");
     if (!msg) { s.hidden = true; s.textContent = ""; return; }
@@ -1147,65 +1176,127 @@
     return name.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
   }
 
-  async function exportQueueZip() {
+  /* ---- shared sign export (PDF / PNG, properly sized 5×3in) ---- */
+  const EXPORT_DPI = 300;                 // print quality; 5×3in -> 1500×900 px
+  const SIGN_W_IN = 5, SIGN_H_IN = 3;
+
+  // Render the given model's sign and rasterize it to a canvas at print
+  // resolution. The on-screen #sign lives inside the zoomed preview, so we
+  // capture an off-screen clone at natural size (480×288 = 5×3in @96dpi) —
+  // that keeps the output exactly EXPORT_DPI × 5×3in regardless of the
+  // preview zoom or window size. Assumes fonts are ready.
+  async function signToCanvas(model) {
+    renderSign(model, current(model));
+    // let layout/fonts/images settle before rasterizing
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const host = el("div", "capture-host");
+    const clone = $("#sign").cloneNode(true);
+    host.appendChild(clone);
+    document.body.appendChild(host);
+    try {
+      return await html2canvas(clone, {
+        scale: EXPORT_DPI / 96, backgroundColor: "#ffffff", useCORS: true, logging: false
+      });
+    } finally {
+      host.remove();
+    }
+  }
+
+  function canvasToPdfBlob(canvas) {
+    const pdf = new window.jspdf.jsPDF({ unit: "in", format: [SIGN_W_IN, SIGN_H_IN], orientation: "landscape" });
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, SIGN_W_IN, SIGN_H_IN, undefined, "FAST");
+    return pdf.output("blob");
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+  }
+
+  function downloadBlob(blob, filename) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  // Export each model as its own properly-sized file (no zip). The browser
+  // may ask permission to download multiple files the first time.
+  async function exportModels(ids, format, statusFn) {
+    ids = ids.filter(id => modelById[id]);
+    if (!ids.length) return;
+    const ext = format === "png" ? "png" : "pdf";
+    const priorSelected = selectedId;
+    await document.fonts.ready;
+    const usedNames = {};
+    for (let i = 0; i < ids.length; i++) {
+      const model = modelById[ids[i]];
+      if (statusFn) statusFn("Rendering " + (i + 1) + " of " + ids.length + " — " + queueLabel(model) + "…");
+      const canvas = await signToCanvas(model);
+      const blob = ext === "png" ? await canvasToPngBlob(canvas) : canvasToPdfBlob(canvas);
+
+      let base = sanitizeFilename(queueLabel(model));
+      if (usedNames[base] === undefined) usedNames[base] = 0;
+      else base += " (" + (++usedNames[base]) + ")";
+      downloadBlob(blob, base + "." + ext);
+      // small gap so the browser doesn't drop back-to-back downloads
+      if (i < ids.length - 1) await new Promise(r => setTimeout(r, 350));
+    }
+    if (priorSelected && modelById[priorSelected]) {
+      selectedId = priorSelected;
+      refresh(true);
+    }
+  }
+
+  function currentFormat() {
+    const active = document.querySelector("#queue-format .seg-btn.active");
+    return active ? active.dataset.fmt : "pdf";
+  }
+
+  async function exportQueue() {
     if (!queue.length) return;
     const ids = queue.filter(id => modelById[id]);
     const missing = queue.length - ids.length;
+    const fmt = currentFormat();
     const btnExport = $("#btn-queue-export"), btnClear = $("#btn-queue-clear");
     btnExport.disabled = true; btnClear.disabled = true;
-    const priorSelected = selectedId;
-
     try {
-      await document.fonts.ready;
-      const zip = new JSZip();
-      const usedNames = {};
-      for (let i = 0; i < ids.length; i++) {
-        const model = modelById[ids[i]];
-        setQueueStatus("Rendering " + (i + 1) + " of " + ids.length + " — " + queueLabel(model) + "…");
-        renderSign(model, current(model));
-        // let layout/fonts/images settle before rasterizing
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        const canvas = await html2canvas($("#sign"), {
-          scale: 4, backgroundColor: "#ffffff", useCORS: true, logging: false
-        });
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new window.jspdf.jsPDF({ unit: "in", format: [5, 3], orientation: "landscape" });
-        pdf.addImage(imgData, "PNG", 0, 0, 5, 3, undefined, "FAST");
-        const blob = pdf.output("blob");
-
-        let name = sanitizeFilename(queueLabel(model)) + ".pdf";
-        if (usedNames[name] !== undefined) {
-          usedNames[name]++;
-          name = sanitizeFilename(queueLabel(model)) + " (" + usedNames[name] + ").pdf";
-        } else {
-          usedNames[name] = 0;
-        }
-        zip.file(name, blob);
-      }
-
-      setQueueStatus("Zipping " + ids.length + " sign" + (ids.length === 1 ? "" : "s") + "…");
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const stamp = new Date().toISOString().slice(0, 10);
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(zipBlob);
-      a.download = "STIHL-signs-" + stamp + ".zip";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-
-      setQueueStatus("Done — " + ids.length + " sign" + (ids.length === 1 ? "" : "s") + " exported" +
-        (missing ? " (" + missing + " no longer in the current data, skipped)" : "") + ".");
+      await exportModels(ids, fmt, setQueueStatus);
+      setQueueStatus("Done — " + ids.length + " " + fmt.toUpperCase() +
+        (ids.length === 1 ? " file" : " files") + " exported" +
+        (missing ? " (" + missing + " no longer in the current data, skipped)" : "") +
+        ". If your browser asked to allow multiple downloads, choose Allow.");
     } catch (err) {
       setQueueStatus("Export failed: " + err.message, true);
     } finally {
       btnExport.disabled = queue.length === 0;
       btnClear.disabled = false;
-      if (priorSelected && modelById[priorSelected]) {
-        selectedId = priorSelected;
-        refresh(true);
-      }
+    }
+  }
+
+  function setPaStatus(msg, isErr) {
+    const s = $("#pa-status");
+    if (!msg) { s.hidden = true; s.textContent = ""; return; }
+    s.hidden = false;
+    s.textContent = msg;
+    s.classList.toggle("err", !!isErr);
+  }
+
+  async function exportSingle(format) {
+    if (!selectedId || !modelById[selectedId]) return;
+    const model = modelById[selectedId];
+    const btnPdf = $("#btn-save-pdf"), btnPng = $("#btn-save-png");
+    btnPdf.disabled = true; btnPng.disabled = true;
+    setPaStatus("Rendering " + format.toUpperCase() + "…");
+    try {
+      await exportModels([selectedId], format);
+      setPaStatus(queueLabel(model) + "." + format + " saved.");
+    } catch (err) {
+      setPaStatus("Save failed: " + err.message, true);
+    } finally {
+      btnPdf.disabled = false; btnPng.disabled = false;
     }
   }
 
@@ -1220,7 +1311,23 @@
   });
   $("#btn-queue-close").addEventListener("click", () => { $("#queue-panel").hidden = true; });
   $("#btn-queue-clear").addEventListener("click", () => { queueClear(); renderResults(); });
-  $("#btn-queue-export").addEventListener("click", () => { setQueueStatus(""); exportQueueZip(); });
+  $("#btn-queue-export").addEventListener("click", () => { setQueueStatus(""); exportQueue(); });
+  $("#btn-queue-addcat").addEventListener("click", () => {
+    const sel = $("#queue-cat");
+    if (!sel.value) return;
+    const n = queueAddCategory(sel.value);
+    const name = sel.options[sel.selectedIndex].textContent.replace(/ \(\d+\)$/, "");
+    setQueueStatus(n ? "Added " + n + " sign" + (n === 1 ? "" : "s") + " from " + name + "." :
+      "All " + name + " signs are already in the queue.");
+  });
+  document.querySelectorAll("#queue-format .seg-btn").forEach(b => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#queue-format .seg-btn").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+    });
+  });
+  $("#btn-save-pdf").addEventListener("click", () => exportSingle("pdf"));
+  $("#btn-save-png").addEventListener("click", () => exportSingle("png"));
 
   /* ---------------- preview scale & print ---------------- */
   function fitPreview() {
@@ -1253,6 +1360,8 @@
     renderSign(model, cfg);
     if (fullEditor) renderEditor(model, cfg);
     $("#btn-print").disabled = false;
+    $("#preview-actions").hidden = false;
+    if (fullEditor) setPaStatus("");
     renderQueue();
   }
 
@@ -1280,6 +1389,7 @@
   renderDataStatus();
   renderCats();
   renderResults();
+  renderQueueCats();
   renderQueue();
   fitPreview();
 
