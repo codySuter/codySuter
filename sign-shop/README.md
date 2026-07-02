@@ -31,11 +31,15 @@ server or install needed; fonts are bundled).
 
 ## Saving signs as files (PDF / PNG)
 
-Every sign exports at print quality as an exact 5×3in file — a **PDF**, or a
-**PNG** sized to 1500×900 px (300 DPI).
+Every sign exports at print quality. The default size is 5×3in (matching the
+template); an **Export size** slider next to the export controls scales the
+sign up to 2× (keeping the same 5:3 shape) when you want a bigger sign —
+e.g. 1.5× gives a 7.5×4.5in sign. PNGs come out at 300 DPI for whatever size
+you pick (5×3in = 1500×900 px, 7.5×4.5in = 2250×1350 px). The size is
+remembered between visits.
 
-**One sign:** select a product and use the **Save this sign: PDF / PNG**
-buttons under the preview.
+**One sign:** select a product, set the **Export size**, and use the
+**Save this sign: PDF / PNG** buttons under the preview.
 
 **Many signs at once:** build an export **queue**, then export the whole batch
 as individual files (no zip):
@@ -50,7 +54,8 @@ as individual files (no zip):
      files — choose **Allow**.
    - **2-UP PDF** — one combined PDF with two signs per US Letter (8.5×11in)
      page, each with a thin cut-guide border. Print it on any office printer,
-     then trim — the easiest way to run a stack of signs at once.
+     then trim — the easiest way to run a stack of signs at once. The Export
+     size slider applies here too, capped so two signs still fit per page.
 
    The queue is remembered between visits until you clear it.
 

@@ -1176,15 +1176,35 @@
     return name.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
   }
 
-  /* ---- shared sign export (PDF / PNG, properly sized 5×3in) ---- */
-  const EXPORT_DPI = 300;                 // print quality; 5×3in -> 1500×900 px
-  const SIGN_W_IN = 5, SIGN_H_IN = 3;
+  /* ---- shared sign export (PDF / PNG) ---- */
+  // The sign is designed at the template's 5×3in (480×288 px) geometry. An
+  // export scale multiplier lets the user size the printed sign up while
+  // keeping that exact aspect ratio.
+  const EXPORT_DPI = 300;                 // print quality; 5×3in @1× -> 1500×900 px
+  const BASE_W_IN = 5, BASE_H_IN = 3;
+  const LS_SCALE_KEY = "signshop.exportscale.v1";
+  let exportScale = 1;
+  try {
+    const v = parseFloat(localStorage.getItem(LS_SCALE_KEY));
+    if (v >= 1 && v <= 2) exportScale = v;
+  } catch (e) {}
 
-  // Render the given model's sign and rasterize it to a canvas at print
-  // resolution. The on-screen #sign lives inside the zoomed preview, so we
-  // capture an off-screen clone at natural size (480×288 = 5×3in @96dpi) —
-  // that keeps the output exactly EXPORT_DPI × 5×3in regardless of the
-  // preview zoom or window size. Assumes fonts are ready.
+  const outW = () => BASE_W_IN * exportScale;   // physical inches, current scale
+  const outH = () => BASE_H_IN * exportScale;
+
+  function setExportScale(v) {
+    exportScale = Math.min(2, Math.max(1, v));
+    try { localStorage.setItem(LS_SCALE_KEY, String(exportScale)); } catch (e) {}
+    const readout = exportScale.toFixed(1) + "× · " + outW().toFixed(1) + "×" + outH().toFixed(1) + " in";
+    ["#scale-single", "#scale-queue"].forEach(s => { const n = $(s); if (n) n.value = exportScale; });
+    ["#scale-readout-single", "#scale-readout-queue"].forEach(s => { const n = $(s); if (n) n.textContent = readout; });
+  }
+
+  // Render the given model's sign and rasterize it to a canvas. The on-screen
+  // #sign lives inside the zoomed preview, so we capture an off-screen clone
+  // at the template's natural 480×288 px, then rasterize at a scale that
+  // yields EXPORT_DPI at the current output size (so PNGs come out exactly
+  // outW×outH inches @300 DPI regardless of preview zoom). Assumes fonts ready.
   async function signToCanvas(model) {
     renderSign(model, current(model));
     // let layout/fonts/images settle before rasterizing
@@ -1195,7 +1215,8 @@
     document.body.appendChild(host);
     try {
       return await html2canvas(clone, {
-        scale: EXPORT_DPI / 96, backgroundColor: "#ffffff", useCORS: true, logging: false
+        scale: (EXPORT_DPI / 96) * exportScale,
+        backgroundColor: "#ffffff", useCORS: true, logging: false
       });
     } finally {
       host.remove();
@@ -1203,8 +1224,9 @@
   }
 
   function canvasToPdfBlob(canvas) {
-    const pdf = new window.jspdf.jsPDF({ unit: "in", format: [SIGN_W_IN, SIGN_H_IN], orientation: "landscape" });
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, SIGN_W_IN, SIGN_H_IN, undefined, "FAST");
+    const w = outW(), h = outH();
+    const pdf = new window.jspdf.jsPDF({ unit: "in", format: [w, h], orientation: "landscape" });
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, w, h, undefined, "FAST");
     return pdf.output("blob");
   }
 
@@ -1250,16 +1272,22 @@
     }
   }
 
-  // Combined US Letter PDF, two 5×3in signs per 8.5×11in page (stacked),
-  // with thin cut-guide borders — one file, ready to bulk-print.
+  // Combined US Letter PDF, two signs per 8.5×11in page (stacked), with thin
+  // cut-guide borders — one file, ready to bulk-print. Signs use the export
+  // scale, capped so two still fit stacked on the page (with margins).
   async function exportLetter2up(ids, statusFn) {
     ids = ids.filter(id => modelById[id]);
-    if (!ids.length) return 0;
+    if (!ids.length) return { n: 0, capped: false };
     const priorSelected = selectedId;
     await document.fonts.ready;
-    const W = 8.5, H = 11, sw = SIGN_W_IN, sh = SIGN_H_IN;
+    const W = 8.5, H = 11, MX = 0.4, MY = 0.35;
+    // largest scale where a sign still fits its half-page within the margins
+    const fitScale = Math.min((W - 2 * MX) / BASE_W_IN, (H / 2 - 2 * MY) / BASE_H_IN);
+    const s = Math.min(exportScale, fitScale);
+    const capped = exportScale > fitScale + 1e-9;
+    const sw = BASE_W_IN * s, sh = BASE_H_IN * s;
     const x = (W - sw) / 2;                 // centered horizontally
-    const ys = [(H / 2 - sh) / 2, H / 2 + (H / 2 - sh) / 2]; // one per half-page
+    const ys = [(H / 2 - sh) / 2, H / 2 + (H / 2 - sh) / 2]; // centered in each half
     const pdf = new window.jspdf.jsPDF({ unit: "in", format: "letter", orientation: "portrait" });
     for (let i = 0; i < ids.length; i++) {
       const model = modelById[ids[i]];
@@ -1283,7 +1311,7 @@
       selectedId = priorSelected;
       refresh(true);
     }
-    return ids.length;
+    return { n: ids.length, capped, s };
   }
 
   function currentFormat() {
@@ -1292,8 +1320,8 @@
   }
 
   const FORMAT_HINT = {
-    pdf: "— one 5×3in file per sign",
-    png: "— one 5×3in PNG per sign (300 DPI)",
+    pdf: "— one PDF per sign, at the export size",
+    png: "— one PNG per sign, at the export size (300 DPI)",
     letter2: "— two signs per US Letter page, one combined PDF"
   };
 
@@ -1306,10 +1334,11 @@
     btnExport.disabled = true; btnClear.disabled = true;
     try {
       if (fmt === "letter2") {
-        const n = await exportLetter2up(ids, setQueueStatus);
-        const pages = Math.ceil(n / 2);
-        setQueueStatus("Done — " + n + " sign" + (n === 1 ? "" : "s") + " on " +
+        const res = await exportLetter2up(ids, setQueueStatus);
+        const pages = Math.ceil(res.n / 2);
+        setQueueStatus("Done — " + res.n + " sign" + (res.n === 1 ? "" : "s") + " on " +
           pages + " Letter page" + (pages === 1 ? "" : "s") + " (one PDF)" +
+          (res.capped ? ", sized " + res.s.toFixed(1) + "× to fit two per page" : "") +
           (missing ? " (" + missing + " no longer in the current data, skipped)" : "") + ".");
       } else {
         await exportModels(ids, fmt, setQueueStatus);
@@ -1342,7 +1371,8 @@
     setPaStatus("Rendering " + format.toUpperCase() + "…");
     try {
       await exportModels([selectedId], format);
-      setPaStatus(queueLabel(model) + "." + format + " saved.");
+      setPaStatus(queueLabel(model) + "." + format + " saved (" +
+        outW().toFixed(1) + "×" + outH().toFixed(1) + " in).");
     } catch (err) {
       setPaStatus("Save failed: " + err.message, true);
     } finally {
@@ -1379,6 +1409,12 @@
   });
   $("#btn-save-pdf").addEventListener("click", () => exportSingle("pdf"));
   $("#btn-save-png").addEventListener("click", () => exportSingle("png"));
+  ["#scale-single", "#scale-queue"].forEach(sel => {
+    const n = $(sel);
+    if (n) n.addEventListener("input", () => setExportScale(parseFloat(n.value)));
+  });
+  setExportScale(exportScale);   // sync both sliders + readouts to stored value
+  $("#queue-hint").textContent = FORMAT_HINT[currentFormat()] || "";
 
   /* ---------------- preview scale & print ---------------- */
   function fitPreview() {
