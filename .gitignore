@@ -42,3 +42,6 @@ sign-shop/dist/signshop-linux
 # regenerable bulk PNG exports (see tools/render_all_signs.js)
 sign-shop/dist/signs-png/
 sign-shop/dist/signs-png.zip
+# regenerable Cricut sheets (see tools/build_cricut_sheets.py)
+sign-shop/dist/cricut/
+sign-shop/dist/cricut-sheets.zip

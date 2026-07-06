@@ -76,6 +76,24 @@ as the in-app PNG export (1500×900 px = 5×3in @300 DPI), from the current
 `data/products.js` — one file per model, at its default floor configuration.
 The output folder is git-ignored; regenerate it whenever the data changes.
 
+## Cricut Print-then-Cut sheets (one PDF per category)
+
+To produce Cricut-ready sheets — a **multi-page PDF per product category**,
+two signs per US Letter page, with the store template's corner registration
+marks so the Cricut can scan and cut each sign:
+
+```
+node tools/render_all_signs.js          # 1. render the PNGs (if not already)
+python3 tools/build_cricut_sheets.py    # 2. -> dist/cricut/<Category>.pdf
+```
+
+The layout is measured from the store's `chainsaw_template.pdf`: 8.5×11in
+pages, four 1-inch L-bracket registration marks at the corners (reused
+verbatim from `tools/cricut/marks/` so they match what the Cricut expects),
+and two 5:3 sign slots stacked vertically. Odd categories put the last sign
+alone in the top slot. Output PDFs are git-ignored (regenerable); the
+registration-mark images and the builder are committed.
+
 ## Keeping prices current
 
 When STIHL sends a new *Dealer Price File* CSV, click **UPDATE PRICING…** in
