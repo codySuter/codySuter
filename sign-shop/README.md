@@ -62,6 +62,20 @@ as individual files (no zip):
 The top-bar **PRINT / SAVE PDF** button still opens the browser's print dialog
 for sending a single sign straight to a label printer.
 
+## Generating every sign as a PNG at once
+
+To produce a PNG of every product's sign in one shot (organized into
+per-category folders), run:
+
+```
+node tools/render_all_signs.js        # -> dist/signs-png/
+```
+
+It drives the app headlessly and captures each sign through the same pipeline
+as the in-app PNG export (1500×900 px = 5×3in @300 DPI), from the current
+`data/products.js` — one file per model, at its default floor configuration.
+The output folder is git-ignored; regenerate it whenever the data changes.
+
 ## Keeping prices current
 
 When STIHL sends a new *Dealer Price File* CSV, click **UPDATE PRICING…** in
