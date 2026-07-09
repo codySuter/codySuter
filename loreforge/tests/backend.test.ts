@@ -1,9 +1,11 @@
+// Lives outside convex/ on purpose: the Convex CLI bundles every file in that
+// directory, and import.meta.glob is a Vitest/Vite-only API.
 import { describe, it, expect } from "vitest";
 import { convexTest } from "convex-test";
-import schema from "./schema";
-import { api } from "./_generated/api";
+import schema from "../convex/schema";
+import { api } from "../convex/_generated/api";
 
-const modules = import.meta.glob("./**/*.ts");
+const modules = import.meta.glob("../convex/**/*.ts");
 
 function fresh() {
   return convexTest(schema, modules);
