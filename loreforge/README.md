@@ -53,11 +53,11 @@ it's your personal forge).
 
 ```bash
 cd loreforge
-npm install
+npm run setup      # installs deps + configures Convex (one-time, interactive)
 npm run dev        # starts Convex + Vite + Electron together
 ```
 
-The first `npm run dev` asks how you want to run Convex:
+The one-time `npm run setup` asks how you want to run Convex:
 
 - **"Start without an account"** (local) — everything stays on your machine.
   A local Convex backend runs while `npm run dev` is running.
