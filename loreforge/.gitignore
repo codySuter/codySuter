@@ -1,0 +1,10 @@
+node_modules
+dist
+release
+.env.local
+.env
+*.local
+.DS_Store
+e2e/screenshots
+e2e/artifacts
+.vite

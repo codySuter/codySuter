@@ -1,0 +1,41 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2b1240"/>
+      <stop offset="55%" stop-color="#521a33"/>
+      <stop offset="100%" stop-color="#8f2d2d"/>
+    </linearGradient>
+    <linearGradient id="die" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4d47c"/>
+      <stop offset="100%" stop-color="#c9932e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0%" stop-color="#ffdf9e" stop-opacity="0.5"/>
+      <stop offset="45%" stop-color="#ffb45e" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- macOS squircle-ish rounded rect -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#glow)"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="none" stroke="#f4d47c" stroke-opacity="0.22" stroke-width="6"/>
+
+  <!-- d20: outer hexagon -->
+  <g stroke="url(#die)" stroke-width="34" stroke-linejoin="round" stroke-linecap="round" fill="none">
+    <path d="M512 176 L790 336 L790 656 L512 816 L234 656 L234 336 Z"/>
+    <!-- top face triangle -->
+    <path d="M330 430 L694 430 L512 700 Z" stroke-width="26"/>
+    <!-- upper spokes -->
+    <path d="M512 176 L330 430 M512 176 L694 430" stroke-width="26"/>
+    <path d="M234 336 L330 430 M790 336 L694 430" stroke-width="26"/>
+    <!-- lower spokes -->
+    <path d="M234 656 L330 430 M790 656 L694 430" stroke-width="24" stroke-opacity="0.85"/>
+    <path d="M512 816 L512 700 M234 656 L512 700 M790 656 L512 700" stroke-width="24" stroke-opacity="0.85"/>
+  </g>
+
+  <!-- 20 pips: a spark in the top face -->
+  <g fill="#f4d47c">
+    <path d="M512 470 l24 52 52 24 -52 24 -24 52 -24 -52 -52 -24 52 -24 Z" opacity="0.95"/>
+  </g>
+</svg>
