@@ -102,6 +102,13 @@ export async function createDemoClient(): Promise<LoreClient> {
   const t = convexTest(schema, modules) as unknown as TestHarness;
   await t.mutation(api.seed.init as MutationRef, {});
 
+  // Debug hook for the e2e suite: lets tests inspect demo-backend state directly.
+  const { makeFunctionReference } = await import("convex/server");
+  (globalThis as Record<string, unknown>).__loreDemo = {
+    query: (name: string, args: unknown) =>
+      t.query(makeFunctionReference(name) as QueryRef, args),
+  };
+
   let generation = 0;
   const listeners = new Set<() => void>();
   const invalidate = () => {

@@ -172,31 +172,53 @@ async function run() {
   ok("statblock inserted into new page", true);
 
   console.log("→ @mention autocomplete");
-  await page.click(".lf-editor .bn-editor");
-  await page.keyboard.press(`${mod}+End`).catch(() => {});
-  await page.keyboard.press("Escape");
-  await page.locator(".lf-editor .bn-editor p").last().click();
+  const firstParagraph = page.locator(".lf-editor .bn-editor [data-content-type='paragraph']").first();
+  await firstParagraph.click();
   await page.keyboard.press("End");
   await page.keyboard.type(" @Thorn");
   await page.waitForTimeout(900);
-  const mentionItem = page.locator(".bn-suggestion-menu-item, [class*='suggestion']").filter({ hasText: "Thornhollow" });
+  const mentionItem = page
+    .locator(".bn-suggestion-menu-item, [class*='suggestion']")
+    .filter({ hasText: "Thornhollow" })
+    .filter({ hasNotText: "Session 0" });
   const mentionCount = await mentionItem.count();
   ok(`@mention menu suggests pages (${mentionCount})`, mentionCount > 0);
   await shot("11-mention-menu");
   if (mentionCount > 0) {
     await mentionItem.first().click();
     await page.waitForTimeout(600);
-    ok("mention chip inserted", (await page.locator(".lf-editor .lf-mention:has-text('Thornhollow')").count()) > 0);
+    const chip = page
+      .locator(".lf-editor .lf-mention:has-text('Thornhollow')")
+      .filter({ hasNotText: "Session 0" });
+    ok("mention chip inserted", (await chip.count()) > 0);
   }
   await page.waitForTimeout(1200); // let the debounced save land
 
   console.log("→ Backlink created by mention");
   await page.click(".tree-row:has-text('Thornhollow')");
   await page.waitForSelector(".backlinks-panel", { timeout: 10000 });
-  ok(
-    "new page appears in Thornhollow backlinks",
-    (await page.locator(".backlink-item:has-text('E2E Test Page')").count()) > 0,
-  );
+  // The link lands when the editor's debounced save flushes — retry until it shows.
+  const backlinkHit = await page
+    .waitForSelector(".backlink-item:has-text('E2E Test Page')", { timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!backlinkHit) {
+    const dbg = await page.evaluate(async () => {
+      const demo = window.__loreDemo;
+      if (!demo) return "no demo hook";
+      const ws = (await demo.query("workspaces:list", {}))[0];
+      const tree = await demo.query("pages:tree", { workspaceId: ws._id });
+      const testPage = tree.find((p) => p.title === "E2E Test Page");
+      const full = testPage ? await demo.query("pages:get", { pageId: testPage._id }) : null;
+      return {
+        pageTitles: tree.map((p) => p.title),
+        testContent: full ? JSON.stringify(full.content)?.slice(0, 900) : "(no page)",
+      };
+    });
+    console.log("  DEBUG:", JSON.stringify(dbg).slice(0, 1400));
+  }
+  ok("new page appears in Thornhollow backlinks", backlinkHit);
+  await page.locator(".backlinks-panel").scrollIntoViewIfNeeded();
   await shot("12-backlinks");
 
   console.log("→ Dice tray with history");
@@ -238,9 +260,15 @@ async function run() {
   await page.keyboard.press(`${mod}+j`);
   await page.waitForSelector(".duality-btn", { timeout: 5000 });
   await page.click(".duality-btn");
-  await page.waitForSelector(".lf-toast", { timeout: 5000 });
-  const toastText = await page.locator(".lf-toast").first().textContent();
-  ok(`duality roll shows Hope/Fear (${toastText?.slice(0, 44)}…)`, /Hope|Fear|Critical/i.test(toastText ?? ""));
+  // Older toasts may still be on screen — wait for the duality-flavored one.
+  const dualityToast = await page
+    .waitForSelector(
+      ".lf-toast:has-text('Hope'), .lf-toast:has-text('Fear'), .lf-toast:has-text('Critical')",
+      { timeout: 6000 },
+    )
+    .then((el) => el.textContent())
+    .catch(() => null);
+  ok(`duality roll shows Hope/Fear (${dualityToast?.slice(0, 44) ?? "none"}…)`, dualityToast !== null);
   await shot("17-duality-roll");
 
   console.log("→ Timeline & story threads board");

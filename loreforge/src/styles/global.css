@@ -2025,6 +2025,7 @@ select:focus-visible {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  z-index: 320; /* above the entry peek drawer */
 }
 .qs-input {
   width: 100%;

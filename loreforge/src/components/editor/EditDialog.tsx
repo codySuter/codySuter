@@ -33,7 +33,10 @@ export function EditDialog({
           zIndex: 260,
         }}
         onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            onClose();
+          }
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSave();
         }}
       >

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Maximize2, Trash2, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -36,6 +36,16 @@ export function EntryPeek({ workspace, peek }: { workspace: WorkspaceDoc; peek: 
   );
 
   const close = () => ui.closePeek();
+
+  // Escape closes the peek (popovers/dialogs stop propagation before this fires).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") ui.closePeek();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (entry === null) {
     return (
