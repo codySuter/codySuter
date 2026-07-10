@@ -26,7 +26,7 @@ struct SettingsView: View {
                             .scaledToFit()
                             .frame(height: 40)
                     } else {
-                        Text("Using the built-in Ace badge")
+                        Text("Using the official Ace Hardware logo (built in)")
                             .foregroundColor(.secondary)
                     }
                     Spacer()
@@ -35,7 +35,7 @@ struct SettingsView: View {
                         Button("Use Built-in") { logoPath = "" }
                     }
                 }
-                Text("Tip: drop in the official Ace logo (PNG with transparency) from your retailer branding kit and every sign will use the real brand art.")
+                Text("The official two-line Ace Hardware logo is built in. Choose a file only to override it (for example a seasonal or co-branded version); the brand kit's vector originals live in the project's BrandAssets folder.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

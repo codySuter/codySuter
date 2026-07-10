@@ -21,11 +21,13 @@ struct LookupError: Error {
 /// configured store number, resolves the SKU to a product page through the
 /// site's search, then extracts name / price / photo from several redundant
 /// places in the page (JSON-LD, embedded JSON state, meta tags, raw HTML).
+/// Pages load through an embedded WebKit view (WebPageFetcher) so the site's
+/// bot protection passes as it does for a normal visitor.
 /// Everything it does is recorded as diagnostics so failures are debuggable.
 final class AceLookupService {
-    private let session: URLSession
-    private let cookieStorage: HTTPCookieStorage?
+    private let session: URLSession   // image downloads only; pages go through WebKit
     private var visitedStoreCode: String?
+    private var pageFetcher: WebPageFetcher?
 
     static let base = "https://www.acehardware.com"
     static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
@@ -36,11 +38,18 @@ final class AceLookupService {
         config.timeoutIntervalForResource = 60
         config.httpAdditionalHeaders = [
             "User-Agent": Self.userAgent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept": "image/avif,image/webp,image/png,image/*;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
         ]
-        cookieStorage = config.httpCookieStorage
         session = URLSession(configuration: config)
+    }
+
+    @MainActor
+    private func fetcher() -> WebPageFetcher {
+        if let existing = pageFetcher { return existing }
+        let created = WebPageFetcher()
+        pageFetcher = created
+        return created
     }
 
     // MARK: Main entry point
@@ -53,20 +62,17 @@ final class AceLookupService {
         // store context (cookies) before we ask for a product.
         if visitedStoreCode != storeCode {
             let storeURL = URL(string: "\(Self.base)/store-details/\(storeCode)")!
-            switch await fetchHTML(storeURL) {
+            switch await fetchPage(storeURL) {
             case .success(let page):
                 visitedStoreCode = storeCode
-                setPreferredStoreCookie(storeCode)
                 out.diagnostics.append(DiagnosticEntry(
                     title: "Store context loaded (store #\(storeCode))",
-                    detail: page.finalURL.absoluteString, ok: true))
+                    detail: "\(page.finalURL.absoluteString) — via embedded Safari engine", ok: true))
             case .failure(let error):
                 out.diagnostics.append(DiagnosticEntry(
                     title: "Store page request failed",
                     detail: error.message, ok: false))
             }
-            // Small pause between requests — be polite, look human.
-            try? await Task.sleep(nanoseconds: 400_000_000)
         }
 
         // Step 2 — resolve the SKU to a product page via site search.
@@ -80,7 +86,7 @@ final class AceLookupService {
         var productHTML: String?
         var productURL: URL?
 
-        switch await fetchHTML(searchURL) {
+        switch await fetchPage(searchURL) {
         case .success(let page):
             if Self.looksLikeProductPath(page.finalURL.path, sku: query) {
                 productHTML = page.html
@@ -95,7 +101,7 @@ final class AceLookupService {
                 if let link = HTMLParsers.firstProductLink(in: page.html, sku: query) {
                     let absolute = link.hasPrefix("http") ? link : Self.base + link
                     if let linkURL = URL(string: absolute) {
-                        switch await fetchHTML(linkURL) {
+                        switch await fetchPage(linkURL) {
                         case .success(let productPage):
                             productHTML = productPage.html
                             productURL = productPage.finalURL
@@ -400,32 +406,24 @@ final class AceLookupService {
 
     // MARK: HTTP plumbing
 
-    private func setPreferredStoreCookie(_ storeCode: String) {
-        // Best-effort hint; harmless if the site ignores it. The real store
-        // context comes from cookies the store-details page sets itself.
-        if let cookie = HTTPCookie(properties: [
-            .domain: ".acehardware.com",
-            .path: "/",
-            .name: "preferredStore",
-            .value: storeCode,
-            .expires: Date(timeIntervalSinceNow: 60 * 60 * 24 * 30),
-        ]) {
-            cookieStorage?.setCookie(cookie)
-        }
-    }
-
     private struct FetchedPage {
         let html: String
         let finalURL: URL
     }
 
-    private func fetchHTML(_ url: URL) async -> Result<FetchedPage, LookupError> {
-        switch await fetchData(url) {
-        case .success(let fetched):
-            let html = String(data: fetched.data, encoding: .utf8) ?? String(decoding: fetched.data, as: UTF8.self)
-            return .success(FetchedPage(html: html, finalURL: fetched.finalURL))
-        case .failure(let error):
+    /// Loads a page through the embedded WebKit engine. HTTP-level denials
+    /// (403 etc.) become failures so callers surface them in diagnostics.
+    private func fetchPage(_ url: URL) async -> Result<FetchedPage, LookupError> {
+        do {
+            let page = try await fetcher().fetch(url)
+            if page.status >= 400 {
+                return .failure(LookupError(message: "HTTP \(page.status) for \(url.absoluteString) (embedded browser)"))
+            }
+            return .success(FetchedPage(html: page.html, finalURL: page.finalURL))
+        } catch let error as LookupError {
             return .failure(error)
+        } catch {
+            return .failure(LookupError(message: "\(error.localizedDescription) (\(url.absoluteString))"))
         }
     }
 
@@ -456,7 +454,7 @@ final class AceLookupService {
     private static func friendlyMessage(for error: LookupError) -> String {
         let msg = error.message
         if msg.contains("HTTP 403") {
-            return "acehardware.com refused the request (HTTP 403). The site occasionally rate-limits — wait a minute and try again. If it persists, open Diagnostics and share the log."
+            return "acehardware.com is blocking lookups from this connection right now (HTTP 403), even through the app's embedded Safari engine. Wait a few minutes and try again; if it keeps up, open Diagnostics and share the log."
         }
         if msg.contains("timed out") || msg.contains("The request timed out") {
             return "The request timed out — check the internet connection and try again."

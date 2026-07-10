@@ -168,8 +168,8 @@ enum Prefs {
 // MARK: - Shared colors
 
 extension Color {
-    /// Ace brand red (≈ PMS 186).
-    static let aceRed = Color(red: 0.784, green: 0.063, blue: 0.180)
+    /// Ace brand red — #E31837, sampled from the brand-kit vector art.
+    static let aceRed = Color(red: 227.0 / 255.0, green: 24.0 / 255.0, blue: 55.0 / 255.0)
 }
 
 // MARK: - Small helpers

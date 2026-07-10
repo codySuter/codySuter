@@ -142,15 +142,15 @@ struct SaleSignLayout: View {
 
 // MARK: - Shared building blocks
 
-/// The Ace brand mark. Uses the store's own logo file when one is set in
-/// Settings; otherwise draws a clean built-in Ace badge.
+/// The Ace brand mark: a custom logo from Settings if set, otherwise the
+/// embedded official Ace Hardware logo, with a drawn badge as last resort.
 struct AceBadgeView: View {
     let logo: NSImage?
     let u: CGFloat
 
     var body: some View {
-        if let logo {
-            Image(nsImage: logo)
+        if let image = logo ?? AceBrand.logo {
+            Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()

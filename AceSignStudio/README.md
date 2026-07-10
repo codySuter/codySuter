@@ -51,14 +51,16 @@ cd AceSignStudio
   [your store's page](https://www.acehardware.com/store-details/12180) first so pricing follows
   your store where the site provides it.
 - **Store line** — the footer text printed on signs.
-- **Logo** — signs use a built-in Ace-style badge by default. For pixel-perfect brand art, choose
-  the official Ace logo PNG from your retailer branding kit and every sign will use it.
+- **Logo** — the official two-line Ace Hardware logo (from the retailer brand kit) is built in and
+  used on every sign and the app icon, with the brand's exact red (#E31837) throughout. Settings
+  can override it with any PNG; the vector originals live in `AceSignStudio/BrandAssets/`.
 
 ## When a lookup doesn't fill everything in
 
-The app reads product data straight from acehardware.com's public pages, from several redundant
-places (structured product data, embedded page JSON, meta tags). Retail sites change, and they
-sometimes rate-limit — so:
+The app loads acehardware.com pages in an embedded WebKit view — the same engine as Safari — so
+the site's bot checks pass as they do for a normal visitor, then reads product data from several
+redundant places (structured product data, embedded page JSON, meta tags). Retail sites change,
+and they sometimes rate-limit — so:
 
 - Open **Diagnostics** (toolbar) to see every step of the last lookup: what was requested, what
   answered, and where each value came from.
@@ -85,9 +87,10 @@ This is set up so new signage needs slot in cleanly:
 ```
 AceSignStudio/
 ├── Package.swift               Swift package (open in Xcode, or `swift build`)
+├── BrandAssets/                official Ace Hardware logo (PNGs + vector EPS originals)
 ├── Scripts/
 │   ├── build-app.sh            builds "Ace Sign Studio.app" + icon
-│   └── generate-icon.swift     draws the app icon
+│   └── generate-icon.swift     renders the app icon from the brand logo
 └── Sources/AceSignStudio/
     ├── AceSignStudioApp.swift  app entry, menu commands
     ├── AppState.swift          all UI state + actions
