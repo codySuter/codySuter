@@ -54,7 +54,7 @@ struct ContentView: View {
         Form {
             Section("Look Up Product") {
                 HStack(spacing: 8) {
-                    TextField("SKU / item number", text: $state.sku)
+                    TextField("SKU, item #, name, or product URL", text: $state.sku)
                         .textFieldStyle(.roundedBorder)
                         .focused($skuFocused)
                         .onSubmit { state.runLookup() }

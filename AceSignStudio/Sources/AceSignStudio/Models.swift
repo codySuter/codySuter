@@ -122,7 +122,9 @@ enum PriceFormatter {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "$", with: "")
             .replacingOccurrences(of: ",", with: "")
-        guard !cleaned.isEmpty, let value = Double(cleaned), value >= 0 else { return nil }
+        guard !cleaned.isEmpty, let value = Double(cleaned),
+              value.isFinite, value >= 0, value < 1_000_000
+        else { return nil }
         let cents = Int((value * 100).rounded())
         return Parts(dollars: String(cents / 100), cents: String(format: "%02d", cents % 100))
     }

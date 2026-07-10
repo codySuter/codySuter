@@ -62,13 +62,17 @@ final class AppState: ObservableObject {
         if let path = defaults.string(forKey: Prefs.logoPath), !path.isEmpty {
             logo = NSImage(contentsOfFile: path)
         }
+        let rawSKU = sku.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Never print a pasted URL or a search phrase in the sign footer.
+        let footerSKU = (rawSKU.lowercased().hasPrefix("http") || rawSKU.contains(where: \.isWhitespace))
+            ? "" : rawSKU
         return SignSpec(
             productName: productName,
             detailLine: detailLine,
             priceText: priceText,
             wasPriceText: wasPriceText,
             unitSuffix: unitSuffix,
-            sku: sku.trimmingCharacters(in: .whitespacesAndNewlines),
+            sku: footerSKU,
             footerText: showFooter && !storeName.isEmpty ? storeName : nil,
             image: productImage,
             customLogo: logo,
@@ -101,9 +105,22 @@ final class AppState: ObservableObject {
             if let name = outcome.productName, !name.isEmpty { self.productName = name }
             if let detail = outcome.detailLine, !detail.isEmpty { self.detailLine = detail }
             if let price = outcome.priceText { self.priceText = price }
-            self.wasPriceText = outcome.wasPriceText ?? self.wasPriceText
+            if outcome.productName != nil || outcome.priceText != nil {
+                // A product was found: the was-price must reflect THIS
+                // product, never linger from the previous lookup.
+                self.wasPriceText = outcome.wasPriceText ?? ""
+            } else if let was = outcome.wasPriceText {
+                self.wasPriceText = was
+            }
             self.priceCandidates = outcome.priceCandidates
             self.productPageURL = outcome.productPageURL
+            // If the user pasted a URL or searched by name, swap in the
+            // site's item number so the sign footer prints something useful.
+            // A typed numeric SKU is kept — that's their shelf number.
+            let typedLooksLikeItemNumber = query.count >= 4 && query.allSatisfy(\.isNumber)
+            if let itemNumber = outcome.resolvedItemNumber, !typedLooksLikeItemNumber {
+                self.sku = itemNumber
+            }
 
             if let imageURL = outcome.imageURL {
                 if let image = await self.lookupService.fetchImage(from: imageURL) {

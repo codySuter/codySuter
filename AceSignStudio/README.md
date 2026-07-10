@@ -37,7 +37,7 @@ cd AceSignStudio
 
 | Action | How |
 |---|---|
-| Look up an item | Type the SKU (the item number from the shelf tag / acehardware.com URL), press Return |
+| Look up an item | Type the SKU / item number, a product name (e.g. "wild bird food 40 lb"), or paste an acehardware.com product URL, then press Return |
 | Verify the price | Click **Open Product Page** to see the item on acehardware.com, or pick from the "prices found on the page" chips |
 | Fix anything | Every field on the left is editable; the preview updates live |
 | Change the photo | **Choose…**, **Paste** (⌘V from a copied image), or drag an image onto the preview |
@@ -65,6 +65,9 @@ and they sometimes rate-limit — so:
 - Open **Diagnostics** (toolbar) to see every step of the last lookup: what was requested, what
   answered, and where each value came from.
 - **Copy All** in Diagnostics and share that log to get the parser updated when the site changes.
+- Store shelf SKUs don't always match acehardware.com's item numbers. If a SKU search finds
+  nothing, search the product's name instead, or open the product in Safari and paste its URL
+  into the SKU box — the app resolves it and fills the sign the same way.
 - Worst case, the app still works fully manually: type the name/price and paste a photo.
 - Double-check store-specific sale prices with **Open Product Page** — the website is the source of
   truth, and the price field is always editable.

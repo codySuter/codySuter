@@ -181,9 +181,14 @@ struct PriceBlock: View {
     var placeholderWhenEmpty = false
 
     var body: some View {
+        let hasPrice = !price.trimmingCharacters(in: .whitespaces).isEmpty
         VStack(alignment: alignment, spacing: 3 * u) {
             if style == .salePoint {
-                SaleTag(u: u)
+                // No orphan SALE tag on a sign with no price.
+                if hasPrice || placeholderWhenEmpty {
+                    SaleTag(u: u)
+                        .opacity(hasPrice ? 1 : 0.35)
+                }
                 PricePointChip(price: price, unit: unit, u: u,
                                placeholderWhenEmpty: placeholderWhenEmpty)
                 RegPriceChip(was: was, u: u)

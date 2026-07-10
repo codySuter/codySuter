@@ -153,7 +153,10 @@ enum HTMLParsers {
     // MARK: Search-results product link
 
     /// Finds the most plausible product-page link in a search results page.
-    /// Prefers links containing the SKU, then links ending in an item number.
+    /// Only links whose path ends in a numeric item number qualify — the
+    /// site's navigation menu is full of /departments/ category and brand
+    /// links (no trailing number), and those must never win. Prefers links
+    /// ending in / containing the SKU.
     static func firstProductLink(in html: String, sku: String) -> String? {
         // JSON-escaped slashes appear when links live inside embedded JSON.
         let normalized = html.replacingOccurrences(of: "\\/", with: "/")
@@ -164,21 +167,21 @@ enum HTMLParsers {
             "\"(?:productUrl|seoUrl|url|productSeoUrl)\"\\s*:\\s*\"((?:https://www\\.acehardware\\.com)?(?:/departments/|/p/)[^\"#?]+)\"",
         ]
         for pattern in patterns {
-            for match in matches(pattern, in: normalized, limit: 200) where match.count > 1 {
+            for match in matches(pattern, in: normalized, limit: 400) where match.count > 1 {
                 let link = decodeEntities(match[1])
-                if !links.contains(link) { links.append(link) }
+                guard let last = link.split(separator: "/").last,
+                      last.count >= 4, last.allSatisfy(\.isNumber),
+                      !links.contains(link) else { continue }
+                links.append(link)
             }
         }
         guard !links.isEmpty else { return nil }
 
-        if !sku.isEmpty, let exact = links.first(where: { $0.hasSuffix("/" + sku) || $0.contains(sku) }) {
+        if !sku.isEmpty, let exact = links.first(where: { $0.hasSuffix("/" + sku) }) {
             return exact
         }
-        if let numbered = links.first(where: { link in
-            guard let last = link.split(separator: "/").last else { return false }
-            return last.count >= 4 && last.allSatisfy(\.isNumber)
-        }) {
-            return numbered
+        if !sku.isEmpty, let containing = links.first(where: { $0.contains(sku) }) {
+            return containing
         }
         return links.first
     }

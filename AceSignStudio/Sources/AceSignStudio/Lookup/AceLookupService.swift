@@ -8,6 +8,8 @@ struct LookupOutcome {
     var wasPriceText: String?
     var imageURL: URL?
     var productPageURL: URL?
+    /// The website's item number for the product, when the page reveals it.
+    var resolvedItemNumber: String?
     var priceCandidates: [PriceCandidate] = []
     var diagnostics: [DiagnosticEntry] = []
     var errorSummary: String?
@@ -52,6 +54,31 @@ final class AceLookupService {
         return created
     }
 
+    // MARK: Readiness probes (JS run inside the embedded browser)
+
+    /// True once the search page has rendered at least one link that ends in
+    /// a numeric item number — i.e. an actual product tile, not nav links.
+    private static let searchResultsProbe = """
+    (function () {
+      var anchors = document.querySelectorAll('a[href]');
+      for (var i = 0; i < anchors.length; i++) {
+        var path = (anchors[i].getAttribute('href') || '').split('?')[0].split('#')[0];
+        if (/\\/(departments\\/.+|p)\\/\\d{4,}$/.test(path)) { return true; }
+      }
+      return false;
+    })()
+    """
+
+    /// True once a product page has meaningful content (structured data or a
+    /// rendered heading).
+    private static let productPageProbe = """
+    (function () {
+      if (document.querySelector('script[type="application/ld+json"]')) { return true; }
+      var h1 = document.querySelector('h1');
+      return !!(h1 && h1.textContent && h1.textContent.trim().length > 0);
+    })()
+    """
+
     // MARK: Main entry point
 
     func lookup(sku: String, storeCode: String) async -> LookupOutcome {
@@ -75,65 +102,90 @@ final class AceLookupService {
             }
         }
 
-        // Step 2 — resolve the SKU to a product page via site search.
-        // An exact SKU match usually redirects straight to the product page.
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        guard let searchURL = URL(string: "\(Self.base)/search?query=\(encoded)") else {
-            out.errorSummary = "Invalid SKU text."
-            return out
-        }
-
         var productHTML: String?
         var productURL: URL?
 
-        switch await fetchPage(searchURL) {
-        case .success(let page):
-            if Self.looksLikeProductPath(page.finalURL.path, sku: query) {
+        // Step 2 — reach a product page: directly if the user pasted a
+        // product URL, otherwise via site search (a SKU, item number, or a
+        // product-name search all work; exact item numbers usually redirect
+        // straight to the product page).
+        if query.lowercased().hasPrefix("http"),
+           let directURL = URL(string: query),
+           directURL.host?.lowercased().contains("acehardware.com") == true {
+            switch await fetchPage(directURL, probe: Self.productPageProbe) {
+            case .success(let page):
                 productHTML = page.html
                 productURL = page.finalURL
                 out.diagnostics.append(DiagnosticEntry(
-                    title: "Search redirected straight to the product page",
+                    title: "Pasted product URL opened directly",
                     detail: page.finalURL.absoluteString, ok: true))
-            } else {
+            case .failure(let error):
                 out.diagnostics.append(DiagnosticEntry(
-                    title: "Search results page received",
-                    detail: "\(page.html.count) bytes from \(page.finalURL.absoluteString)", ok: true))
-                if let link = HTMLParsers.firstProductLink(in: page.html, sku: query) {
-                    let absolute = link.hasPrefix("http") ? link : Self.base + link
-                    if let linkURL = URL(string: absolute) {
-                        switch await fetchPage(linkURL) {
-                        case .success(let productPage):
-                            productHTML = productPage.html
-                            productURL = productPage.finalURL
-                            out.diagnostics.append(DiagnosticEntry(
-                                title: "Product page loaded",
-                                detail: productPage.finalURL.absoluteString, ok: true))
-                        case .failure(let error):
-                            out.diagnostics.append(DiagnosticEntry(
-                                title: "Product page request failed",
-                                detail: error.message, ok: false))
-                            out.errorSummary = Self.friendlyMessage(for: error)
-                        }
-                    }
+                    title: "Pasted URL failed to load",
+                    detail: error.message, ok: false))
+                out.errorSummary = Self.friendlyMessage(for: error)
+            }
+        } else {
+            // Encode strictly (RFC 3986 unreserved only) so '&', '+', '=' in
+            // product-name searches survive as literal characters.
+            let unreserved = CharacterSet(charactersIn:
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+            let encoded = query.addingPercentEncoding(withAllowedCharacters: unreserved) ?? query
+            guard let searchURL = URL(string: "\(Self.base)/search?query=\(encoded)") else {
+                out.errorSummary = "That doesn't look like a SKU or URL the site can search for."
+                return out
+            }
+
+            switch await fetchPage(searchURL, probe: Self.searchResultsProbe) {
+            case .success(let page):
+                if Self.looksLikeProductPath(page.finalURL.path, sku: query) {
+                    productHTML = page.html
+                    productURL = page.finalURL
+                    out.diagnostics.append(DiagnosticEntry(
+                        title: "Search redirected straight to the product page",
+                        detail: page.finalURL.absoluteString, ok: true))
                 } else {
                     out.diagnostics.append(DiagnosticEntry(
-                        title: "No product link found in search results",
-                        detail: "The results page had no recognizable product URL for \"\(query)\".",
-                        ok: false))
+                        title: "Search results page received",
+                        detail: "\(page.html.count) bytes from \(page.finalURL.absoluteString)", ok: true))
+                    if let link = HTMLParsers.firstProductLink(in: page.html, sku: query) {
+                        let absolute = link.hasPrefix("http") ? link : Self.base + link
+                        if let linkURL = URL(string: absolute) {
+                            switch await fetchPage(linkURL, probe: Self.productPageProbe) {
+                            case .success(let productPage):
+                                productHTML = productPage.html
+                                productURL = productPage.finalURL
+                                out.diagnostics.append(DiagnosticEntry(
+                                    title: "Product page loaded",
+                                    detail: productPage.finalURL.absoluteString, ok: true))
+                            case .failure(let error):
+                                out.diagnostics.append(DiagnosticEntry(
+                                    title: "Product page request failed",
+                                    detail: error.message, ok: false))
+                                out.errorSummary = Self.friendlyMessage(for: error)
+                            }
+                        }
+                    } else {
+                        out.diagnostics.append(DiagnosticEntry(
+                            title: "No product links in the search results",
+                            detail: "Only links ending in a numeric item number count as products; none appeared for \"\(query)\" (nav and category links are ignored).",
+                            ok: false))
+                        out.errorSummary = "acehardware.com's search found no product for \"\(query)\". Store shelf SKUs don't always match the website's item numbers — try searching the product's name instead (e.g. \"wild bird food 40 lb\"), or open the product in Safari and paste its URL into the SKU box."
+                    }
                 }
+            case .failure(let error):
+                out.diagnostics.append(DiagnosticEntry(
+                    title: "Search request failed",
+                    detail: error.message, ok: false))
+                out.errorSummary = Self.friendlyMessage(for: error)
             }
-        case .failure(let error):
-            out.diagnostics.append(DiagnosticEntry(
-                title: "Search request failed",
-                detail: error.message, ok: false))
-            out.errorSummary = Self.friendlyMessage(for: error)
         }
 
         // Step 3 — extract product data from the page.
         if let html = productHTML, let url = productURL {
             parseProduct(html: html, pageURL: url, sku: query, into: &out)
         } else if out.errorSummary == nil {
-            out.errorSummary = "Couldn't find a product for \"\(query)\" on acehardware.com. Double-check the SKU, or fill the sign in manually."
+            out.errorSummary = "Couldn't find a product for \"\(query)\" on acehardware.com. Double-check the SKU, search by product name, or fill the sign in manually."
         }
         return out
     }
@@ -160,12 +212,17 @@ final class AceLookupService {
             for price in Self.jsonLDPrices(product) {
                 rawPrices.append(RawPrice(key: "json-ld", path: "json-ld.offers", value: price))
             }
-            if let ldSKU = (product["sku"] as? String) ?? (product["mpn"] as? String),
-               !ldSKU.isEmpty, !ldSKU.contains(sku), !sku.contains(ldSKU) {
-                out.diagnostics.append(DiagnosticEntry(
-                    title: "Note: page SKU differs from what you typed",
-                    detail: "Page reports \(ldSKU), you entered \(sku). Verify this is the right product.",
-                    ok: false))
+            let ldSKU = (product["sku"] as? String)
+                ?? (product["sku"] as? Int).map(String.init)
+                ?? (product["mpn"] as? String)
+            if let ldSKU, !ldSKU.isEmpty {
+                out.resolvedItemNumber = ldSKU
+                if !ldSKU.contains(sku), !sku.contains(ldSKU) {
+                    out.diagnostics.append(DiagnosticEntry(
+                        title: "Note: the site's item number differs from what you typed",
+                        detail: "Page reports item \(ldSKU), you entered \(sku). Shelf SKUs and web item numbers don't always match — verify this is the right product via Open Product Page.",
+                        ok: false))
+                }
             }
             out.diagnostics.append(DiagnosticEntry(
                 title: "Structured product data (JSON-LD) parsed",
@@ -177,22 +234,34 @@ final class AceLookupService {
                 detail: "Falling back to embedded JSON and meta tags.", ok: false))
         }
 
+        // Anything price/image-shaped is only trustworthy on an actual
+        // product page; on category/brand/search pages it belongs to other
+        // products (that's how a Traeger grill priced a bag of bird seed).
+        let isProductPage = !ldProducts.isEmpty || Self.looksLikeProductPath(pageURL.path, sku: sku)
+
         // -- Embedded JSON app state (Next.js data, window.__STATE__, Kibo preload…)
-        let blobs = HTMLParsers.embeddedJSONBlobs(in: html)
-        var scanned: [(path: String, key: String, value: Double)] = []
-        var scannedImages: [String] = []
-        for blob in blobs {
-            JSONScanner.priceFields(in: blob, into: &scanned)
-            JSONScanner.imageURLs(in: blob, into: &scannedImages)
+        if isProductPage {
+            let blobs = HTMLParsers.embeddedJSONBlobs(in: html)
+            var scanned: [(path: String, key: String, value: Double)] = []
+            var scannedImages: [String] = []
+            for blob in blobs {
+                JSONScanner.priceFields(in: blob, into: &scanned)
+                JSONScanner.imageURLs(in: blob, into: &scannedImages)
+            }
+            for hit in scanned {
+                rawPrices.append(RawPrice(key: hit.key, path: hit.path, value: hit.value))
+            }
+            imageCandidates.append(contentsOf: scannedImages)
+            out.diagnostics.append(DiagnosticEntry(
+                title: "Embedded JSON scanned",
+                detail: "\(blobs.count) JSON blobs, \(scanned.count) price fields, \(scannedImages.count) image URLs",
+                ok: !blobs.isEmpty))
+        } else {
+            out.diagnostics.append(DiagnosticEntry(
+                title: "Not a product page — price and photo extraction skipped",
+                detail: "\(pageURL.path) looks like a category, brand, or other non-product page. Open the specific product and paste its URL.",
+                ok: false))
         }
-        for hit in scanned {
-            rawPrices.append(RawPrice(key: hit.key, path: hit.path, value: hit.value))
-        }
-        imageCandidates.append(contentsOf: scannedImages)
-        out.diagnostics.append(DiagnosticEntry(
-            title: "Embedded JSON scanned",
-            detail: "\(blobs.count) JSON blobs, \(scanned.count) price fields, \(scannedImages.count) image URLs",
-            ok: !blobs.isEmpty))
 
         // -- Meta tag fallbacks.
         if out.productName == nil || out.productName!.isEmpty {
@@ -202,13 +271,24 @@ final class AceLookupService {
                     title: "Product name taken from page title", detail: out.productName ?? "", ok: true))
             }
         }
-        if let ogImage = HTMLParsers.metaContent(propertyOrName: "og:image", in: html) {
+        if isProductPage, let ogImage = HTMLParsers.metaContent(propertyOrName: "og:image", in: html) {
             imageCandidates.append(ogImage)
         }
 
-        // -- Raw-HTML price patterns as a last resort.
-        for value in HTMLParsers.priceRegexFallback(in: html) {
-            rawPrices.append(RawPrice(key: "price", path: "html", value: value))
+        // -- Raw-HTML price patterns as a last resort, product pages only.
+        if isProductPage {
+            for value in HTMLParsers.priceRegexFallback(in: html) {
+                rawPrices.append(RawPrice(key: "price", path: "html", value: value))
+            }
+        }
+
+        // The page's own item number, from the URL if JSON-LD didn't say.
+        // Product paths only — a pasted store-details or category URL must
+        // not donate its trailing number (e.g. the store code) as a SKU.
+        if out.resolvedItemNumber == nil,
+           Self.looksLikeProductPath(pageURL.path, sku: sku),
+           let last = pageURL.path.split(separator: "/").last {
+            out.resolvedItemNumber = String(last)
         }
 
         // -- Choose the price.
@@ -413,9 +493,9 @@ final class AceLookupService {
 
     /// Loads a page through the embedded WebKit engine. HTTP-level denials
     /// (403 etc.) become failures so callers surface them in diagnostics.
-    private func fetchPage(_ url: URL) async -> Result<FetchedPage, LookupError> {
+    private func fetchPage(_ url: URL, probe: String? = nil) async -> Result<FetchedPage, LookupError> {
         do {
-            let page = try await fetcher().fetch(url)
+            let page = try await fetcher().fetch(url, readinessProbe: probe)
             if page.status >= 400 {
                 return .failure(LookupError(message: "HTTP \(page.status) for \(url.absoluteString) (embedded browser)"))
             }
@@ -444,11 +524,16 @@ final class AceLookupService {
         }
     }
 
+    /// Product pages end in a numeric item number (/departments/…/8043442 or
+    /// /p/8043442). Category and brand pages (/departments/outdoor-living/
+    /// traeger) do not, and must never be treated as products — even when the
+    /// user's query text happens to equal the slug.
     private static func looksLikeProductPath(_ path: String, sku: String) -> Bool {
         if path.contains("/search") { return false }
-        if path.contains("/departments/") || path.hasPrefix("/p/") { return true }
-        if !sku.isEmpty, path.hasSuffix("/" + sku) { return true }
-        return false
+        guard path.hasPrefix("/departments/") || path.hasPrefix("/p/"),
+              let last = path.split(separator: "/").last
+        else { return false }
+        return last.count >= 4 && last.allSatisfy(\.isNumber)
     }
 
     private static func friendlyMessage(for error: LookupError) -> String {
