@@ -129,15 +129,27 @@ final class AceLookupService {
                     detail: error.message, ok: false))
                 out.errorSummary = Self.friendlyMessage(for: error)
             }
-        } else if looksNumeric,
-                  let directURL = URL(string: "\(Self.base)/product/\(query)"),
-                  case .success(let page) = await fetchPage(directURL, probe: Self.productPageProbe),
-                  Self.looksLikeProductPath(page.finalURL.path, sku: query) || !HTMLParsers.jsonLDProducts(in: page.html).isEmpty {
-            productHTML = page.html
-            productURL = page.finalURL
-            out.diagnostics.append(DiagnosticEntry(
-                title: "Product page opened directly by item number",
-                detail: "\(Self.base)/product/\(query) → \(page.finalURL.absoluteString)", ok: true))
+        } else if looksNumeric, let directURL = URL(string: "\(Self.base)/product/\(query)") {
+            switch await fetchPage(directURL, probe: Self.productPageProbe) {
+            case .success(let page):
+                if Self.looksLikeProductPath(page.finalURL.path, sku: query)
+                    || !HTMLParsers.jsonLDProducts(in: page.html).isEmpty {
+                    productHTML = page.html
+                    productURL = page.finalURL
+                    out.diagnostics.append(DiagnosticEntry(
+                        title: "Product page opened directly by item number",
+                        detail: "\(Self.base)/product/\(query) → \(page.finalURL.absoluteString)", ok: true))
+                } else {
+                    // Not a product page (redirected to search/home) — search handles it.
+                    out.diagnostics.append(DiagnosticEntry(
+                        title: "Direct product URL wasn't a product page — trying search",
+                        detail: "\(Self.base)/product/\(query) → \(page.finalURL.absoluteString)", ok: false))
+                }
+            case .failure(let error):
+                out.diagnostics.append(DiagnosticEntry(
+                    title: "Direct product URL failed to load — trying search",
+                    detail: error.message, ok: false))
+            }
         }
 
         if productHTML == nil, !query.lowercased().hasPrefix("http") {
