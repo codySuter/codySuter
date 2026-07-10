@@ -56,14 +56,17 @@ final class AceLookupService {
 
     // MARK: Readiness probes (JS run inside the embedded browser)
 
-    /// True once the search page has rendered at least one link that ends in
-    /// a numeric item number — i.e. an actual product tile, not nav links.
+    /// True once the search page has rendered at least one link ending in an
+    /// item code (all digits, or letter-prefixed alphanumeric with ≥4 digits)
+    /// — i.e. an actual product tile, not a nav/category link.
     private static let searchResultsProbe = """
     (function () {
       var anchors = document.querySelectorAll('a[href]');
       for (var i = 0; i < anchors.length; i++) {
         var path = (anchors[i].getAttribute('href') || '').split('?')[0].split('#')[0];
-        if (/\\/(departments\\/.+|p)\\/\\d{4,}$/.test(path)) { return true; }
+        if (!/\\/(departments|p)\\//.test(path)) { continue; }
+        var seg = path.split('/').pop();
+        if (/^[A-Za-z0-9]+$/.test(seg) && (seg.match(/\\d/g) || []).length >= 4) { return true; }
       }
       return false;
     })()
@@ -216,14 +219,33 @@ final class AceLookupService {
             // JSON API (purchaseLocation = the store). Runs in the same
             // WebKit session, so it carries the Mozu auth cookies and the
             // Akamai clearance the page load already earned. This is the
-            // authoritative price for store #\(storeCode); it wins over
-            // whatever was scraped from the page.
-            if let itemNumber = out.resolvedItemNumber ?? (Self.looksLikeProductPath(url.path, sku: query) ? url.path.split(separator: "/").last.map(String.init) : nil),
-               let apiURL = URL(string: "\(Self.base)/api/commerce/catalog/storefront/products/\(itemNumber)?purchaseLocation=\(storeCode)") {
+            // authoritative price for the store; it wins over whatever was
+            // scraped from the page.
+            //
+            // Ace pages a product like the bird seed as F031580 with the
+            // sellable SKU (81995) as ?variationProductCode. We don't know
+            // which code the price API keys on, so try, in order: the product
+            // code with the variation, the product code alone, and the bare
+            // SKU — first one that returns a price wins.
+            let queries = Self.storePriceQueries(pageURL: url,
+                                                 resolvedItemNumber: out.resolvedItemNumber,
+                                                 typedQuery: query)
+            var applied = false
+            for q in queries {
+                guard let apiURL = Self.storePriceAPIURL(code: q.code, variation: q.variation, storeCode: storeCode) else { continue }
                 // Await the network here (no inout held across the suspension),
                 // then apply synchronously.
                 let jsonText = await fetchJSONText(apiURL)
-                applyStorePrice(jsonText: jsonText, apiURL: apiURL, storeCode: storeCode, into: &out)
+                if applyStorePrice(jsonText: jsonText, apiURL: apiURL, storeCode: storeCode, into: &out) {
+                    applied = true
+                    break
+                }
+            }
+            if !applied {
+                out.diagnostics.append(DiagnosticEntry(
+                    title: "Store-specific price unavailable — kept the page price",
+                    detail: "Tried item code(s): \(queries.map(\.label).joined(separator: ", ")). The price shown is from the product page; confirm it via Open Product Page.",
+                    ok: false))
             }
         } else if out.errorSummary == nil {
             out.errorSummary = "Couldn't find a product for \"\(query)\" on acehardware.com. Double-check the SKU, search by product name, or fill the sign in manually."
@@ -233,24 +255,59 @@ final class AceLookupService {
 
     // MARK: Store-specific price (Kibo/Mozu storefront API)
 
-    /// Parses the storefront API JSON (already fetched) and, on success, sets
-    /// the store price as the sign's price — with the regular price as the
-    /// strikethrough was-price when the item is on sale. Synchronous, so the
-    /// `inout` never spans an `await`.
-    private func applyStorePrice(jsonText: String?, apiURL: URL, storeCode: String, into out: inout LookupOutcome) {
-        guard let text = jsonText else {
-            out.diagnostics.append(DiagnosticEntry(
-                title: "Store price API returned nothing",
-                detail: "Kept the price read from the page. \(apiURL.absoluteString)", ok: false))
-            return
+    struct StoreQuery {
+        let code: String
+        let variation: String?
+        var label: String { variation.map { "\(code)+\($0)" } ?? code }
+    }
+
+    /// Candidate (product code, variation) pairs to try against the price API,
+    /// most-specific first. De-duplicated, order preserved.
+    static func storePriceQueries(pageURL: URL, resolvedItemNumber: String?, typedQuery: String) -> [StoreQuery] {
+        let comps = URLComponents(url: pageURL, resolvingAgainstBaseURL: false)
+        let variationParam = comps?.queryItems?.first { $0.name == "variationProductCode" }?.value
+        let urlCode = looksLikeProductPath(pageURL.path, sku: typedQuery)
+            ? pageURL.path.split(separator: "/").last.map(String.init) : nil
+        let typedIsCode = isProductCode(typedQuery)
+
+        // The product/group code (F031580): from the URL, else the resolved item number.
+        let productCode = urlCode ?? resolvedItemNumber
+        // The sellable variation SKU (81995): the URL param, else the typed SKU.
+        let variation = variationParam ?? (typedIsCode ? typedQuery : nil)
+
+        var out: [StoreQuery] = []
+        func add(_ code: String?, _ variation: String?) {
+            guard let code, isProductCode(code) else { return }
+            let q = StoreQuery(code: code, variation: variation.flatMap { $0 == code ? nil : $0 })
+            if !out.contains(where: { $0.code == q.code && $0.variation == q.variation }) { out.append(q) }
         }
-        guard let data = text.data(using: .utf8),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            out.diagnostics.append(DiagnosticEntry(
-                title: "Store price API response wasn't JSON",
-                detail: "Kept the page price. First bytes: \(String(text.prefix(80)))", ok: false))
-            return
-        }
+        add(productCode, variation)   // F031580 + variationProductCode=81995
+        add(productCode, nil)         // F031580 alone
+        add(variation, nil)           // 81995 as a product code
+        add(resolvedItemNumber, nil)  // whatever JSON-LD reported
+        add(typedIsCode ? typedQuery : nil, nil)
+        return out
+    }
+
+    static func storePriceAPIURL(code: String, variation: String?, storeCode: String) -> URL? {
+        var comps = URLComponents(string: "\(base)/api/commerce/catalog/storefront/products/\(code)")
+        var items = [URLQueryItem(name: "purchaseLocation", value: storeCode)]
+        if let variation { items.append(URLQueryItem(name: "variationProductCode", value: variation)) }
+        comps?.queryItems = items
+        return comps?.url
+    }
+
+    /// Parses one storefront API response. On a usable price, sets the sign's
+    /// price (regular becomes the strikethrough was-price when on sale) and
+    /// returns true. Returns false without logging so the caller can try the
+    /// next candidate code quietly. Synchronous — the `inout` never spans an
+    /// `await`.
+    @discardableResult
+    private func applyStorePrice(jsonText: String?, apiURL: URL, storeCode: String, into out: inout LookupOutcome) -> Bool {
+        guard let text = jsonText,
+              let data = text.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return false }
 
         // Kibo shape: { "price": { "price": <regular>, "salePrice": <sale?> }, "content": { "productName": ... } }
         let priceObj = (root["price"] as? [String: Any])
@@ -258,25 +315,19 @@ final class AceLookupService {
         let regular = priceObj.flatMap { JSONScanner.doubleValue($0["price"] as Any) }
         let sale = priceObj.flatMap { JSONScanner.doubleValue($0["salePrice"] as Any) }
 
-        guard regular != nil || sale != nil else {
-            out.diagnostics.append(DiagnosticEntry(
-                title: "Store price API had no price field",
-                detail: "Kept the page price. Response keys: \(root.keys.sorted().joined(separator: ", "))", ok: false))
-            return
-        }
-
-        let current = sale ?? regular
+        guard let current = sale ?? regular else { return false }
         let was: Double? = (sale != nil && regular != nil && regular! > sale! + 0.005) ? regular : nil
-        if let current {
-            out.priceText = String(format: "%.2f", current)
-            out.wasPriceText = was.map { String(format: "%.2f", $0) }
-            let candidate = PriceCandidate(value: String(format: "%.2f", current), source: "Store #\(storeCode)")
-            out.priceCandidates.removeAll { $0.value == candidate.value }
-            out.priceCandidates.insert(candidate, at: 0)
-            out.diagnostics.append(DiagnosticEntry(
-                title: "Store price applied: $\(String(format: "%.2f", current))\(was != nil ? " (reg $\(String(format: "%.2f", was!)))" : "")",
-                detail: "Store-specific price for #\(storeCode) from the storefront API — overrides the page price.", ok: true))
-        }
+
+        out.priceText = String(format: "%.2f", current)
+        out.wasPriceText = was.map { String(format: "%.2f", $0) }
+        let candidate = PriceCandidate(value: String(format: "%.2f", current), source: "Store #\(storeCode)")
+        out.priceCandidates.removeAll { $0.value == candidate.value }
+        out.priceCandidates.insert(candidate, at: 0)
+        let regNote = was.map { " (reg $\(String(format: "%.2f", $0)))" } ?? ""
+        out.diagnostics.append(DiagnosticEntry(
+            title: "Store price applied: $\(String(format: "%.2f", current))\(regNote)",
+            detail: "Store-specific price for #\(storeCode) from the storefront API — overrides the page price.", ok: true))
+        return true
     }
 
     /// Loads a JSON endpoint through the WebKit session and returns the
@@ -631,16 +682,26 @@ final class AceLookupService {
         }
     }
 
-    /// Product pages end in a numeric item number (/departments/…/8043442 or
-    /// /p/8043442). Category and brand pages (/departments/outdoor-living/
-    /// traeger) do not, and must never be treated as products — even when the
-    /// user's query text happens to equal the slug.
-    private static func looksLikeProductPath(_ path: String, sku: String) -> Bool {
+    /// Product pages end in an item code: all digits (8043442) or a short
+    /// letter-prefixed alphanumeric (F031580). Category and brand pages
+    /// (/departments/outdoor-living/traeger, .../bird-food) end in a word
+    /// slug and must never be treated as products.
+    static func looksLikeProductPath(_ path: String, sku: String) -> Bool {
         if path.contains("/search") { return false }
         guard path.hasPrefix("/departments/") || path.hasPrefix("/p/"),
               let last = path.split(separator: "/").last
         else { return false }
-        return last.count >= 4 && last.allSatisfy(\.isNumber)
+        return isProductCode(String(last))
+    }
+
+    /// An Ace item code: alphanumeric (no hyphens/dots), 4–14 chars, with at
+    /// least four digits. Matches "F031580" and "8315087"; rejects word slugs
+    /// like "traeger", "bird-food", "outdoor-living".
+    static func isProductCode(_ s: String) -> Bool {
+        guard (4...14).contains(s.count),
+              s.allSatisfy({ $0.isLetter || $0.isNumber })
+        else { return false }
+        return s.filter(\.isNumber).count >= 4
     }
 
     private static func friendlyMessage(for error: LookupError) -> String {

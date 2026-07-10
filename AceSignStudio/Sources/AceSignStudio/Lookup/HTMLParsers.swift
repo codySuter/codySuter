@@ -152,11 +152,20 @@ enum HTMLParsers {
 
     // MARK: Search-results product link
 
+    /// True for an Ace item code: alphanumeric, 4–14 chars, ≥4 digits
+    /// ("F031580", "8315087"); false for word slugs ("traeger", "bird-food").
+    static func isProductCode<S: StringProtocol>(_ s: S) -> Bool {
+        guard (4...14).contains(s.count),
+              s.allSatisfy({ $0.isLetter || $0.isNumber })
+        else { return false }
+        return s.filter(\.isNumber).count >= 4
+    }
+
     /// Finds the most plausible product-page link in a search results page.
-    /// Only links whose path ends in a numeric item number qualify — the
-    /// site's navigation menu is full of /departments/ category and brand
-    /// links (no trailing number), and those must never win. Prefers links
-    /// ending in / containing the SKU.
+    /// Only links whose path ends in an item code qualify — the site's
+    /// navigation menu is full of /departments/ category and brand links
+    /// (word slugs), and those must never win. Prefers links ending in /
+    /// containing the SKU.
     static func firstProductLink(in html: String, sku: String) -> String? {
         // JSON-escaped slashes appear when links live inside embedded JSON.
         let normalized = html.replacingOccurrences(of: "\\/", with: "/")
@@ -170,8 +179,7 @@ enum HTMLParsers {
             for match in matches(pattern, in: normalized, limit: 400) where match.count > 1 {
                 let link = decodeEntities(match[1])
                 guard let last = link.split(separator: "/").last,
-                      last.count >= 4, last.allSatisfy(\.isNumber),
-                      !links.contains(link) else { continue }
+                      isProductCode(last), !links.contains(link) else { continue }
                 links.append(link)
             }
         }
