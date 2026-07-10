@@ -5,7 +5,6 @@ import UniformTypeIdentifiers
 /// background. Accepts image drops (product photos from Finder or a browser).
 struct SignPreview: View {
     @EnvironmentObject var state: AppState
-    @State private var dropTargeted = false
 
     var body: some View {
         GeometryReader { geo in
@@ -34,12 +33,12 @@ struct SignPreview: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(nsColor: .underPageBackgroundColor))
-        .onDrop(of: [.image, .fileURL], isTargeted: $dropTargeted) { providers in
+        .onDrop(of: [.image, .fileURL], isTargeted: $state.previewDropTargeted) { providers in
             state.handleImageDrop(providers)
         }
         .overlay(
             Group {
-                if dropTargeted {
+                if state.previewDropTargeted {
                     RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(Color.accentColor, lineWidth: 3)
                         .padding(8)

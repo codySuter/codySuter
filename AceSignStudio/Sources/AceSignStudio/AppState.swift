@@ -35,6 +35,9 @@ final class AppState: ObservableObject {
     @Published var diagnostics: [DiagnosticEntry] = []
     @Published var showDiagnostics = false
     @Published var focusSKURequested = false
+    // Lives here instead of @State in SignPreview: @State is macro-backed in
+    // newer SDKs and the macro plugin is missing from CLT-only installs.
+    @Published var previewDropTargeted = false
 
     private let lookupService = AceLookupService()
 
