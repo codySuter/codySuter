@@ -105,10 +105,14 @@ final class AceLookupService {
         var productHTML: String?
         var productURL: URL?
 
-        // Step 2 — reach a product page: directly if the user pasted a
-        // product URL, otherwise via site search (a SKU, item number, or a
-        // product-name search all work; exact item numbers usually redirect
-        // straight to the product page).
+        // Step 2 — reach a product page. Three routes, in order of directness:
+        //   (a) a pasted acehardware.com URL,
+        //   (b) the direct product URL /product/{sku} when the query is an
+        //       item number — no search, so no chance of matching the wrong
+        //       tile (this is how the standalone tool did it),
+        //   (c) site search, for names or shelf SKUs that aren't web item #s.
+        let looksNumeric = query.count >= 4 && query.allSatisfy(\.isNumber)
+
         if query.lowercased().hasPrefix("http"),
            let directURL = URL(string: query),
            directURL.host?.lowercased().contains("acehardware.com") == true {
@@ -125,7 +129,18 @@ final class AceLookupService {
                     detail: error.message, ok: false))
                 out.errorSummary = Self.friendlyMessage(for: error)
             }
-        } else {
+        } else if looksNumeric,
+                  let directURL = URL(string: "\(Self.base)/product/\(query)"),
+                  case .success(let page) = await fetchPage(directURL, probe: Self.productPageProbe),
+                  Self.looksLikeProductPath(page.finalURL.path, sku: query) || !HTMLParsers.jsonLDProducts(in: page.html).isEmpty {
+            productHTML = page.html
+            productURL = page.finalURL
+            out.diagnostics.append(DiagnosticEntry(
+                title: "Product page opened directly by item number",
+                detail: "\(Self.base)/product/\(query) → \(page.finalURL.absoluteString)", ok: true))
+        }
+
+        if productHTML == nil, !query.lowercased().hasPrefix("http") {
             // Encode strictly (RFC 3986 unreserved only) so '&', '+', '=' in
             // product-name searches survive as literal characters.
             let unreserved = CharacterSet(charactersIn:
@@ -184,10 +199,90 @@ final class AceLookupService {
         // Step 3 — extract product data from the page.
         if let html = productHTML, let url = productURL {
             parseProduct(html: html, pageURL: url, sku: query, into: &out)
+
+            // Step 4 — overlay the store-specific price from the storefront
+            // JSON API (purchaseLocation = the store). Runs in the same
+            // WebKit session, so it carries the Mozu auth cookies and the
+            // Akamai clearance the page load already earned. This is the
+            // authoritative price for store #\(storeCode); it wins over
+            // whatever was scraped from the page.
+            if let itemNumber = out.resolvedItemNumber ?? (Self.looksLikeProductPath(url.path, sku: query) ? url.path.split(separator: "/").last.map(String.init) : nil),
+               let apiURL = URL(string: "\(Self.base)/api/commerce/catalog/storefront/products/\(itemNumber)?purchaseLocation=\(storeCode)") {
+                // Await the network here (no inout held across the suspension),
+                // then apply synchronously.
+                let jsonText = await fetchJSONText(apiURL)
+                applyStorePrice(jsonText: jsonText, apiURL: apiURL, storeCode: storeCode, into: &out)
+            }
         } else if out.errorSummary == nil {
             out.errorSummary = "Couldn't find a product for \"\(query)\" on acehardware.com. Double-check the SKU, search by product name, or fill the sign in manually."
         }
         return out
+    }
+
+    // MARK: Store-specific price (Kibo/Mozu storefront API)
+
+    /// Parses the storefront API JSON (already fetched) and, on success, sets
+    /// the store price as the sign's price — with the regular price as the
+    /// strikethrough was-price when the item is on sale. Synchronous, so the
+    /// `inout` never spans an `await`.
+    private func applyStorePrice(jsonText: String?, apiURL: URL, storeCode: String, into out: inout LookupOutcome) {
+        guard let text = jsonText else {
+            out.diagnostics.append(DiagnosticEntry(
+                title: "Store price API returned nothing",
+                detail: "Kept the price read from the page. \(apiURL.absoluteString)", ok: false))
+            return
+        }
+        guard let data = text.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            out.diagnostics.append(DiagnosticEntry(
+                title: "Store price API response wasn't JSON",
+                detail: "Kept the page price. First bytes: \(String(text.prefix(80)))", ok: false))
+            return
+        }
+
+        // Kibo shape: { "price": { "price": <regular>, "salePrice": <sale?> }, "content": { "productName": ... } }
+        let priceObj = (root["price"] as? [String: Any])
+            ?? (root["priceInfo"] as? [String: Any])
+        let regular = priceObj.flatMap { JSONScanner.doubleValue($0["price"] as Any) }
+        let sale = priceObj.flatMap { JSONScanner.doubleValue($0["salePrice"] as Any) }
+
+        guard regular != nil || sale != nil else {
+            out.diagnostics.append(DiagnosticEntry(
+                title: "Store price API had no price field",
+                detail: "Kept the page price. Response keys: \(root.keys.sorted().joined(separator: ", "))", ok: false))
+            return
+        }
+
+        let current = sale ?? regular
+        let was: Double? = (sale != nil && regular != nil && regular! > sale! + 0.005) ? regular : nil
+        if let current {
+            out.priceText = String(format: "%.2f", current)
+            out.wasPriceText = was.map { String(format: "%.2f", $0) }
+            let candidate = PriceCandidate(value: String(format: "%.2f", current), source: "Store #\(storeCode)")
+            out.priceCandidates.removeAll { $0.value == candidate.value }
+            out.priceCandidates.insert(candidate, at: 0)
+            out.diagnostics.append(DiagnosticEntry(
+                title: "Store price applied: $\(String(format: "%.2f", current))\(was != nil ? " (reg $\(String(format: "%.2f", was!)))" : "")",
+                detail: "Store-specific price for #\(storeCode) from the storefront API — overrides the page price.", ok: true))
+        }
+    }
+
+    /// Loads a JSON endpoint through the WebKit session and returns the
+    /// response body text. WebKit renders a JSON document as text we can read.
+    @MainActor
+    private func fetchJSONText(_ url: URL) async -> String? {
+        do {
+            let page = try await fetcher().fetch(
+                url,
+                readinessProbe: "(function(){var t=(document.body?document.body.innerText:'')||'';return t.indexOf('{')>-1||t.indexOf('[')>-1;})()",
+                contentScript: WebPageFetcher.bodyTextExtractor,
+                minContentLength: 2
+            )
+            guard page.status < 400 else { return nil }
+            return page.html   // body innerText, per the extractor above
+        } catch {
+            return nil
+        }
     }
 
     // MARK: Product page parsing

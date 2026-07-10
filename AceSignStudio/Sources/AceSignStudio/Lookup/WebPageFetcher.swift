@@ -32,6 +32,7 @@ final class WebPageFetcher: NSObject, WKNavigationDelegate {
     private var lastStatus = 0
     private var challengeReloadUsed = false
     private var readinessProbe: String?
+    private var minContentLength = 1200
     private var generation = 0
 
     override init() {
@@ -44,9 +45,18 @@ final class WebPageFetcher: NSObject, WKNavigationDelegate {
         webView.customUserAgent = AceLookupService.userAgent
     }
 
+    /// JS used to read page content once ready. Default returns the full DOM;
+    /// JSON endpoints use the body text extractor instead.
+    private var contentScript = "document.documentElement.outerHTML"
+    static let domExtractor = "document.documentElement.outerHTML"
+    static let bodyTextExtractor = "(document.body ? (document.body.innerText || document.body.textContent) : '')"
+
     /// Loads `url`, waits for scripts to settle (and `readinessProbe`, if
-    /// given, to come true), and returns the rendered DOM.
-    func fetch(_ url: URL, timeout: TimeInterval = 40, readinessProbe: String? = nil) async throws -> Page {
+    /// given, to come true), and returns the rendered content (DOM by default,
+    /// or whatever `contentScript` extracts).
+    func fetch(_ url: URL, timeout: TimeInterval = 40, readinessProbe: String? = nil,
+               contentScript: String = WebPageFetcher.domExtractor,
+               minContentLength: Int = 1200) async throws -> Page {
         guard continuation == nil else {
             throw LookupError(message: "Another page load is already in progress.")
         }
@@ -58,6 +68,8 @@ final class WebPageFetcher: NSObject, WKNavigationDelegate {
         lastStatus = 0
         challengeReloadUsed = false
         self.readinessProbe = readinessProbe
+        self.contentScript = contentScript
+        self.minContentLength = minContentLength
 
         return try await withCheckedThrowingContinuation { cont in
             continuation = cont
@@ -95,7 +107,7 @@ final class WebPageFetcher: NSObject, WKNavigationDelegate {
         try? await Task.sleep(nanoseconds: 900_000_000)
         guard stillCurrent(gen) else { return }
 
-        let raw = try? await webView.evaluateJavaScript("document.documentElement.outerHTML")
+        let raw = try? await webView.evaluateJavaScript(contentScript)
         guard stillCurrent(gen) else { return }
         let html = (raw as? String) ?? ""
         let lowered = html.lowercased()
@@ -112,7 +124,7 @@ final class WebPageFetcher: NSObject, WKNavigationDelegate {
             guard stillCurrent(gen) else { return }
         }
 
-        if html.count < 1200 || looksBlocked || !ready {
+        if html.count < minContentLength || looksBlocked || !ready {
             if looksBlocked, !challengeReloadUsed, attempt >= 3 {
                 // The challenge script may have validated cookies by now —
                 // one fresh navigation with those cookies usually succeeds.

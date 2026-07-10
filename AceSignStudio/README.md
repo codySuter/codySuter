@@ -57,10 +57,20 @@ cd AceSignStudio
 
 ## When a lookup doesn't fill everything in
 
-The app loads acehardware.com pages in an embedded WebKit view — the same engine as Safari — so
-the site's bot checks pass as they do for a normal visitor, then reads product data from several
-redundant places (structured product data, embedded page JSON, meta tags). Retail sites change,
-and they sometimes rate-limit — so:
+How the lookup works, in order:
+
+1. For a numeric SKU it opens the **direct product page** `acehardware.com/product/{sku}` (no search,
+   so it can't match the wrong item); for a name or an unmatched SKU it falls back to site search;
+   and you can always paste a product URL.
+2. It reads the product **name, photo, and description** from the page's structured data.
+3. It then calls Ace's **store-price API**
+   (`/api/commerce/catalog/storefront/products/{item}?purchaseLocation=12180`) to get the price
+   **specific to your store #12180**, including the sale price when the item is on promotion. That
+   store price overrides anything read from the page.
+
+All of this runs inside an embedded WebKit view — the same engine as Safari — so the site's bot
+checks pass as they do for a normal visitor and the price API is called with a valid session.
+Retail sites change and sometimes rate-limit, so:
 
 - Open **Diagnostics** (toolbar) to see every step of the last lookup: what was requested, what
   answered, and where each value came from.
