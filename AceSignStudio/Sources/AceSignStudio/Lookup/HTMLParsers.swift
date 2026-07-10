@@ -194,6 +194,25 @@ enum HTMLParsers {
         return links.first
     }
 
+    // MARK: Image tags (rendered DOM)
+
+    /// `src` / `data-src` / `srcset` URLs from <img> and <source> tags. Used
+    /// when the product photo is only present in the client-rendered DOM.
+    static func imageTagSources(in html: String) -> [String] {
+        var urls: [String] = []
+        let patterns = [
+            "<img[^>]+(?:data-src|src)=\"([^\"]+)\"",
+            "<source[^>]+srcset=\"([^\", ]+)",
+        ]
+        for pattern in patterns {
+            for match in matches(pattern, in: html, options: [.caseInsensitive], limit: 300) where match.count > 1 {
+                let url = decodeEntities(match[1]).trimmingCharacters(in: .whitespaces)
+                if !url.isEmpty { urls.append(url) }
+            }
+        }
+        return urls
+    }
+
     // MARK: Raw-HTML price fallback
 
     /// Price values scraped straight out of the HTML when structured data fails.

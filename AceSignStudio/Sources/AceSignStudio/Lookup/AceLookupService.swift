@@ -327,6 +327,32 @@ final class AceLookupService {
         out.diagnostics.append(DiagnosticEntry(
             title: "Store price applied: $\(String(format: "%.2f", current))\(regNote)",
             detail: "Store-specific price for #\(storeCode) from the storefront API — overrides the page price.", ok: true))
+
+        // This same authoritative response also carries the clean product
+        // name and photo — invaluable on pages (like this Kibo storefront)
+        // that render those client-side with no JSON-LD to scrape.
+        let content = (root["content"] as? [String: Any]) ?? root
+        if out.productName == nil || out.productName!.isEmpty,
+           let name = (content["productName"] as? String) ?? (content["productShortName"] as? String),
+           !name.trimmingCharacters(in: .whitespaces).isEmpty {
+            out.productName = HTMLParsers.decodeEntities(name).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if out.imageURL == nil {
+            var apiImages: [String] = []
+            JSONScanner.imageURLs(in: root, into: &apiImages)
+            if let imageURL = Self.chooseImageURL(from: apiImages) {
+                out.imageURL = imageURL
+                out.diagnostics.append(DiagnosticEntry(
+                    title: "Photo taken from the store API",
+                    detail: imageURL.absoluteString, ok: true))
+            }
+        }
+        // Future-proofing: if the API shape ever shifts, this shows the keys.
+        out.diagnostics.append(DiagnosticEntry(
+            title: "Store API response keys",
+            detail: "top: \(root.keys.sorted().prefix(12).joined(separator: ", "))"
+                + ((root["content"] as? [String: Any]).map { " | content: \($0.keys.sorted().prefix(12).joined(separator: ", "))" } ?? ""),
+            ok: true))
         return true
     }
 
@@ -424,13 +450,18 @@ final class AceLookupService {
         // -- Meta tag fallbacks.
         if out.productName == nil || out.productName!.isEmpty {
             if let title = HTMLParsers.metaContent(propertyOrName: "og:title", in: html) ?? HTMLParsers.pageTitle(in: html) {
-                out.productName = Self.stripSiteSuffix(HTMLParsers.decodeEntities(title))
+                out.productName = Self.cleanProductName(HTMLParsers.decodeEntities(title))
                 out.diagnostics.append(DiagnosticEntry(
                     title: "Product name taken from page title", detail: out.productName ?? "", ok: true))
             }
         }
-        if isProductPage, let ogImage = HTMLParsers.metaContent(propertyOrName: "og:image", in: html) {
-            imageCandidates.append(ogImage)
+        if isProductPage {
+            if let ogImage = HTMLParsers.metaContent(propertyOrName: "og:image", in: html) {
+                imageCandidates.append(ogImage)
+            }
+            // Rendered <img> tags — this Kibo storefront renders the product
+            // photo client-side, so it's often only in the live DOM.
+            imageCandidates.append(contentsOf: HTMLParsers.imageTagSources(in: html))
         }
 
         // -- Raw-HTML price patterns as a last resort, product pages only.
@@ -602,6 +633,18 @@ final class AceLookupService {
         ).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Cleans a page-title-derived product name for a sign: drops the site
+    /// suffix and trailing "Mfr# / Item# / Model# / SKU 12345" tags, and
+    /// collapses runs of whitespace. Keeps useful size info ("20 lb").
+    static func cleanProductName(_ raw: String) -> String {
+        var s = stripSiteSuffix(raw)
+        s = s.replacingOccurrences(
+            of: "\\s*(?:Mfr|Manufacturer|Item|Model|SKU|Part|UPC)\\.?\\s*#?:?\\s*[A-Za-z0-9._-]+\\s*$",
+            with: "", options: [.regularExpression, .caseInsensitive])
+        s = s.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: Image selection / download
 
     static func chooseImageURL(from candidates: [String]) -> URL? {
@@ -615,11 +658,18 @@ final class AceLookupService {
             guard s.hasPrefix("https://") else { continue }
             normalized.append(s)
         }
-        // Prefer Ace/Kibo CDN images, then anything that looks like a product shot.
-        let preferred = normalized.first {
-            $0.contains("mozu.com") || $0.contains("acehardware")
+        // Skip chrome: logos, sprites, icons, badges, swatches, SVGs — never
+        // the product shot.
+        func isChrome(_ url: String) -> Bool {
+            let l = url.lowercased()
+            return [".svg", "logo", "sprite", "icon", "badge", "placeholder",
+                    "swatch", "spinner", "pixel", "flag"].contains { l.contains($0) }
         }
-        let pick = preferred ?? normalized.first
+        let product = normalized.filter { !isChrome($0) }
+        let pool = product.isEmpty ? normalized : product
+        // Prefer Ace/Kibo CDN images (that's where product photos live).
+        let preferred = pool.first { $0.contains("mozu.com") || $0.contains("acehardware") }
+        let pick = preferred ?? pool.first
         return pick.flatMap { URL(string: $0) }
     }
 
