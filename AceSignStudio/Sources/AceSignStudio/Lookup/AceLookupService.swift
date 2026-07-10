@@ -28,7 +28,6 @@ struct LookupError: Error {
 /// Everything it does is recorded as diagnostics so failures are debuggable.
 final class AceLookupService {
     private let session: URLSession   // image downloads only; pages go through WebKit
-    private var visitedStoreCode: String?
     private var pageFetcher: WebPageFetcher?
 
     static let base = "https://www.acehardware.com"
@@ -88,27 +87,15 @@ final class AceLookupService {
         var out = LookupOutcome()
         let query = sku.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Step 1 — visit the store page so the session carries the local
-        // store context (cookies) before we ask for a product.
-        if visitedStoreCode != storeCode {
-            let storeURL = URL(string: "\(Self.base)/store-details/\(storeCode)")!
-            switch await fetchPage(storeURL) {
-            case .success(let page):
-                visitedStoreCode = storeCode
-                out.diagnostics.append(DiagnosticEntry(
-                    title: "Store context loaded (store #\(storeCode))",
-                    detail: "\(page.finalURL.absoluteString) — via embedded Safari engine", ok: true))
-            case .failure(let error):
-                out.diagnostics.append(DiagnosticEntry(
-                    title: "Store page request failed",
-                    detail: error.message, ok: false))
-            }
-        }
+        // The store-specific price comes from the API's purchaseLocation
+        // parameter (below), and the product-page load establishes the session
+        // itself — so no separate store-details visit is needed. (It used to
+        // live here and only added a slow, redundant page load.)
 
         var productHTML: String?
         var productURL: URL?
 
-        // Step 2 — reach a product page. Three routes, in order of directness:
+        // Step 1 — reach a product page. Three routes, in order of directness:
         //   (a) a pasted acehardware.com URL,
         //   (b) the direct product URL /product/{sku} when the query is an
         //       item number — no search, so no chance of matching the wrong
@@ -211,11 +198,11 @@ final class AceLookupService {
             }
         }
 
-        // Step 3 — extract product data from the page.
+        // Step 2 — extract product data from the page.
         if let html = productHTML, let url = productURL {
             parseProduct(html: html, pageURL: url, sku: query, into: &out)
 
-            // Step 4 — overlay the store-specific price from the storefront
+            // Step 3 — overlay the store-specific price from the storefront
             // JSON API (purchaseLocation = the store). Runs in the same
             // WebKit session, so it carries the Mozu auth cookies and the
             // Akamai clearance the page load already earned. This is the
@@ -337,15 +324,16 @@ final class AceLookupService {
            !name.trimmingCharacters(in: .whitespaces).isEmpty {
             out.productName = HTMLParsers.decodeEntities(name).trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        if out.imageURL == nil {
-            var apiImages: [String] = []
-            JSONScanner.imageURLs(in: root, into: &apiImages)
-            if let imageURL = Self.chooseImageURL(from: apiImages) {
-                out.imageURL = imageURL
-                out.diagnostics.append(DiagnosticEntry(
-                    title: "Photo taken from the store API",
-                    detail: imageURL.absoluteString, ok: true))
-            }
+        // The product's own image, straight from content.productImages — this
+        // is THE photo for this item, so it overrides anything guessed from
+        // the page's hundreds of <img> tags (which can grab a banner or a
+        // related-product thumbnail). Scoped to productImages only, never the
+        // whole response (which also holds category and cross-sell images).
+        if let apiImage = Self.apiProductImageURL(from: content) {
+            out.imageURL = apiImage
+            out.diagnostics.append(DiagnosticEntry(
+                title: "Photo taken from the store API (authoritative)",
+                detail: apiImage.absoluteString, ok: true))
         }
         // Future-proofing: if the API shape ever shifts, this shows the keys.
         out.diagnostics.append(DiagnosticEntry(
@@ -354,6 +342,21 @@ final class AceLookupService {
                 + ((root["content"] as? [String: Any]).map { " | content: \($0.keys.sorted().prefix(12).joined(separator: ", "))" } ?? ""),
             ok: true))
         return true
+    }
+
+    /// The primary product photo from a Kibo `content` block. Reads
+    /// `productImages` in sequence order and returns the first usable URL.
+    /// Kibo shape: content.productImages = [{ imageUrl, sequence, altText }].
+    static func apiProductImageURL(from content: [String: Any]) -> URL? {
+        guard let images = content["productImages"] as? [[String: Any]], !images.isEmpty else { return nil }
+        let ordered = images.sorted {
+            (JSONScanner.doubleValue($0["sequence"] as Any) ?? 9999)
+                < (JSONScanner.doubleValue($1["sequence"] as Any) ?? 9999)
+        }
+        let urls = ordered.compactMap {
+            ($0["imageUrl"] as? String) ?? ($0["url"] as? String) ?? ($0["cdnUrl"] as? String)
+        }
+        return chooseImageURL(from: urls)
     }
 
     /// Loads a JSON endpoint through the WebKit session and returns the
