@@ -23,8 +23,8 @@ let variants: [(pixels: Int, name: String)] = [
     (512, "512x512"), (1024, "512x512@2x"),
 ]
 
-// Ace brand red (#E31837), matching Models.swift.
-let aceRed = NSColor(calibratedRed: 227.0 / 255.0, green: 24.0 / 255.0, blue: 55.0 / 255.0, alpha: 1)
+// Ace brand red (PMS 186 C), matching Models.swift.
+let aceRed = NSColor(calibratedRed: 227.0 / 255.0, green: 25.0 / 255.0, blue: 55.0 / 255.0, alpha: 1)
 
 func drawIcon(pixels: Int) -> NSImage {
     let s = CGFloat(pixels)

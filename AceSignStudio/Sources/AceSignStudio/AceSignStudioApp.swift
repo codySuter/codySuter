@@ -8,6 +8,7 @@ struct AceSignStudioApp: App {
 
     init() {
         Prefs.registerDefaults()
+        AceFont.registerFonts()
     }
 
     var body: some Scene {

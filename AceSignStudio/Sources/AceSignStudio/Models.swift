@@ -167,9 +167,16 @@ enum Prefs {
 
 // MARK: - Shared colors
 
+// Brand palette (Ace Brand Guidelines, primary palette p68). The guide
+// requires colors at 100% — never tinted — so printed sign elements use
+// these exact values rather than opacities.
 extension Color {
-    /// Ace brand red — #E31837, sampled from the brand-kit vector art.
-    static let aceRed = Color(red: 227.0 / 255.0, green: 24.0 / 255.0, blue: 55.0 / 255.0)
+    /// Ace Red — PMS 186 C (R227 G25 B55).
+    static let aceRed = Color(red: 227.0 / 255.0, green: 25.0 / 255.0, blue: 55.0 / 255.0)
+    /// Cool Gray 11 (#6D6E71) — secondary text.
+    static let aceCoolGray = Color(red: 109.0 / 255.0, green: 113.0 / 255.0, blue: 110.0 / 255.0)
+    /// Cool Gray 1 (#BCBEC0) — hairline rules.
+    static let aceHairline = Color(red: 188.0 / 255.0, green: 190.0 / 255.0, blue: 192.0 / 255.0)
 }
 
 // MARK: - Small helpers

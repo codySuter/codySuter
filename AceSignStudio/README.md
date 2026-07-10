@@ -69,6 +69,20 @@ and they sometimes rate-limit — so:
 - Double-check store-specific sale prices with **Open Product Page** — the website is the source of
   truth, and the price field is always editable.
 
+## Brand compliance
+
+Signs follow the Ace Brand Guidelines (the 11-part PDF set):
+
+- **Colors** — Ace Red PMS 186 C (R227 G25 B55) plus Cool Gray 11/1 from the primary palette,
+  always at 100% (the guide prohibits tints).
+- **Typography** — Roboto (the brand font, "used in ALL communications") is embedded in the app
+  (Apache License 2.0 — see `BrandAssets/fonts/LICENSE-Roboto.txt`) with a system-font fallback.
+- **Pricepoints** — the *Sale* format uses the official treatment from the guide: black SALE tag,
+  white price on an Ace-red chip with superscript cents and the unit under them, and a black
+  "REG. $x.xx" chip for the was-price.
+- **Logo** — the preferred stacked two-line wordmark, always at brand proportions and well above
+  the 0.5 in minimum size.
+
 ## Built to grow
 
 This is set up so new signage needs slot in cleanly:
