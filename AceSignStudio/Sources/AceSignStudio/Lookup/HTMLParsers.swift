@@ -166,7 +166,12 @@ enum HTMLParsers {
     /// navigation menu is full of /departments/ category and brand links
     /// (word slugs), and those must never win. Prefers links ending in /
     /// containing the SKU.
-    static func firstProductLink(in html: String, sku: String) -> String? {
+    /// - Parameter requireExactSKU: when true (the query is a shelf SKU / item
+    ///   number), only a link whose item number IS that SKU is accepted — the
+    ///   site's search must not substitute a different product (which would put
+    ///   the wrong price on the sign). Returns nil if there's no exact match.
+    ///   When false (a product-name search), the best/first product wins.
+    static func firstProductLink(in html: String, sku: String, requireExactSKU: Bool = false) -> String? {
         // JSON-escaped slashes appear when links live inside embedded JSON.
         let normalized = html.replacingOccurrences(of: "\\/", with: "/")
 
@@ -187,6 +192,10 @@ enum HTMLParsers {
 
         if !sku.isEmpty, let exact = links.first(where: { $0.hasSuffix("/" + sku) }) {
             return exact
+        }
+        if requireExactSKU {
+            // Numeric SKU with no exact-item-number match: refuse to guess.
+            return nil
         }
         if !sku.isEmpty, let containing = links.first(where: { $0.contains(sku) }) {
             return containing

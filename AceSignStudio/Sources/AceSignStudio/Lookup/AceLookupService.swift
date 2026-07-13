@@ -165,7 +165,11 @@ final class AceLookupService {
                     out.diagnostics.append(DiagnosticEntry(
                         title: "Search results page received",
                         detail: "\(page.html.count) bytes from \(page.finalURL.absoluteString)", ok: true))
-                    if let link = HTMLParsers.firstProductLink(in: page.html, sku: query) {
+                    // For a numeric SKU, only an exact item-number match is
+                    // acceptable — never let search substitute a different
+                    // product, or the sign gets the wrong item and price.
+                    if let link = HTMLParsers.firstProductLink(in: page.html, sku: query,
+                                                               requireExactSKU: looksNumeric) {
                         let absolute = link.hasPrefix("http") ? link : Self.base + link
                         if let linkURL = URL(string: absolute) {
                             switch await fetchPage(linkURL, probe: Self.productPageProbe) {
@@ -182,12 +186,17 @@ final class AceLookupService {
                                 out.errorSummary = Self.friendlyMessage(for: error)
                             }
                         }
+                    } else if looksNumeric {
+                        out.diagnostics.append(DiagnosticEntry(
+                            title: "No exact match for SKU \(query) — refusing to substitute",
+                            detail: "Search returned other item numbers, but none is \(query). Showing a different product would put the wrong price on the sign, so nothing was loaded.",
+                            ok: false))
+                        out.errorSummary = "acehardware.com has no item with SKU \(query). (Its search suggested other item numbers, which were ignored so you don't get the wrong product/price.) Double-check the SKU, search by the product name instead, or paste the product's acehardware.com URL."
                     } else {
                         out.diagnostics.append(DiagnosticEntry(
                             title: "No product links in the search results",
-                            detail: "Only links ending in a numeric item number count as products; none appeared for \"\(query)\" (nav and category links are ignored).",
-                            ok: false))
-                        out.errorSummary = "acehardware.com's search found no product for \"\(query)\". Store shelf SKUs don't always match the website's item numbers — try searching the product's name instead (e.g. \"wild bird food 40 lb\"), or open the product in Safari and paste its URL into the SKU box."
+                            detail: "Nothing matched \"\(query)\".", ok: false))
+                        out.errorSummary = "acehardware.com's search found no product for \"\(query)\". Try a different product name, or paste the product's acehardware.com URL into the SKU box."
                     }
                 }
             case .failure(let error):

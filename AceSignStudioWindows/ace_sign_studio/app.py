@@ -49,6 +49,7 @@ class AceSignApp(tk.Tk):
         self.v_price = tk.StringVar()
         self.v_was = tk.StringVar()
         self.v_unit = tk.StringVar()
+        self.v_show_detail = tk.BooleanVar(value=True)
         self.v_size = tk.StringVar(value=DEFAULT_SIZE.name)
         self.v_orient = tk.StringVar(value=ORIENTATIONS[0])
         self.v_format = tk.StringVar(value=FORMATS[0])
@@ -57,7 +58,8 @@ class AceSignApp(tk.Tk):
         self.v_custom_h = tk.StringVar(value="3.5")
         self.v_status = tk.StringVar(value="Enter a SKU and press Look Up.")
         for var in (self.v_name, self.v_detail, self.v_price, self.v_was, self.v_unit,
-                    self.v_size, self.v_orient, self.v_format, self.v_custom_w, self.v_custom_h):
+                    self.v_show_detail, self.v_size, self.v_orient, self.v_format,
+                    self.v_custom_w, self.v_custom_h):
             var.trace_add("write", lambda *_: self._schedule_preview())
 
     # -- layout -------------------------------------------------------------
@@ -121,6 +123,8 @@ class AceSignApp(tk.Tk):
         tf.pack(fill="x", pady=(0, 8))
         self._labeled(tf, "Product name", self.v_name)
         self._labeled(tf, "Detail (brand, size, model)", self.v_detail)
+        ttk.Checkbutton(tf, text="Show detail line on the sign",
+                        variable=self.v_show_detail).pack(anchor="w", pady=(0, 6))
         self._labeled(tf, "Price", self.v_price)
         self._labeled(tf, "Was price (adds strikethrough / REG.)", self.v_was)
         self._labeled(tf, "Unit (e.g. each, /ft)", self.v_unit)
@@ -218,7 +222,7 @@ class AceSignApp(tk.Tk):
                 return default
         spec = SignSpec(
             product_name=self.v_name.get(),
-            detail_line=self.v_detail.get(),
+            detail_line=self.v_detail.get() if self.v_show_detail.get() else "",
             price_text=self.v_price.get(),
             was_price_text=self.v_was.get(),
             unit_suffix=self.v_unit.get(),

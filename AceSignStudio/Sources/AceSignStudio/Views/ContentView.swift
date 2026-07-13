@@ -96,6 +96,10 @@ struct ContentView: View {
                 TextField("Product name", text: $state.productName, axis: .vertical)
                     .lineLimit(1...3)
                 TextField("Detail line (brand, size, model)", text: $state.detailLine)
+                    .disabled(!state.showDetailLine)
+                    .opacity(state.showDetailLine ? 1 : 0.5)
+                Toggle("Show detail line on the sign", isOn: $state.showDetailLine)
+                    .font(.callout)
                 TextField("Price", text: $state.priceText)
                 if !state.priceCandidates.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {

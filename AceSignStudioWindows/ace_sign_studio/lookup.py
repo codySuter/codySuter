@@ -347,7 +347,7 @@ class AceLookup:
                          f"{BASE}/product/{query} (HTTP {code})", False))
 
         if product_html is None and not query.lower().startswith("http"):
-            product_html, product_url = self._search(query, out)
+            product_html, product_url = self._search(query, out, looks_numeric)
 
         if product_html is None:
             if out.error is None:
@@ -364,19 +364,30 @@ class AceLookup:
         return out
 
     # -- search fallback ----------------------------------------------------
-    def _search(self, query: str, out: LookupResult):
+    def _search(self, query: str, out: LookupResult, looks_numeric: bool = False):
         from urllib.parse import quote
         r = self._get(f"{BASE}/search?query={quote(query, safe='')}", out.diagnostics)
         if r is None or r.status_code != 200:
             if r is not None and out.error is None:
                 out.error = _friendly(r.status_code)
             return None, None
-        link = _first_product_link(r.text, query)
+        # A numeric SKU must match exactly — never substitute a different item.
+        link = _first_product_link(r.text, query, require_exact_sku=looks_numeric)
         if not link:
-            out.diagnostics.append(Diag("No product links in search results",
-                                        f'Nothing matched "{query}".', False))
-            out.error = (f'acehardware.com found no product for "{query}". Try the '
-                         "product name, or paste the product URL.")
+            if looks_numeric:
+                out.diagnostics.append(Diag(
+                    f"No exact match for SKU {query} — refusing to substitute",
+                    "Search returned other item numbers; showing one would put the wrong price on the sign.",
+                    False))
+                out.error = (f"acehardware.com has no item with SKU {query}. (Its search "
+                             "suggested other item numbers, which were ignored so you don't "
+                             "get the wrong product/price.) Double-check the SKU, search by "
+                             "product name, or paste the product's acehardware.com URL.")
+            else:
+                out.diagnostics.append(Diag("No product links in search results",
+                                            f'Nothing matched "{query}".', False))
+                out.error = (f'acehardware.com found no product for "{query}". Try a different '
+                             "product name, or paste the product URL.")
             return None, None
         url = link if link.startswith("http") else BASE + link
         r2 = self._get(url, out.diagnostics)
@@ -534,7 +545,11 @@ class AceLookup:
 # ---------------------------------------------------------------------------
 # module helpers
 # ---------------------------------------------------------------------------
-def _first_product_link(html: str, sku: str) -> Optional[str]:
+def _first_product_link(html: str, sku: str, require_exact_sku: bool = False) -> Optional[str]:
+    """Best product link in a search page. When require_exact_sku is True (the
+    query is a shelf SKU / item number), only a link whose item number IS that
+    SKU is accepted — search must never substitute a different product, or the
+    sign gets the wrong item and price. Returns None if there's no exact match."""
     normalized = html.replace("\\/", "/")
     links = []
     for pat in (r'href="((?:https://www\.acehardware\.com)?(?:/departments/|/p/)[^"#?]+)',
@@ -548,6 +563,8 @@ def _first_product_link(html: str, sku: str) -> Optional[str]:
     for link in links:
         if link.endswith("/" + sku):
             return link
+    if require_exact_sku:
+        return None
     for link in links:
         if sku in link:
             return link

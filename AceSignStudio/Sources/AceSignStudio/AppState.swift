@@ -22,6 +22,7 @@ final class AppState: ObservableObject {
     @Published var customHeight: Double = 3.5
     @Published var orientation: SignOrientation = .landscape
     @Published var layout: SignLayoutKind = .standard
+    @Published var showDetailLine = true   // brand/model line under the name
 
     // MARK: Print configuration
     @Published var paper: PaperOption = .letter
@@ -68,7 +69,7 @@ final class AppState: ObservableObject {
             ? "" : rawSKU
         return SignSpec(
             productName: productName,
-            detailLine: detailLine,
+            detailLine: showDetailLine ? detailLine : "",
             priceText: priceText,
             wasPriceText: wasPriceText,
             unitSuffix: unitSuffix,
