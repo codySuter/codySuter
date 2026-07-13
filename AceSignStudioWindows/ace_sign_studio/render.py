@@ -457,3 +457,183 @@ def print_sign(spec: SignSpec, printer_name: Optional[str] = None) -> Tuple[bool
     hdc.EndDoc()
     hdc.DeleteDC()
     return True, f"Sent to {name}."
+
+
+# ---------------------------------------------------------------------------
+# Gang-run: pack multiple DIFFERENT signs onto each sheet to save paper.
+# ---------------------------------------------------------------------------
+MARGIN_IN = 0.25   # printable-area safety margin
+GAP_IN = 0.12      # gutter between signs (room to cut)
+
+
+def _page_inches(paper: str) -> Tuple[float, float]:
+    if paper.startswith("6"):
+        return 6.0, 4.0
+    if paper.startswith("A4"):
+        return 8.27, 11.69
+    return 8.5, 11.0   # US Letter
+
+
+def best_gang_grid(sign_w: float, sign_h: float, page_w: float, page_h: float,
+                   margin: float = MARGIN_IN, gap: float = GAP_IN) -> dict:
+    """Find the layout that fits the MOST signs per sheet, trying both page
+    orientations and both sign rotations. Returns a dict describing the grid."""
+    best = None
+    for pw, ph in ((page_w, page_h), (page_h, page_w)):           # portrait, landscape
+        for rotated in (False, True):
+            sw = sign_h if rotated else sign_w
+            sh = sign_w if rotated else sign_h
+            if sw <= 0 or sh <= 0:
+                continue
+            avail_w, avail_h = pw - 2 * margin, ph - 2 * margin
+            cols = int((avail_w + gap) // (sw + gap))
+            rows = int((avail_h + gap) // (sh + gap))
+            count = max(cols, 0) * max(rows, 0)
+            # Prefer more-per-page; break ties toward portrait pages (nicer to handle).
+            key = (count, 1 if ph >= pw else 0)
+            if count >= 1 and (best is None or key > best["_key"]):
+                best = dict(pw=pw, ph=ph, rotated=rotated, sw=sw, sh=sh,
+                            cols=cols, rows=rows, count=count, _key=key)
+    if best is None:  # sign larger than the sheet — one (scaled) per page
+        best = dict(pw=page_w, ph=page_h, rotated=False, sw=sign_w, sh=sign_h,
+                    cols=1, rows=1, count=1, _key=(1, 0))
+    return best
+
+
+def gang_plan(specs, paper: str) -> dict:
+    """How the queue will lay out: signs-per-page and page count."""
+    if not specs or paper.startswith("Exact"):
+        return {"per_page": 1, "pages": len(specs), "grid": None}
+    pw, ph = _page_inches(paper)
+    sw, sh = specs[0].size_inches()
+    grid = best_gang_grid(sw, sh, pw, ph)
+    per_page = max(1, grid["count"])
+    pages = (len(specs) + per_page - 1) // per_page
+    return {"per_page": per_page, "pages": pages, "grid": grid}
+
+
+def render_gang_pages(specs, paper: str = "US Letter (8½ × 11)",
+                      cut_marks: bool = True):
+    """Render the whole queue as a list of composed page images (300 DPI),
+    packing as many distinct signs per sheet as fit."""
+    if not specs:
+        return []
+    if paper.startswith("Exact"):
+        return [render_sign(s) for s in specs]
+
+    plan = gang_plan(specs, paper)
+    grid = plan["grid"]
+    per_page = plan["per_page"]
+    pages = []
+    for start in range(0, len(specs), per_page):
+        pages.append(_render_gang_page(specs[start:start + per_page], grid, cut_marks))
+    return pages
+
+
+def _render_gang_page(chunk, grid, cut_marks):
+    PW = max(1, int(round(grid["pw"] * DPI)))
+    PH = max(1, int(round(grid["ph"] * DPI)))
+    page = Image.new("RGB", (PW, PH), WHITE)
+    draw = ImageDraw.Draw(page)
+
+    gap = GAP_IN * DPI
+    cell_w = grid["sw"] * DPI
+    cell_h = grid["sh"] * DPI
+    total_w = grid["cols"] * cell_w + (grid["cols"] - 1) * gap
+    total_h = grid["rows"] * cell_h + (grid["rows"] - 1) * gap
+    x0 = (PW - total_w) / 2
+    y0 = (PH - total_h) / 2
+
+    cells = []
+    for r in range(grid["rows"]):
+        for c in range(grid["cols"]):
+            cells.append((x0 + c * (cell_w + gap), y0 + r * (cell_h + gap), cell_w, cell_h))
+
+    for i, spec in enumerate(chunk):
+        if i >= len(cells):
+            break
+        cx, cy, cw, ch = cells[i]
+        img = render_sign(spec, scale=1.0)
+        if grid["rotated"]:
+            img = img.rotate(90, expand=True)
+        ratio = min(cw / img.width, ch / img.height)
+        nw, nh = max(1, int(img.width * ratio)), max(1, int(img.height * ratio))
+        img = img.resize((nw, nh), Image.LANCZOS)
+        page.paste(img, (int(cx + (cw - nw) / 2), int(cy + (ch - nh) / 2)))
+
+    if cut_marks:
+        _draw_gang_cut_marks(draw, cells[:len(chunk)])
+    return page
+
+
+def _draw_gang_cut_marks(draw, cells):
+    length = int(0.14 * DPI)
+    inset = int(0.04 * DPI)
+    color = (120, 120, 120)
+    for cx, cy, cw, ch in cells:
+        for x in (cx, cx + cw):
+            draw.line([(x, cy - inset), (x, cy - inset - length)], fill=color, width=1)
+            draw.line([(x, cy + ch + inset), (x, cy + ch + inset + length)], fill=color, width=1)
+        for y in (cy, cy + ch):
+            draw.line([(cx - inset, y), (cx - inset - length, y)], fill=color, width=1)
+            draw.line([(cx + cw + inset, y), (cx + cw + inset + length, y)], fill=color, width=1)
+
+
+def export_gang_pdf(specs, path: str, paper: str = "US Letter (8½ × 11)",
+                    cut_marks: bool = True):
+    """Multi-page PDF of the whole queue, ganged to save paper."""
+    from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+
+    pages = render_gang_pages(specs, paper=paper, cut_marks=cut_marks)
+    if not pages:
+        return
+    if paper.startswith("Exact"):
+        c = canvas.Canvas(path)
+        for spec, img in zip(specs, pages):
+            w_in, h_in = spec.size_inches()
+            c.setPageSize((w_in * inch, h_in * inch))
+            c.drawImage(ImageReader(img), 0, 0, width=w_in * inch, height=h_in * inch)
+            c.showPage()
+        c.save()
+        return
+
+    plan = gang_plan(specs, paper)
+    pw, ph = plan["grid"]["pw"], plan["grid"]["ph"]
+    c = canvas.Canvas(path, pagesize=(pw * inch, ph * inch))
+    for img in pages:
+        c.drawImage(ImageReader(img), 0, 0, width=pw * inch, height=ph * inch)
+        c.showPage()
+    c.save()
+
+
+def print_gang(specs, paper: str = "US Letter (8½ × 11)",
+               cut_marks: bool = True, printer_name: Optional[str] = None) -> Tuple[bool, str]:
+    """Print the whole queue, ganged, one sheet per composed page."""
+    try:
+        import win32print
+        import win32ui
+        from PIL import ImageWin
+    except Exception as exc:  # pragma: no cover - Windows only
+        return False, (f"Direct printing needs pywin32 ({exc}). Use Export PDF and "
+                       "print the PDF instead.")
+    pages = render_gang_pages(specs, paper=paper, cut_marks=cut_marks)
+    if not pages:
+        return False, "The queue is empty."
+
+    name = printer_name or win32print.GetDefaultPrinter()
+    hdc = win32ui.CreateDC()
+    hdc.CreatePrinterDC(name)
+    dpi_x = hdc.GetDeviceCaps(88)
+    dpi_y = hdc.GetDeviceCaps(90)
+    hdc.StartDoc(f"Ace Signs ({len(pages)} sheet{'s' if len(pages) != 1 else ''})")
+    for img in pages:
+        target_w = int(img.width / DPI * dpi_x)
+        target_h = int(img.height / DPI * dpi_y)
+        hdc.StartPage()
+        ImageWin.Dib(img.convert("RGB")).draw(hdc.GetHandleOutput(), (0, 0, target_w, target_h))
+        hdc.EndPage()
+    hdc.EndDoc()
+    hdc.DeleteDC()
+    return True, f"Sent {len(pages)} sheet(s) to {name}."

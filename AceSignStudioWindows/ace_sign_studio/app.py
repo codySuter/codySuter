@@ -35,6 +35,7 @@ class AceSignApp(tk.Tk):
         self._diag = []
         self._preview_job = None
         self._busy = False
+        self._queue = []   # list of snapshotted SignSpec
 
         self._build_vars()
         self._build_ui()
@@ -156,6 +157,26 @@ class AceSignApp(tk.Tk):
         ttk.Button(brow, text="Print…", command=self.print_sign).pack(side="left")
         ttk.Button(brow, text="Export PDF…", command=self.export_pdf).pack(side="left", padx=6)
         ttk.Button(brow, text="Diagnostics", command=self.show_diagnostics).pack(side="right")
+
+        # Batch queue
+        qf = ttk.LabelFrame(parent, text="Batch Queue", padding=8)
+        qf.pack(fill="both", expand=True, pady=(8, 0))
+        ttk.Button(qf, text="＋  Add current sign to queue",
+                   command=self.add_to_queue).pack(fill="x")
+        listrow = ttk.Frame(qf); listrow.pack(fill="both", expand=True, pady=(6, 4))
+        self.queue_list = tk.Listbox(listrow, height=5, activestyle="none")
+        self.queue_list.pack(side="left", fill="both", expand=True)
+        qscroll = ttk.Scrollbar(listrow, command=self.queue_list.yview)
+        qscroll.pack(side="right", fill="y")
+        self.queue_list.config(yscrollcommand=qscroll.set)
+        self.queue_plan = ttk.Label(qf, text="Queue is empty.", foreground="#666")
+        self.queue_plan.pack(anchor="w")
+        qbtns = ttk.Frame(qf); qbtns.pack(fill="x", pady=(6, 0))
+        ttk.Button(qbtns, text="Print Queue", command=self.print_queue).pack(side="left")
+        ttk.Button(qbtns, text="Export PDF", command=self.export_queue_pdf).pack(side="left", padx=6)
+        ttk.Button(qbtns, text="Remove", command=self.remove_from_queue).pack(side="right")
+        ttk.Button(qbtns, text="Clear", command=self.clear_queue).pack(side="right", padx=6)
+        self.v_paper.trace_add("write", lambda *_: self._update_queue_plan())
 
     def _labeled(self, parent, label, var):
         ttk.Label(parent, text=label).pack(anchor="w")
@@ -369,6 +390,69 @@ class AceSignApp(tk.Tk):
             # Offer the PDF path as a fallback.
             if messagebox.askyesno("Print", msg + "\n\nExport a PDF to print instead?"):
                 self.export_pdf()
+
+    # -- batch queue --------------------------------------------------------
+    def add_to_queue(self):
+        spec = self._spec()
+        self._queue.append(spec)
+        label = spec.product_name or (f"SKU {spec.sku}" if spec.sku else "Untitled sign")
+        price = spec.price_text.strip()
+        self.queue_list.insert("end", f"{label}" + (f"  —  ${price}" if price else ""))
+        self._update_queue_plan()
+        self.v_status.set(f"Added to queue ({len(self._queue)} sign(s)).")
+
+    def remove_from_queue(self):
+        sel = self.queue_list.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        self.queue_list.delete(idx)
+        del self._queue[idx]
+        self._update_queue_plan()
+
+    def clear_queue(self):
+        self._queue.clear()
+        self.queue_list.delete(0, "end")
+        self._update_queue_plan()
+
+    def _update_queue_plan(self):
+        if not self._queue:
+            self.queue_plan.config(text="Queue is empty.")
+            return
+        plan = render.gang_plan(self._queue, self.v_paper.get())
+        n = len(self._queue)
+        per = plan["per_page"]
+        pages = plan["pages"]
+        if self.v_paper.get().startswith("Exact"):
+            self.queue_plan.config(text=f"{n} sign(s) · one per page · {pages} page(s)")
+        else:
+            self.queue_plan.config(
+                text=f"{n} sign(s) · {per} per sheet · {pages} sheet(s) to print")
+
+    def print_queue(self):
+        if not self._queue:
+            messagebox.showinfo("Queue", "Add some signs to the queue first.")
+            return
+        ok, msg = render.print_gang(self._queue, paper=self.v_paper.get())
+        if ok:
+            self.v_status.set(msg)
+        elif messagebox.askyesno("Print", msg + "\n\nExport a PDF to print instead?"):
+            self.export_queue_pdf()
+
+    def export_queue_pdf(self):
+        if not self._queue:
+            messagebox.showinfo("Queue", "Add some signs to the queue first.")
+            return
+        path = filedialog.asksaveasfilename(
+            title="Export Queue PDF", defaultextension=".pdf",
+            initialfile=f"Ace Signs ({len(self._queue)}).pdf", filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            render.export_gang_pdf(self._queue, path, paper=self.v_paper.get())
+            self.v_status.set(f"Saved {len(self._queue)} sign(s) to {path}")
+        except Exception as exc:
+            messagebox.showerror("Export PDF", str(exc))
 
     # -- windows ------------------------------------------------------------
     def show_diagnostics(self):
