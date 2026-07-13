@@ -204,7 +204,7 @@ final class AppState: ObservableObject {
         return false
     }
 
-    // MARK: Output
+    // MARK: Output (single sign)
 
     func requestPrint() {
         PrintController.printSign(spec: currentSpec(), paper: paper, multiUp: multiUp, cutMarks: cutMarks)
@@ -213,4 +213,55 @@ final class AppState: ObservableObject {
     func requestExportPDF() {
         PrintController.exportPDF(spec: currentSpec(), paper: paper, multiUp: multiUp, cutMarks: cutMarks)
     }
+
+    // MARK: Print queue (batch)
+
+    @Published var queue: [QueuedSign] = []
+
+    var canOutputQueue: Bool { !queue.isEmpty }
+
+    /// Snapshots the current sign (all fields + photo) into the queue.
+    func addCurrentToQueue() {
+        let spec = currentSpec()
+        let title: String
+        if !spec.productName.isEmpty {
+            title = spec.productName
+        } else if !spec.sku.isEmpty {
+            title = "SKU \(spec.sku)"
+        } else {
+            title = "Untitled sign"
+        }
+        let subtitle = PriceFormatter.display(spec.priceText) ?? spec.priceText
+        queue.append(QueuedSign(spec: spec, title: title, subtitle: subtitle, thumbnail: productImage))
+    }
+
+    func removeFromQueue(_ id: QueuedSign.ID) {
+        queue.removeAll { $0.id == id }
+    }
+
+    func clearQueue() {
+        queue.removeAll()
+    }
+
+    func printQueue() {
+        guard canOutputQueue else { return }
+        PrintController.printSigns(specs: queue.map(\.spec), paper: paper,
+                                   multiUp: multiUp, cutMarks: cutMarks)
+    }
+
+    func exportQueuePDF() {
+        guard canOutputQueue else { return }
+        PrintController.exportPDF(specs: queue.map(\.spec), paper: paper, multiUp: multiUp,
+                                  cutMarks: cutMarks, suggestedName: "Ace Signs (\(queue.count)).pdf")
+    }
+}
+
+/// One snapshotted sign in the print queue. The spec is a value copy, so
+/// later edits to the live sign don't change what's already queued.
+struct QueuedSign: Identifiable {
+    let id = UUID()
+    let spec: SignSpec
+    let title: String
+    let subtitle: String
+    let thumbnail: NSImage?
 }

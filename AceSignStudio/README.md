@@ -44,6 +44,7 @@ cd AceSignStudio
 | Sale signs | Switch **Format** to *Sale* and fill in the *Was price* for a strikethrough + SALE flash |
 | Print | ⌘P — pick paper (Letter by default); turn on *Fit as many signs as possible* to gang-run a sheet with cut marks |
 | Exact-size output | Set **Paper** to *Exact Sign Size* (useful for PDF exports sent to a print shop) |
+| Batch several signs | Build a sign, click **Add to Queue**, repeat for each item, then **Print Queue** or **Export PDF** to output them all at once (one multi-page PDF / print job) |
 
 ## Settings (⌘,)
 

@@ -201,9 +201,89 @@ struct ContentView: View {
                     Button("Print…") { state.requestPrint() }
                         .buttonStyle(.borderedProminent)
                     Button("Export PDF…") { state.requestExportPDF() }
+                    Spacer()
+                    Button {
+                        state.addCurrentToQueue()
+                    } label: {
+                        Label("Add to Queue", systemImage: "plus.rectangle.on.rectangle")
+                    }
+                    .help("Save this sign to the batch queue")
+                }
+            }
+
+            Section {
+                if state.queue.isEmpty {
+                    Text("The queue is empty. Build a sign, then **Add to Queue** to batch several and print or export them all at once.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(state.queue) { item in
+                        HStack(spacing: 8) {
+                            QueueThumb(image: item.thumbnail)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(item.title).lineLimit(1)
+                                if !item.subtitle.isEmpty {
+                                    Text(item.subtitle)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            Spacer()
+                            Button {
+                                state.removeFromQueue(item.id)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Remove from queue")
+                        }
+                    }
+                    HStack {
+                        Button {
+                            state.printQueue()
+                        } label: {
+                            Label("Print Queue (\(state.queue.count))", systemImage: "printer")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button {
+                            state.exportQueuePDF()
+                        } label: {
+                            Label("Export PDF", systemImage: "square.and.arrow.down")
+                        }
+                        Spacer()
+                        Button("Clear") { state.clearQueue() }
+                    }
+                }
+            } header: {
+                HStack {
+                    Text("Batch Queue")
+                    if !state.queue.isEmpty {
+                        Text("\(state.queue.count)")
+                            .font(.caption)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Capsule().fill(Color.secondary.opacity(0.2)))
+                    }
                 }
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Small thumbnail for a queued sign's photo (or a placeholder).
+struct QueueThumb: View {
+    let image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image).resizable().scaledToFit()
+            } else {
+                Image(systemName: "tag")
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(width: 34, height: 34)
+        .background(RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.1)))
     }
 }

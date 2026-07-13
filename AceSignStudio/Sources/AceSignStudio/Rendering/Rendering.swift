@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import PDFKit
 import UniformTypeIdentifiers
 
 // MARK: - Sheet composition
@@ -134,24 +135,48 @@ struct CutMarks: Shape {
 }
 
 // MARK: - Rendering to PDF
+// SwiftUI content is layer-backed; NSHostingView.dataWithPDF / printing an
+// NSHostingView directly yields BLANK pages. ImageRenderer (macOS 13+) is the
+// supported way to rasterize/vectorize SwiftUI, and we print the resulting
+// vector PDF through PDFKit — both render reliably, photos included.
 
 @MainActor
 enum SignRenderer {
-    /// Vector PDF of a SwiftUI view at an exact point size.
+    /// One composed page ready to render.
+    struct Page {
+        let view: AnyView
+        let size: CGSize
+    }
+
+    /// Single-page vector PDF of a SwiftUI view at an exact point size.
     static func pdfData(for view: AnyView, size: CGSize) -> Data {
-        let hosting = NSHostingView(rootView: view)
-        hosting.frame = CGRect(origin: .zero, size: size)
+        let data = NSMutableData()
+        let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height))
+        renderer.proposedSize = ProposedViewSize(width: size.width, height: size.height)
+        renderer.render { contentSize, renderInContext in
+            let boxSize = contentSize == .zero ? size : contentSize
+            var box = CGRect(origin: .zero, size: boxSize)
+            guard let consumer = CGDataConsumer(data: data as CFMutableData),
+                  let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { return }
+            ctx.beginPDFPage(nil)
+            renderInContext(ctx)
+            ctx.endPDFPage()
+            ctx.closePDF()
+        }
+        return data as Data
+    }
 
-        // Back the view with an (invisible) window so AppKit lays it out.
-        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size),
-                              styleMask: [.borderless],
-                              backing: .buffered,
-                              defer: false)
-        window.isReleasedWhenClosed = false
-        window.contentView = hosting
-        hosting.layoutSubtreeIfNeeded()
-
-        return hosting.dataWithPDF(inside: hosting.bounds)
+    /// Multi-page vector PDF from several composed pages (the print queue).
+    /// Each single-page PDF is merged with PDFKit, which handles mixed sizes.
+    static func batchPDFData(pages: [Page]) -> Data {
+        let merged = PDFDocument()
+        for page in pages {
+            let single = pdfData(for: page.view, size: page.size)
+            if let doc = PDFDocument(data: single), let pdfPage = doc.page(at: 0) {
+                merged.insert(pdfPage, at: merged.pageCount)
+            }
+        }
+        return merged.dataRepresentation() ?? Data()
     }
 }
 
@@ -159,41 +184,33 @@ enum SignRenderer {
 
 @MainActor
 enum PrintController {
+    // -- single sign --------------------------------------------------------
     static func printSign(spec: SignSpec, paper: PaperOption, multiUp: Bool, cutMarks: Bool) {
-        let sheet = SheetComposer.compose(signSize: spec.sizePoints, paper: paper, multiUp: multiUp)
-        let page = SheetComposer.pageView(spec: spec, sheet: sheet, cutMarks: cutMarks)
-
-        let info = NSPrintInfo()
-        info.orientation = sheet.pageSize.width > sheet.pageSize.height ? .landscape : .portrait
-        info.paperSize = sheet.pageSize
-        info.topMargin = 0
-        info.bottomMargin = 0
-        info.leftMargin = 0
-        info.rightMargin = 0
-        info.horizontalPagination = .clip
-        info.verticalPagination = .clip
-        info.isHorizontallyCentered = true
-        info.isVerticallyCentered = true
-        info.scalingFactor = 1.0
-
-        let hosting = NSHostingView(rootView: page)
-        hosting.frame = CGRect(origin: .zero, size: sheet.pageSize)
-        hosting.layoutSubtreeIfNeeded()
-
-        let operation = NSPrintOperation(view: hosting, printInfo: info)
-        operation.showsPrintPanel = true
-        operation.showsProgressPanel = true
-        operation.run()
+        printSigns(specs: [spec], paper: paper, multiUp: multiUp, cutMarks: cutMarks)
     }
 
     static func exportPDF(spec: SignSpec, paper: PaperOption, multiUp: Bool, cutMarks: Bool) {
-        let sheet = SheetComposer.compose(signSize: spec.sizePoints, paper: paper, multiUp: multiUp)
-        let page = SheetComposer.pageView(spec: spec, sheet: sheet, cutMarks: cutMarks)
-        let data = SignRenderer.pdfData(for: page, size: sheet.pageSize)
+        exportPDF(specs: [spec], paper: paper, multiUp: multiUp, cutMarks: cutMarks,
+                  suggestedName: suggestedFileName(spec: spec))
+    }
+
+    // -- batch / queue ------------------------------------------------------
+    static func printSigns(specs: [SignSpec], paper: PaperOption, multiUp: Bool, cutMarks: Bool) {
+        let pages = composedPages(specs: specs, paper: paper, multiUp: multiUp, cutMarks: cutMarks)
+        guard !pages.isEmpty else { return }
+        let data = SignRenderer.batchPDFData(pages: pages)
+        printPDF(data: data, pageSize: pages[0].size, jobName: "Ace Signs (\(pages.count))")
+    }
+
+    static func exportPDF(specs: [SignSpec], paper: PaperOption, multiUp: Bool, cutMarks: Bool,
+                          suggestedName: String) {
+        let pages = composedPages(specs: specs, paper: paper, multiUp: multiUp, cutMarks: cutMarks)
+        guard !pages.isEmpty else { return }
+        let data = SignRenderer.batchPDFData(pages: pages)
 
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]
-        panel.nameFieldStringValue = suggestedFileName(spec: spec)
+        panel.nameFieldStringValue = suggestedName
         panel.canCreateDirectories = true
         if panel.runModal() == .OK, let url = panel.url {
             do {
@@ -202,6 +219,43 @@ enum PrintController {
                 NSAlert(error: error).runModal()
             }
         }
+    }
+
+    // -- helpers ------------------------------------------------------------
+    private static func composedPages(specs: [SignSpec], paper: PaperOption,
+                                      multiUp: Bool, cutMarks: Bool) -> [SignRenderer.Page] {
+        specs.map { spec in
+            let sheet = SheetComposer.compose(signSize: spec.sizePoints, paper: paper, multiUp: multiUp)
+            return SignRenderer.Page(
+                view: SheetComposer.pageView(spec: spec, sheet: sheet, cutMarks: cutMarks),
+                size: sheet.pageSize)
+        }
+    }
+
+    private static func printPDF(data: Data, pageSize: CGSize, jobName: String) {
+        guard let document = PDFDocument(data: data), document.pageCount > 0 else {
+            NSAlert(error: NSError(domain: "AceSignStudio", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Couldn't prepare the sign for printing. Try Export PDF instead."
+            ])).runModal()
+            return
+        }
+        let info = NSPrintInfo()
+        info.paperSize = pageSize
+        info.orientation = pageSize.width > pageSize.height ? .landscape : .portrait
+        info.topMargin = 0
+        info.bottomMargin = 0
+        info.leftMargin = 0
+        info.rightMargin = 0
+        info.horizontalPagination = .fit
+        info.verticalPagination = .fit
+        info.jobDisposition = .spool
+
+        guard let operation = document.printOperation(for: info, scalingMode: .pageScaleNone,
+                                                       autoRotate: false) else { return }
+        operation.jobTitle = jobName
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        operation.run()
     }
 
     private static func suggestedFileName(spec: SignSpec) -> String {
