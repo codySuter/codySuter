@@ -1,0 +1,7 @@
+# Ace Sign Studio for Windows — runtime + build dependencies
+requests>=2.31
+Pillow>=10.0
+reportlab>=4.0
+selenium>=4.15        # bot-protection fallback via Windows' built-in Edge
+pywin32>=306 ; sys_platform == "win32"   # direct printing
+pyinstaller>=6.3      # to build the .exe
