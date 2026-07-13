@@ -245,14 +245,35 @@ final class AppState: ObservableObject {
 
     func printQueue() {
         guard canOutputQueue else { return }
-        PrintController.printSigns(specs: queue.map(\.spec), paper: paper,
-                                   multiUp: multiUp, cutMarks: cutMarks)
+        PrintController.printQueue(specs: queue.map(\.spec), paper: paper, cutMarks: cutMarks)
     }
 
     func exportQueuePDF() {
         guard canOutputQueue else { return }
-        PrintController.exportPDF(specs: queue.map(\.spec), paper: paper, multiUp: multiUp,
-                                  cutMarks: cutMarks, suggestedName: "Ace Signs (\(queue.count)).pdf")
+        PrintController.exportQueue(specs: queue.map(\.spec), paper: paper,
+                                    cutMarks: cutMarks, suggestedName: "Ace Signs (\(queue.count)).pdf")
+    }
+
+    /// How many queued signs fit per sheet, and how many sheets that is —
+    /// gang-run packs distinct signs together to save paper.
+    var queuePerPage: Int {
+        guard let first = queue.first else { return 0 }
+        return SheetComposer.gangPerPage(signSize: first.spec.sizePoints, paper: paper)
+    }
+
+    var queuePageCount: Int {
+        let per = queuePerPage
+        guard per > 0 else { return 0 }
+        return (queue.count + per - 1) / per
+    }
+
+    var queuePlanDescription: String {
+        guard !queue.isEmpty else { return "" }
+        let n = queue.count
+        if paper == .exactSign {
+            return "\(n) sign\(n == 1 ? "" : "s") · one per page"
+        }
+        return "\(n) sign\(n == 1 ? "" : "s") · \(queuePerPage) per sheet · \(queuePageCount) sheet\(queuePageCount == 1 ? "" : "s") to print"
     }
 }
 

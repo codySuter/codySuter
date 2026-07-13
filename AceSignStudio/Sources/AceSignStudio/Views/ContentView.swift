@@ -238,6 +238,9 @@ struct ContentView: View {
                             .help("Remove from queue")
                         }
                     }
+                    Text(state.queuePlanDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     HStack {
                         Button {
                             state.printQueue()

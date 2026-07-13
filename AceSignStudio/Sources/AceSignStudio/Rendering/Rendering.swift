@@ -107,6 +107,126 @@ enum SheetComposer {
                 .scaleEffect(scale)
         }
     }
+
+    // MARK: Gang-run (pack multiple DIFFERENT signs per sheet to save paper)
+
+    /// The layout that fits the MOST signs per sheet — trying both page
+    /// orientations and both sign rotations. Cells are sign-sized; distinct
+    /// signs are placed one per cell, flowing across sheets.
+    static func gangLayout(signSize: CGSize, paper: PaperOption) -> SheetLayout {
+        if paper == .exactSign {
+            return SheetLayout(pageSize: signSize,
+                               cells: [CGRect(origin: .zero, size: signSize)],
+                               rotated: false, scale: 1)
+        }
+        let base = paper.sizePoints(signSize: signSize)
+        let margin: CGFloat = 18   // ~0.25 in printable safety
+        let gap: CGFloat = 9
+
+        var best: SheetLayout?
+        var bestCount = 0
+        for page in [base, CGSize(width: base.height, height: base.width)] {
+            for rotated in [false, true] {
+                let sw = rotated ? signSize.height : signSize.width
+                let sh = rotated ? signSize.width : signSize.height
+                guard sw > 0, sh > 0 else { continue }
+                let cols = Int(((page.width - 2 * margin + gap) / (sw + gap)).rounded(.down))
+                let rows = Int(((page.height - 2 * margin + gap) / (sh + gap)).rounded(.down))
+                let count = max(cols, 0) * max(rows, 0)
+                guard count >= 1, count > bestCount else { continue }
+
+                let scale = min(1, (page.width - 2 * margin) / sw, (page.height - 2 * margin) / sh)
+                let w = sw * scale, h = sh * scale
+                let totalW = CGFloat(cols) * w + CGFloat(cols - 1) * gap
+                let totalH = CGFloat(rows) * h + CGFloat(rows - 1) * gap
+                let x0 = (page.width - totalW) / 2, y0 = (page.height - totalH) / 2
+                var cells: [CGRect] = []
+                for r in 0..<rows {
+                    for c in 0..<cols {
+                        cells.append(CGRect(x: x0 + CGFloat(c) * (w + gap),
+                                            y: y0 + CGFloat(r) * (h + gap), width: w, height: h))
+                    }
+                }
+                best = SheetLayout(pageSize: page, cells: cells, rotated: rotated, scale: scale)
+                bestCount = count
+            }
+        }
+        if let best { return best }
+        // Sign larger than the sheet — one centered per page.
+        return SheetLayout(pageSize: base,
+                           cells: [CGRect(x: (base.width - signSize.width) / 2,
+                                          y: (base.height - signSize.height) / 2,
+                                          width: signSize.width, height: signSize.height)],
+                           rotated: false, scale: 1)
+    }
+
+    /// How many signs fit per sheet for the given sign size and paper.
+    static func gangPerPage(signSize: CGSize, paper: PaperOption) -> Int {
+        max(1, gangLayout(signSize: signSize, paper: paper).cells.count)
+    }
+
+    /// Compose the whole queue into sheets, packing distinct signs per sheet.
+    static func gangedPages(specs: [SignSpec], paper: PaperOption, cutMarks: Bool) -> [SignRenderer.Page] {
+        guard let first = specs.first else { return [] }
+        if paper == .exactSign {
+            return specs.map { spec in
+                let layout = SheetLayout(pageSize: spec.sizePoints,
+                                         cells: [CGRect(origin: .zero, size: spec.sizePoints)],
+                                         rotated: false, scale: 1)
+                return SignRenderer.Page(
+                    view: gangedPageView(specs: [spec], layout: layout, cutMarks: false),
+                    size: spec.sizePoints)
+            }
+        }
+        let layout = gangLayout(signSize: first.sizePoints, paper: paper)
+        let perPage = max(1, layout.cells.count)
+        var pages: [SignRenderer.Page] = []
+        var index = 0
+        while index < specs.count {
+            let chunk = Array(specs[index..<min(index + perPage, specs.count)])
+            pages.append(SignRenderer.Page(
+                view: gangedPageView(specs: chunk, layout: layout, cutMarks: cutMarks),
+                size: layout.pageSize))
+            index += perPage
+        }
+        return pages
+    }
+
+    static func gangedPageView(specs: [SignSpec], layout: SheetLayout, cutMarks: Bool) -> AnyView {
+        let showMarks = cutMarks && layout.pageSize != specs.first?.sizePoints
+        return AnyView(
+            ZStack(alignment: .topLeading) {
+                Color.white
+                ForEach(0..<specs.count, id: \.self) { index in
+                    let cell = layout.cells[index]
+                    gangCell(spec: specs[index], rotated: layout.rotated, cell: cell)
+                        .frame(width: cell.width, height: cell.height)
+                        .position(x: cell.midX, y: cell.midY)
+                }
+                if showMarks {
+                    CutMarks(cells: Array(layout.cells.prefix(specs.count)))
+                        .stroke(Color.black.opacity(0.6), lineWidth: 0.5)
+                }
+            }
+            .frame(width: layout.pageSize.width, height: layout.pageSize.height)
+            .environment(\.colorScheme, .light)
+        )
+    }
+
+    @ViewBuilder
+    private static func gangCell(spec: SignSpec, rotated: Bool, cell: CGRect) -> some View {
+        let footprintW = rotated ? spec.sizePoints.height : spec.sizePoints.width
+        let footprintH = rotated ? spec.sizePoints.width : spec.sizePoints.height
+        let scale = min(cell.width / footprintW, cell.height / footprintH)
+        if rotated {
+            SignRootView(spec: spec)
+                .rotationEffect(.degrees(90))
+                .scaleEffect(scale)
+        } else {
+            SignRootView(spec: spec)
+                .scaleEffect(scale)
+        }
+    }
 }
 
 struct CutMarks: Shape {
@@ -186,25 +306,46 @@ enum SignRenderer {
 enum PrintController {
     // -- single sign --------------------------------------------------------
     static func printSign(spec: SignSpec, paper: PaperOption, multiUp: Bool, cutMarks: Bool) {
-        printSigns(specs: [spec], paper: paper, multiUp: multiUp, cutMarks: cutMarks)
+        let sheet = SheetComposer.compose(signSize: spec.sizePoints, paper: paper, multiUp: multiUp)
+        let page = SignRenderer.Page(
+            view: SheetComposer.pageView(spec: spec, sheet: sheet, cutMarks: cutMarks),
+            size: sheet.pageSize)
+        let data = SignRenderer.batchPDFData(pages: [page])
+        printPDF(data: data, pageSize: sheet.pageSize, jobName: "Ace Sign \(spec.sku)")
     }
 
     static func exportPDF(spec: SignSpec, paper: PaperOption, multiUp: Bool, cutMarks: Bool) {
-        exportPDF(specs: [spec], paper: paper, multiUp: multiUp, cutMarks: cutMarks,
-                  suggestedName: suggestedFileName(spec: spec))
+        let sheet = SheetComposer.compose(signSize: spec.sizePoints, paper: paper, multiUp: multiUp)
+        let page = SignRenderer.Page(
+            view: SheetComposer.pageView(spec: spec, sheet: sheet, cutMarks: cutMarks),
+            size: sheet.pageSize)
+        let data = SignRenderer.batchPDFData(pages: [page])
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = suggestedFileName(spec: spec)
+        panel.canCreateDirectories = true
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                try data.write(to: url)
+            } catch {
+                NSAlert(error: error).runModal()
+            }
+        }
     }
 
-    // -- batch / queue ------------------------------------------------------
-    static func printSigns(specs: [SignSpec], paper: PaperOption, multiUp: Bool, cutMarks: Bool) {
-        let pages = composedPages(specs: specs, paper: paper, multiUp: multiUp, cutMarks: cutMarks)
+    // -- batch queue (gang-run: many distinct signs packed per sheet) -------
+    static func printQueue(specs: [SignSpec], paper: PaperOption, cutMarks: Bool) {
+        let pages = SheetComposer.gangedPages(specs: specs, paper: paper, cutMarks: cutMarks)
         guard !pages.isEmpty else { return }
         let data = SignRenderer.batchPDFData(pages: pages)
-        printPDF(data: data, pageSize: pages[0].size, jobName: "Ace Signs (\(pages.count))")
+        printPDF(data: data, pageSize: pages[0].size,
+                 jobName: "Ace Signs (\(pages.count) sheet\(pages.count == 1 ? "" : "s"))")
     }
 
-    static func exportPDF(specs: [SignSpec], paper: PaperOption, multiUp: Bool, cutMarks: Bool,
-                          suggestedName: String) {
-        let pages = composedPages(specs: specs, paper: paper, multiUp: multiUp, cutMarks: cutMarks)
+    static func exportQueue(specs: [SignSpec], paper: PaperOption, cutMarks: Bool,
+                            suggestedName: String) {
+        let pages = SheetComposer.gangedPages(specs: specs, paper: paper, cutMarks: cutMarks)
         guard !pages.isEmpty else { return }
         let data = SignRenderer.batchPDFData(pages: pages)
 
@@ -222,16 +363,6 @@ enum PrintController {
     }
 
     // -- helpers ------------------------------------------------------------
-    private static func composedPages(specs: [SignSpec], paper: PaperOption,
-                                      multiUp: Bool, cutMarks: Bool) -> [SignRenderer.Page] {
-        specs.map { spec in
-            let sheet = SheetComposer.compose(signSize: spec.sizePoints, paper: paper, multiUp: multiUp)
-            return SignRenderer.Page(
-                view: SheetComposer.pageView(spec: spec, sheet: sheet, cutMarks: cutMarks),
-                size: sheet.pageSize)
-        }
-    }
-
     private static func printPDF(data: Data, pageSize: CGSize, jobName: String) {
         guard let document = PDFDocument(data: data), document.pageCount > 0 else {
             NSAlert(error: NSError(domain: "AceSignStudio", code: 1, userInfo: [
