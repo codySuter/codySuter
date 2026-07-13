@@ -12,7 +12,16 @@ BUNDLE_ID="com.snyders.ace-sign-studio"
 VERSION="1.0"
 
 echo "▸ Building release binary (first build can take a few minutes)…"
-swift build -c release
+# If the build fails, it's most often a stale .build cache — e.g. the project
+# folder was moved or synced (iCloud/Dropbox), which invalidates SwiftPM's
+# precompiled module cache (the "was compiled with module cache path …" /
+# "missing required module 'SwiftShims'" errors). Clear it and retry once.
+if ! swift build -c release; then
+    echo ""
+    echo "▸ Build failed — clearing the stale build cache and retrying once…"
+    rm -rf .build
+    swift build -c release
+fi
 
 APP="$APP_NAME.app"
 rm -rf "$APP"
