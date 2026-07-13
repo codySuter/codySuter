@@ -1,0 +1,51 @@
+name: Build macOS App
+
+# Builds Ace Sign Studio.app on a macOS runner and publishes it as a
+# downloadable Release asset, so it can be installed without building locally.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/macos-signage-generator-b0baho]
+    paths:
+      - "AceSignStudio/**"
+      - ".github/workflows/build-macos.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: AceSignStudio
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build the app bundle
+        run: ./Scripts/build-app.sh
+
+      - name: Zip the .app for distribution
+        run: ditto -c -k --keepParent "Ace Sign Studio.app" "AceSignStudio-macOS.zip"
+
+      - name: Upload app as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AceSignStudio-macOS
+          path: AceSignStudio/AceSignStudio-macOS.zip
+          if-no-files-found: error
+
+      - name: Publish to a Release (stable download link)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ace-sign-studio-macos --yes --cleanup-tag || true
+          gh release create ace-sign-studio-macos AceSignStudio-macOS.zip \
+            --title "Ace Sign Studio for macOS" \
+            --notes "Latest macOS build (Apple Silicon). Download **AceSignStudio-macOS.zip**, unzip it, and move **Ace Sign Studio.app** to your Applications folder. Because the app isn't signed with a paid Apple Developer account, the first time you open it either right-click the app → **Open** → **Open**, or run this once in Terminal: \`xattr -cr \"/Applications/Ace Sign Studio.app\"\`" \
+            --target "$GITHUB_SHA"
