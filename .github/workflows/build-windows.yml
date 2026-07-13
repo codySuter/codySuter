@@ -1,0 +1,55 @@
+name: Build Windows EXE
+
+# Builds Ace Sign Studio into a Windows .exe on a real Windows runner and
+# publishes it as both a downloadable artifact and a GitHub Release asset,
+# so it can be downloaded without a Windows machine or a local build.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/macos-signage-generator-b0baho]
+    paths:
+      - "AceSignStudioWindows/**"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: AceSignStudioWindows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build the app with PyInstaller
+        run: pyinstaller --noconfirm ace_sign_studio.spec
+
+      - name: Upload EXE as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AceSignStudio-windows
+          path: AceSignStudioWindows/dist/AceSignStudio.exe
+          if-no-files-found: error
+
+      - name: Publish EXE to a Release (stable download link)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ace-sign-studio-windows --yes --cleanup-tag || true
+          gh release create ace-sign-studio-windows dist/AceSignStudio.exe \
+            --title "Ace Sign Studio for Windows" \
+            --notes "Latest Windows build. Download **AceSignStudio.exe** below and double-click to run (Windows 10/11). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
+            --target "$GITHUB_SHA"
