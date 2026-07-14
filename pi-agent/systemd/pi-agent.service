@@ -1,0 +1,15 @@
+[Unit]
+Description=Pi Agent - local AI Telegram bot
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+# Adjust User and paths if you cloned somewhere else or use a different user.
+User=pi
+WorkingDirectory=/home/pi/pi-agent
+ExecStart=/home/pi/pi-agent/.venv/bin/python -m pi_agent
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
