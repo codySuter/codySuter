@@ -1,0 +1,40 @@
+name: OptiAudit build
+
+on:
+  push:
+    paths:
+      - "opti-audit/**"
+      - ".github/workflows/opti-audit.yml"
+  pull_request:
+    paths:
+      - "opti-audit/**"
+      - ".github/workflows/opti-audit.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Run unit tests
+        run: dotnet test opti-audit/tests/OptiAudit.Core.Tests -c Release --nologo
+
+      - name: Publish single-file Windows exe
+        run: >
+          dotnet publish opti-audit/src/OptiAudit.App -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o opti-audit/publish
+
+      - name: Upload OptiAudit.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OptiAudit-win-x64
+          path: opti-audit/publish/OptiAudit.App.exe
+          if-no-files-found: error
