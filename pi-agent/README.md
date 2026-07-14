@@ -84,6 +84,26 @@ nano .env    # paste TELEGRAM_BOT_TOKEN, set ALLOWED_USER_IDS
 Message your bot on Telegram. `/start` says hello, `/reset` clears the
 conversation, anything else gets answered.
 
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/model` | Show the current model and everything installed in Ollama |
+| `/model llama3.2:3b` | Switch models on the fly (persists across restarts) |
+| `/schedule 08:00 weather in berlin today` | Ask this every day at 08:00 |
+| `/schedule 08:00 mon,fri tech news headlines` | …only on those days |
+| `/schedule every 4h bitcoin price right now` | …every N minutes/hours/days (min 5m) |
+| `/tasks` | List scheduled tasks with their IDs |
+| `/runtask 1` | Run task #1 right now (handy to test a new schedule) |
+| `/unschedule 1` | Remove task #1 |
+| `/reset` | Clear the conversation history |
+
+Scheduled tasks run the question through the agent (with web search) and
+message you the answer. They're saved to `state.json` next to the bot, so
+they survive restarts and reboots. Times of day use the **Pi's local clock** —
+check it with `timedatectl` and fix with
+`sudo timedatectl set-timezone <your/zone>` if needed.
+
 ### 5. Run it as a service (start on boot)
 
 ```bash
@@ -115,6 +135,10 @@ journalctl -u pi-agent -f    # watch the logs
 - `pi_agent/tools.py` — the tools: `web_search` (DuckDuckGo via the `ddgs`
   package, no API key) and `fetch_page` (httpx + trafilatura to extract
   readable article text, truncated to `PAGE_CHAR_LIMIT`).
+- `pi_agent/scheduler.py` — parses `/schedule` syntax and computes next run
+  times from the Pi's local clock.
+- `pi_agent/state.py` — persists the chosen model and scheduled tasks to
+  `state.json`.
 
 ## Troubleshooting
 
@@ -124,4 +148,6 @@ journalctl -u pi-agent -f    # watch the logs
 | Very slow first answer, fast after | Model loading from SD card — set `OLLAMA_KEEP_ALIVE` (see above), and use an NVMe HAT if you have one |
 | `does not support tools` error in logs | Your `OLLAMA_MODEL` can't do tool calling — use one from the table above |
 | Bot never replies, no logs | Wrong bot token, or another instance of the bot is polling with the same token |
+| Scheduled task fires at the wrong hour | Pi's timezone is off — `sudo timedatectl set-timezone <your/zone>` |
+| Log says saved tasks were NOT scheduled | job-queue extra missing — rerun `.venv/bin/pip install -r requirements.txt` |
 | Search returns "Search failed" | DuckDuckGo rate limiting — wait a minute; it's occasional and self-heals |

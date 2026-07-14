@@ -16,6 +16,7 @@ class Settings:
     search_max_results: int = 5
     page_char_limit: int = 6000
     history_turns: int = 6
+    state_file: str = "state.json"
 
 
 def load_settings() -> Settings:
@@ -40,4 +41,5 @@ def load_settings() -> Settings:
         search_max_results=int(os.environ.get("SEARCH_MAX_RESULTS", Settings.search_max_results)),
         page_char_limit=int(os.environ.get("PAGE_CHAR_LIMIT", Settings.page_char_limit)),
         history_turns=int(os.environ.get("HISTORY_TURNS", Settings.history_turns)),
+        state_file=os.environ.get("STATE_FILE", Settings.state_file),
     )
