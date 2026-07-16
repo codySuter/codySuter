@@ -1,0 +1,58 @@
+name: Build Epicor Invoice Converter
+
+on:
+  push:
+    branches:
+      - main
+      - claude/pdf-csv-epicor-converter-j221pl
+    paths:
+      - "epicor-invoice-converter/**"
+      - ".github/workflows/build-epicor-converter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: epicor-invoice-converter
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Run parser tests
+        working-directory: epicor-invoice-converter
+        run: python tests/test_parser.py
+
+      - name: Build EpicorInvoiceConverter.exe
+        working-directory: epicor-invoice-converter
+        run: pyinstaller --onefile --windowed --name EpicorInvoiceConverter app.py
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EpicorInvoiceConverter
+          path: epicor-invoice-converter/dist/EpicorInvoiceConverter.exe
+
+      - name: Publish to "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: epicor-converter-latest
+          name: Epicor Invoice Converter (latest build)
+          body: |
+            Windows app that converts STIHL PDF invoices into CSV files for
+            Epicor Eagle import (columns: SKU, Cost, Retail, Qty).
+
+            Download **EpicorInvoiceConverter.exe** below - no install needed,
+            just double-click to run.
+          prerelease: false
+          files: epicor-invoice-converter/dist/EpicorInvoiceConverter.exe
