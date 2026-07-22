@@ -19,15 +19,16 @@ if (cards < 3 || !isElectron) {
 await mkdir('test-results', { recursive: true });
 await win.screenshot({ path: 'test-results/electron-library.png' });
 
-const pdf = await app.evaluate(async ({ BrowserWindow }) => {
-  const path = require('node:path');
+// NOTE: this callback is serialized into Electron's main process by
+// Playwright — `require` is not available there. Only the passed
+// `electron` module and plain JS may be used.
+const pdf = await app.evaluate(async ({ BrowserWindow, app: electronApp }) => {
   const w = new BrowserWindow({
     show: false,
-    webPreferences: { preload: path.join(process.cwd(), 'electron', 'preload.cjs') },
+    webPreferences: { preload: electronApp.getAppPath() + '/electron/preload.cjs' },
   });
-  await w.loadFile(path.join(process.cwd(), 'dist', 'index.html'), {
-    hash: '/print/starter-grill',
-  });
+  // loadFile resolves relative to the app root.
+  await w.loadFile('dist/index.html', { hash: '/print/starter-grill' });
   await new Promise((r) => setTimeout(r, 3000));
   const buf = await w.webContents.printToPDF({
     pageSize: 'Letter',
