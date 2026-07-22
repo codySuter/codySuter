@@ -22,8 +22,9 @@ test('capture app screens', async ({ page }) => {
 
   await page.getByTestId('back-to-library').click();
   await page.getByTestId('new-doc').click();
+  await page.getByTestId('page-edit').waitFor();
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/4-wizard.png` });
+  await page.screenshot({ path: `${OUT}/4-new-document.png` });
 
   await page.goto('/#/print/starter-stihl');
   await page.getByTestId('page-print').waitFor();

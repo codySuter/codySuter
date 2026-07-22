@@ -98,14 +98,14 @@ function Card({ doc }: { doc: PolicyDoc }) {
 
 export function Library() {
   const docs = useStore((s) => s.docs);
-  const toWizard = useStore((s) => s.toWizard);
+  const createNewDoc = useStore((s) => s.createNewDoc);
   const status = useStore((s) => s.status);
 
   return (
     <div className="flex h-full flex-col">
       <AppHeader
         right={
-          <Btn variant="topbar-primary" onClick={toWizard} data-testid="new-doc">
+          <Btn variant="topbar-primary" onClick={() => void createNewDoc()} data-testid="new-doc">
             <Plus size={14} /> New Document
           </Btn>
         }
@@ -122,9 +122,9 @@ export function Library() {
           {docs.length === 0 ? (
             <div className="rounded-lg border-2 border-dashed border-[#C9CED4] bg-white/60 p-14 text-center">
               <p className="mb-4 text-[14px] text-[#4A4F57]">
-                No documents yet — start one and the wizard will build your outline.
+                No documents yet — New Document opens a ready-to-edit outline.
               </p>
-              <Btn variant="primary" onClick={toWizard}>
+              <Btn variant="primary" onClick={() => void createNewDoc()}>
                 <Plus size={14} /> New Document
               </Btn>
             </div>

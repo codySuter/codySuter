@@ -17,13 +17,14 @@ import type {
   Block,
   BulletsBlock,
   ChecklistBlock,
+  ColumnsBlock,
   ImageBlock,
   PolicyDoc,
   SignoffBlock,
   StepsBlock,
   TableBlock,
 } from '../model/types';
-import { PAGE_MARGIN_PX, PRINTABLE_H_PX } from '../model/types';
+import { COLUMN_CHILD_TYPES, PAGE_MARGIN_PX, PRINTABLE_H_PX } from '../model/types';
 import { useStore } from '../store';
 import { Editable, type EditableHandle } from './Editable';
 
@@ -163,6 +164,10 @@ function TableView({
 
 // ---------------------------------------------------------------- signoff
 
+// Agreement block, styled exactly like the Radio & Scanner Policy
+// Contract: heavy top rule, heading, acknowledgment paragraph, then
+// sign-above-the-line rows with the small uppercase label under each
+// line and a fixed-width Date column.
 function SignoffView({
   block,
   st,
@@ -173,39 +178,179 @@ function SignoffView({
   readOnly: boolean;
 }) {
   const updateBlock = useStore((s) => s.updateBlock);
+  const setSignLineLabel = useStore((s) => s.setSignLineLabel);
+  const removeSignLine = useStore((s) => s.removeSignLine);
   return (
-    <div>
+    <div style={st.signBlock}>
       {readOnly ? (
-        <Html html={block.heading} style={st.signHead} />
+        <Html html={block.heading} style={st.signHeading} />
       ) : (
         <Editable
           html={block.heading}
           singleLine
-          style={st.signHead}
-          placeholder="Acknowledgment heading"
+          style={st.signHeading}
+          placeholder="Employee Acknowledgment & Agreement"
           onCommit={(h) => updateBlock(block.id, { heading: h }, `so:${block.id}`)}
         />
       )}
-      <table
-        style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '14px 0', tableLayout: 'fixed', marginLeft: -14, marginRight: -14 }}
-      >
-        <thead>
-          <tr>
-            <th style={{ ...st.signCellHead, width: '38%' }}>Employee name</th>
-            <th style={{ ...st.signCellHead, width: '38%' }}>Signature</th>
-            <th style={{ ...st.signCellHead, width: '24%' }}>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: Math.max(1, block.rows) }).map((_, r) => (
-            <tr key={r}>
-              <td style={st.signCell} />
-              <td style={st.signCell} />
-              <td style={st.signCell} />
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {readOnly ? (
+        block.body ? (
+          <Html html={block.body} style={st.signBody} />
+        ) : null
+      ) : (
+        <Editable
+          html={block.body}
+          style={st.signBody}
+          placeholder="By signing below, I acknowledge that I have read and understand the policy above…"
+          onCommit={(h) => updateBlock(block.id, { body: h }, `sb:${block.id}`)}
+        />
+      )}
+      {block.lines.map((line, i) => (
+        <div key={i} style={st.signGrid}>
+          <div style={st.signLine}>
+            {readOnly ? (
+              <Html html={line.label} />
+            ) : (
+              <Editable
+                html={line.label}
+                singleLine
+                placeholder="Line label"
+                onCommit={(h) => setSignLineLabel(block.id, i, h, `sl:${block.id}:${i}`)}
+                onEmptyBackspace={() => removeSignLine(block.id, i)}
+              />
+            )}
+          </div>
+          {line.withDate ? <div style={st.signLine}>Date</div> : <div />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- columns
+
+function NestedBlock({ block, children }: { block: Block; children: ReactNode }) {
+  const selectedId = useStore((s) => s.selectedId);
+  const select = useStore((s) => s.select);
+  const removeBlock = useStore((s) => s.removeBlock);
+  const duplicateBlock = useStore((s) => s.duplicateBlock);
+  const sel = selectedId === block.id;
+  return (
+    <div
+      data-block={block.id}
+      data-testid="nested-block"
+      className={`aps-block${sel ? ' sel' : ''}`}
+      style={{ position: 'relative' }}
+      onMouseDownCapture={(e) => {
+        e.stopPropagation();
+        select(block.id);
+      }}
+    >
+      {sel && (
+        <div className="aps-toolbar aps-chrome">
+          <button type="button" aria-label="Duplicate block" title="Duplicate" onClick={() => duplicateBlock(block.id)}>
+            <Copy size={13} />
+          </button>
+          <button
+            type="button"
+            aria-label="Delete block"
+            title="Delete"
+            className="danger"
+            onClick={() => removeBlock(block.id)}
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+const COLUMN_ADD_LABELS: Record<(typeof COLUMN_CHILD_TYPES)[number], string> = {
+  paragraph: '+ Text',
+  bullets: '+ Bullets',
+  steps: '+ Steps',
+  checklist: '+ Checklist',
+};
+
+function ColumnsView({
+  block,
+  doc,
+  st,
+  readOnly,
+}: {
+  block: ColumnsBlock;
+  doc: PolicyDoc;
+  st: DocStyles;
+  readOnly: boolean;
+}) {
+  const setColumnHeading = useStore((s) => s.setColumnHeading);
+  const addColumnChild = useStore((s) => s.addColumnChild);
+
+  const renderSide = (side: 'left' | 'right') => {
+    const col = block[side];
+    const grow = side === 'left' ? block.ratio : 100 - block.ratio;
+    return (
+      <div style={{ flex: `${grow} 1 0%`, minWidth: 0 }}>
+        {readOnly ? (
+          col.heading ? (
+            <Html html={col.heading} style={st.colHeading} />
+          ) : null
+        ) : (
+          <Editable
+            html={col.heading}
+            singleLine
+            style={st.colHeading}
+            placeholder="Column heading (optional)"
+            onCommit={(h) => setColumnHeading(block.id, side, h, `colh:${block.id}:${side}`)}
+          />
+        )}
+        {col.blocks.map((child, i) => {
+          const content = (
+            <BlockContent block={child} doc={doc} st={st} number={0} readOnly={readOnly} />
+          );
+          return (
+            <div key={child.id} style={{ marginTop: i === 0 ? 0 : 6 }}>
+              {readOnly ? content : <NestedBlock block={child}>{content}</NestedBlock>}
+            </div>
+          );
+        })}
+        {!readOnly && (
+          <div className="aps-chrome" style={{ display: 'flex', gap: 4, marginTop: 7, flexWrap: 'wrap' }}>
+            {COLUMN_CHILD_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                data-testid={`col-add-${side}-${t}`}
+                title={`Add ${t} to this column`}
+                onClick={() => addColumnChild(block.id, side, t)}
+                style={{
+                  fontFamily: "'Barlow Semi Condensed', sans-serif",
+                  fontWeight: 700,
+                  fontSize: 10.5,
+                  letterSpacing: '0.03em',
+                  border: '1px dashed #C4C9CE',
+                  borderRadius: 4,
+                  background: '#fff',
+                  color: '#6D6E71',
+                  padding: '2px 7px',
+                  cursor: 'pointer',
+                }}
+              >
+                {COLUMN_ADD_LABELS[t]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 18 }}>
+      {renderSide('left')}
+      {renderSide('right')}
     </div>
   );
 }
@@ -447,6 +592,8 @@ function BlockContent({
       return <SignoffView block={block} st={st} readOnly={readOnly} />;
     case 'image':
       return <ImageView block={block} st={st} readOnly={readOnly} />;
+    case 'columns':
+      return <ColumnsView block={block} doc={doc} st={st} readOnly={readOnly} />;
   }
 }
 
@@ -626,7 +773,7 @@ function HeaderArea({
 // ---------------------------------------------------------------- page
 
 export function PageView({ doc, mode }: { doc: PolicyDoc; mode: PageMode }) {
-  const st = makeStyles(doc.accent, doc.audience);
+  const st = makeStyles(doc.accent, doc.typeScale ?? 100);
   const readOnly = mode !== 'edit';
   const dragging = useStore((s) => s.dragging);
   const contentH = useStore((s) => s.contentH);

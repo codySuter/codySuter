@@ -5,7 +5,6 @@ import { useStore } from './store';
 import { Editor } from './components/Editor';
 import { Library } from './components/Library';
 import { PrintView } from './components/PrintView';
-import { Wizard } from './components/Wizard';
 
 export default function App() {
   const route = useStore((s) => s.route);
@@ -18,7 +17,7 @@ export default function App() {
   useEffect(() => {
     return api.onMenu((cmd) => {
       const st = useStore.getState();
-      if (cmd === 'new-doc') st.toWizard();
+      if (cmd === 'new-doc') void st.createNewDoc();
       else if (cmd === 'library') void st.toLibrary();
       else if (cmd === 'undo') st.undo();
       else if (cmd === 'redo') st.redo();
@@ -58,8 +57,6 @@ export default function App() {
       );
     case 'library':
       return <Library />;
-    case 'wizard':
-      return <Wizard />;
     case 'editor':
       return <Editor />;
     case 'print':
