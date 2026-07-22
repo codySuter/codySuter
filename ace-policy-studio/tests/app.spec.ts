@@ -14,22 +14,67 @@ test('library seeds with the three starter policies', async ({ page }) => {
   await expect(page.getByText('Special Orders for Pickup').first()).toBeVisible();
 });
 
-test('wizard builds an outline and opens the editor', async ({ page }) => {
+test('new document goes straight into the editor with an outline', async ({ page }) => {
   await boot(page);
   await page.getByTestId('new-doc').click();
-  await page.getByTestId('wizard-kind-policy').click();
-  await page.getByTestId('wizard-next').click();
-  await page.getByTestId('wizard-title').fill('Returns & Refunds');
-  await page.getByTestId('wizard-subtitle').fill('Employee Policy — Registers & Receipts');
-  await page.getByTestId('wizard-next').click();
-  await page.getByTestId('wizard-create').click();
 
   const pageEl = page.getByTestId('page-edit');
   await expect(pageEl).toBeVisible();
-  await expect(pageEl.getByText('Returns & Refunds')).toBeVisible();
   await expect(pageEl.getByText('When this applies')).toBeVisible();
+  await expect(pageEl.getByText('Requirements — check every one')).toBeVisible();
   await expect(pageEl.getByText('Questions & escalation', { exact: false })).toBeVisible();
   await expect(page.getByTestId('save-state')).toHaveText('All changes saved');
+});
+
+test('type-size slider rescales the document', async ({ page }) => {
+  await boot(page);
+  await page.getByText('STIHL Special Order Inquiries').first().click();
+  await expect(page.getByTestId('page-edit')).toBeVisible();
+  await expect(page.getByTestId('type-scale-label')).toHaveText('100%');
+
+  const slider = page.getByTestId('type-scale');
+  await slider.focus();
+  await slider.press('ArrowRight');
+  await expect(page.getByTestId('type-scale-label')).toHaveText('102%');
+  await expect(page.getByTestId('save-state')).toHaveText('All changes saved', {
+    timeout: 5_000,
+  });
+});
+
+test('two-column block: add, populate a column, and persist', async ({ page }) => {
+  await boot(page);
+  await page.getByText('Special Orders for Pickup').first().click();
+  const pageEl = page.getByTestId('page-edit');
+  await expect(pageEl).toBeVisible();
+
+  await page.getByTestId('palette-columns').click();
+  await expect(pageEl.getByText('DO / DON’T lists', { exact: false })).toBeVisible();
+
+  await page.getByTestId('col-add-left-bullets').click();
+  await expect(pageEl.getByTestId('nested-block').filter({ hasText: 'First point' })).toBeVisible();
+  await expect(page.getByTestId('save-state')).toHaveText('All changes saved', {
+    timeout: 5_000,
+  });
+
+  await page.reload();
+  await expect(page.getByTestId('library-card').first()).toBeVisible();
+  await page.getByText('Special Orders for Pickup').first().click();
+  await expect(
+    page.getByTestId('page-edit').getByText('DO / DON’T lists', { exact: false }),
+  ).toBeVisible();
+});
+
+test('signature block matches the radio-contract style', async ({ page }) => {
+  await boot(page);
+  await page.getByText('Grill Special Orders').first().click();
+  const pageEl = page.getByTestId('page-edit');
+  await expect(pageEl).toBeVisible();
+
+  await page.getByTestId('palette-signoff').click();
+  await expect(pageEl.getByText('Employee Acknowledgment & Agreement')).toBeVisible();
+  await expect(pageEl.getByText('Employee signature')).toBeVisible();
+  await expect(pageEl.getByText('Manager signature')).toBeVisible();
+  await expect(pageEl.getByText('Date').first()).toBeVisible();
 });
 
 test('inline edits autosave and survive a reload', async ({ page }) => {

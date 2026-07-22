@@ -57,11 +57,35 @@ export interface TableBlock {
   rows: string[][];
 }
 
+export interface SignLine {
+  label: string;
+  withDate: boolean; // false = one wide line (e.g. "Assigned Radio Serial #")
+}
+
+// Agreement block in the style of the Radio & Scanner Policy Contract:
+// heavy top rule, acknowledgment paragraph, sign-above-the-line rows
+// with the small uppercase label under each line and a date column.
 export interface SignoffBlock {
   id: string;
   type: 'signoff';
   heading: string;
-  rows: number; // number of signature lines
+  body: string; // acknowledgment paragraph
+  lines: SignLine[];
+  /** @deprecated pre-1.1 field; normalizeDoc converts it into `lines`. */
+  rows?: number;
+}
+
+export interface ColumnContent {
+  heading: string; // optional mini-heading (hidden when empty)
+  blocks: Block[]; // paragraph / bullets / steps / checklist only
+}
+
+export interface ColumnsBlock {
+  id: string;
+  type: 'columns';
+  ratio: number; // left column width, % (30–70)
+  left: ColumnContent;
+  right: ColumnContent;
 }
 
 export interface ImageBlock {
@@ -82,7 +106,12 @@ export type Block =
   | CalloutBlock
   | TableBlock
   | SignoffBlock
-  | ImageBlock;
+  | ImageBlock
+  | ColumnsBlock;
+
+// Block types allowed inside a column.
+export const COLUMN_CHILD_TYPES = ['paragraph', 'bullets', 'steps', 'checklist'] as const;
+export type ColumnChildType = (typeof COLUMN_CHILD_TYPES)[number];
 
 export type BlockType = Block['type'];
 
@@ -93,6 +122,9 @@ export interface BrandChip {
 
 export type Audience = 'employee' | 'customer';
 
+export const TYPE_SCALE_MIN = 90;
+export const TYPE_SCALE_MAX = 140;
+
 export interface PolicyDoc {
   id: string;
   title: string;
@@ -100,7 +132,9 @@ export interface PolicyDoc {
   subtitle: string;
   chip: BrandChip | null;
   accent: string;
-  audience: Audience; // 'customer' bumps type sizes for postings
+  typeScale: number; // % type size: 100 = employee docs, ~116 = customer postings
+  /** @deprecated pre-1.1 field; normalizeDoc converts it into `typeScale`. */
+  audience?: Audience;
   blocks: Block[];
   createdAt: number;
   updatedAt: number;

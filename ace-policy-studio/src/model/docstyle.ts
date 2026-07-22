@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react';
-import type { Audience } from './types';
 
 // Exact design language of the store's Policy & Procedures documents.
 export const FONT_DISPLAY = "'Barlow Semi Condensed', sans-serif";
@@ -41,15 +40,19 @@ export interface DocStyles {
   tableWrap: CSSProperties;
   th: CSSProperties;
   td: CSSProperties;
-  signHead: CSSProperties;
-  signCellHead: CSSProperties;
-  signCell: CSSProperties;
+  signBlock: CSSProperties;
+  signHeading: CSSProperties;
+  signBody: CSSProperties;
+  signGrid: CSSProperties;
+  signLine: CSSProperties;
+  colHeading: CSSProperties;
   imageCaption: CSSProperties;
 }
 
-// 'customer' postings use the same layout with larger type.
-export function makeStyles(accent: string, audience: Audience): DocStyles {
-  const k = audience === 'customer' ? 1.16 : 1;
+// typeScale is a percentage: 100 = employee docs, ~116 reads well for
+// customer postings, and the slider runs 90–140.
+export function makeStyles(accent: string, typeScale: number): DocStyles {
+  const k = (typeScale || 100) / 100;
   const fs = (n: number) => `${Math.round(n * k * 10) / 10}px`;
 
   return {
@@ -219,29 +222,48 @@ export function makeStyles(accent: string, audience: Audience): DocStyles {
       borderTop: `1px solid ${HAIRLINE}`,
       verticalAlign: 'top',
     },
-    signHead: {
+    // Agreement block — exact styles from the Radio & Scanner contract.
+    signBlock: {
+      borderTop: `2px solid ${INK}`,
+      paddingTop: 8,
+    },
+    signHeading: {
       fontFamily: FONT_DISPLAY,
       fontWeight: 800,
-      fontSize: fs(15),
-      letterSpacing: '0.03em',
+      fontSize: fs(17),
       textTransform: 'uppercase',
+      letterSpacing: '0.02em',
       color: INK,
-      marginBottom: 2,
     },
-    signCellHead: {
-      fontFamily: FONT_DISPLAY,
-      fontWeight: 700,
-      fontSize: fs(10.5),
+    signBody: {
+      fontSize: fs(12),
+      lineHeight: 1.4,
+      color: MUTED_TEXT,
+      paddingTop: 4,
+    },
+    signGrid: {
+      display: 'grid',
+      gridTemplateColumns: `1fr ${Math.round(170 * k)}px`,
+      gap: '10px 28px',
+      paddingTop: Math.round(40 * k),
+    },
+    signLine: {
+      borderTop: `1.5px solid ${BODY_TEXT}`,
+      paddingTop: 5,
+      fontSize: fs(11),
+      fontWeight: 600,
       letterSpacing: '0.08em',
       textTransform: 'uppercase',
       color: '#6D6E71',
-      textAlign: 'left',
-      padding: '4px 8px 3px 0',
-      borderBottom: `2px solid ${INK}`,
     },
-    signCell: {
-      height: 26 * k,
-      borderBottom: `1px solid ${RULE_GRAY}`,
+    colHeading: {
+      fontFamily: FONT_DISPLAY,
+      fontWeight: 800,
+      fontSize: fs(13),
+      textTransform: 'uppercase',
+      letterSpacing: '0.03em',
+      color: '#6D6E71',
+      marginBottom: 4,
     },
     imageCaption: {
       fontSize: fs(10.5),
@@ -261,6 +283,7 @@ export function blockMarginTop(
 ): number {
   if (prevType === null) return 0;
   if (type === 'section') return 12;
+  if (type === 'signoff') return 10; // radio contract: agreement sits 10px under content
   if (prevType === 'section') return 8;
   if (type === 'callout') return 9;
   return 6;

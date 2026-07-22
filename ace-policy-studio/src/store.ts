@@ -1,14 +1,21 @@
 import { create } from 'zustand';
 import { api } from './api';
-import { cloneBlock, newBlock, uid } from './model/blocks';
+import {
+  cloneBlock,
+  containerOf,
+  findBlockDeep,
+  newBlock,
+  topLevelIndexOf,
+  uid,
+} from './model/blocks';
+import { normalizeDoc } from './model/normalize';
 import { starterDocs } from './model/starter';
-import { generateDoc, type WizardAnswers } from './model/templates';
-import type { Block, BlockType, PolicyDoc } from './model/types';
+import { newDocument } from './model/templates';
+import type { Block, BlockType, ColumnChildType, PolicyDoc } from './model/types';
 
 export type Route =
   | { name: 'boot' }
   | { name: 'library' }
-  | { name: 'wizard' }
   | { name: 'editor'; id: string }
   | { name: 'print'; id: string };
 
@@ -36,10 +43,9 @@ interface StoreState {
 
   init(): Promise<void>;
   toLibrary(): Promise<void>;
-  toWizard(): void;
   openDoc(id: string): Promise<void>;
   loadPrint(id: string): Promise<void>;
-  createFromWizard(answers: WizardAnswers): Promise<void>;
+  createNewDoc(): Promise<void>;
   deleteDoc(id: string): Promise<void>;
   duplicateDoc(id: string): Promise<void>;
 
@@ -66,11 +72,15 @@ interface StoreState {
   removeListItem(id: string, index: number): void;
   setCell(id: string, row: number, col: number, html: string, histKey?: string): void;
   tableOp(id: string, op: 'addRow' | 'removeRow' | 'addCol' | 'removeCol'): void;
+
+  addColumnChild(columnsId: string, side: 'left' | 'right', type: ColumnChildType): void;
+  setColumnHeading(columnsId: string, side: 'left' | 'right', html: string, histKey?: string): void;
+  addSignLine(id: string, withDate: boolean): void;
+  removeSignLine(id: string, index: number): void;
+  setSignLineLabel(id: string, index: number, html: string, histKey?: string): void;
 }
 
-function findBlock(doc: PolicyDoc, id: string): Block | undefined {
-  return doc.blocks.find((b) => b.id === id);
-}
+const findBlock = findBlockDeep;
 
 export const useStore = create<StoreState>((set, get) => ({
   route: { name: 'boot' },
@@ -96,7 +106,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   async toLibrary() {
     if (get().saveState !== 'saved') await get().saveNow();
-    let docs = await api.listDocs();
+    let docs = (await api.listDocs()).map(normalizeDoc);
     if (docs.length === 0 && !localStorage.getItem(SEED_FLAG)) {
       const starters = starterDocs();
       for (const d of starters) await api.saveDoc(d);
@@ -117,14 +127,9 @@ export const useStore = create<StoreState>((set, get) => ({
     window.location.hash = '#/library';
   },
 
-  toWizard() {
-    set({ route: { name: 'wizard' }, status: 'Let’s set up a new document.' });
-    window.location.hash = '#/new';
-  },
-
   async openDoc(id) {
     let doc = get().docs.find((d) => d.id === id);
-    if (!doc) doc = (await api.listDocs()).find((d) => d.id === id);
+    if (!doc) doc = (await api.listDocs()).map(normalizeDoc).find((d) => d.id === id);
     if (!doc) return;
     lastHistKey = null;
     set({
@@ -140,13 +145,13 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   async loadPrint(id) {
-    const docs = await api.listDocs();
+    const docs = (await api.listDocs()).map(normalizeDoc);
     const doc = docs.find((d) => d.id === id) ?? null;
     set({ route: { name: 'print', id }, current: doc, docs });
   },
 
-  async createFromWizard(answers) {
-    const doc = generateDoc(answers);
+  async createNewDoc() {
+    const doc = newDocument();
     await api.saveDoc(doc);
     lastHistKey = null;
     set({
@@ -157,7 +162,7 @@ export const useStore = create<StoreState>((set, get) => ({
       past: [],
       future: [],
       saveState: 'saved',
-      status: `Created “${doc.title}” — click any text to edit it.`,
+      status: 'New document — click the title to name it, and edit any text on the page.',
     });
     window.location.hash = `#/editor/${doc.id}`;
   },
@@ -285,7 +290,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
   removeBlock(id) {
     get().mutate((doc) => {
-      doc.blocks = doc.blocks.filter((b) => b.id !== id);
+      const arr = containerOf(doc, id);
+      if (!arr) return;
+      arr.splice(arr.findIndex((b) => b.id === id), 1);
     });
     if (get().selectedId === id) set({ selectedId: null });
     set({ status: 'Block removed.' });
@@ -294,11 +301,12 @@ export const useStore = create<StoreState>((set, get) => ({
   duplicateBlock(id) {
     let newId: string | null = null;
     get().mutate((doc) => {
-      const i = doc.blocks.findIndex((b) => b.id === id);
-      if (i === -1) return;
-      const copy = cloneBlock(doc.blocks[i]);
+      const arr = containerOf(doc, id);
+      if (!arr) return;
+      const i = arr.findIndex((b) => b.id === id);
+      const copy = cloneBlock(arr[i]);
       newId = copy.id;
-      doc.blocks.splice(i + 1, 0, copy);
+      arr.splice(i + 1, 0, copy);
     });
     if (newId) set({ selectedId: newId, status: 'Block duplicated.' });
   },
@@ -368,5 +376,47 @@ export const useStore = create<StoreState>((set, get) => ({
         b.rows.forEach((r) => r.pop());
       }
     });
+  },
+
+  addColumnChild(columnsId, side, type) {
+    const child = newBlock(type);
+    get().mutate((doc) => {
+      const b = findBlock(doc, columnsId);
+      if (b && b.type === 'columns') b[side].blocks.push(child);
+    });
+    set({ selectedId: child.id });
+  },
+
+  setColumnHeading(columnsId, side, html, histKey) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, columnsId);
+      if (b && b.type === 'columns') b[side].heading = html;
+    }, histKey);
+  },
+
+  addSignLine(id, withDate) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (b && b.type === 'signoff') {
+        b.lines.push({
+          label: withDate ? 'Employee signature' : 'Printed name',
+          withDate,
+        });
+      }
+    });
+  },
+
+  removeSignLine(id, index) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (b && b.type === 'signoff' && b.lines.length > 1) b.lines.splice(index, 1);
+    });
+  },
+
+  setSignLineLabel(id, index, html, histKey) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (b && b.type === 'signoff' && b.lines[index]) b.lines[index].label = html;
+    }, histKey);
   },
 }));
