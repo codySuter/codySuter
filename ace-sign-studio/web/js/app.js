@@ -5,11 +5,10 @@
 "use strict";
 
 const App = {
-  view: "gallery",       // gallery | editor | stihl | tools
+  view: "gallery",       // gallery | editor
   typeId: null,
   sizeId: "letter-l",
-  spec: {},              // editor working spec (Ace types)
-  stihlModelId: null,
+  spec: {},              // editor working spec
   userPickedType: false,
   batchStart: "",
   batchEnd: "",
@@ -69,40 +68,23 @@ function buildNav() {
       const b = el("button", "nav-item");
       b.dataset.type = t.id;
       b.innerHTML = `<div class="nav-thumb" id="thumb-${t.id}"></div><div><div class="nav-label">${esc(t.label)}</div><div class="nav-note">${esc(t.note || "")}</div></div>`;
-      b.onclick = () => (t.stihl ? showStihl() : showEditor(t.id));
+      b.onclick = () => showEditor(t.id);
       s.appendChild(b);
     }
-  }
-  const tools = sec("Tools");
-  for (const [href, label, note] of [
-    ["tools/chain-finder.html", "Saw Chain Finder", "24×36 poster — current saws"],
-    ["tools/chain-finder-older.html", "Chain Finder — Older Saws", "24×36 poster — classic models"],
-  ]) {
-    const b = el("button", "nav-item");
-    b.innerHTML = `<div class="nav-thumb">🪚</div><div><div class="nav-label">${esc(label)}</div><div class="nav-note">${esc(note)}</div></div>`;
-    b.onclick = () => window.open(href, "_blank");
-    tools.appendChild(b);
   }
 }
 
 function markActiveNav() {
   $$(".nav-item").forEach((b) => b.classList.remove("active"));
   if (App.view === "gallery") $("#nav-home") && $("#nav-home").classList.add("active");
-  else if (App.view === "stihl") { const b = $(`.nav-item[data-type="stihl_shelf"]`); b && b.classList.add("active"); }
   else if (App.typeId) { const b = $(`.nav-item[data-type="${App.typeId}"]`); b && b.classList.add("active"); }
 }
 
 /* Small sample SVG thumbnails in nav + gallery. */
 async function typeThumbSVG(t, boxW, boxH) {
   try {
-    let spec = t.sample;
-    let w = 11, h = 8.5;
-    if (t.stihl) {
-      const first = StihlData.models()[0];
-      if (!first) return "";
-      spec = stihlCurrent(first);
-      w = 5; h = 3;
-    }
+    const spec = t.sample;
+    const w = 11, h = 8.5;
     const svg = await t.render(Object.assign({}, spec), w, h);
     const scale = Math.min(boxW / (w * PPI), boxH / (h * PPI));
     return svg.replace(/^<svg /, `<svg style="width:${w * PPI * scale}px;height:${h * PPI * scale}px" `);
@@ -177,7 +159,7 @@ function showGallery() {
   for (const t of SIGN_TYPES) {
     const card = el("button", "g-card");
     card.innerHTML = `<div class="g-prev" id="g-prev-${t.id}"></div><div class="g-label">${esc(t.label)}</div><div class="g-note">${esc(t.note || "")}</div>`;
-    card.onclick = () => (t.stihl ? showStihl() : showEditor(t.id));
+    card.onclick = () => showEditor(t.id);
     g.appendChild(card);
   }
   buildGalleryThumbs();
@@ -264,11 +246,15 @@ function showEditor(typeId) {
 }
 
 function currentRenderSpec() {
-  return Object.assign({}, App.spec);
+  const spec = Object.assign({}, App.spec);
+  const hide = spec.hide;
+  delete spec.hide;
+  return applyHiddenFields(spec, hide);
 }
 
 function validateSpec(t, spec) {
-  const need = (f) => t.fields.some((x) => x.key === f);
+  const hidden = (f) => !!(spec.hide && spec.hide[f]);
+  const need = (f) => !hidden(f) && t.fields.some((x) => x.key === f);
   if (need("name") && !String(spec.name || "").trim() && t.id !== "under_amount") return "Enter a product name (or look up a SKU).";
   if (need("price") && !String(spec.price || "").trim()) return "Enter a price.";
   if (need("percent") && !String(spec.percent || "").trim()) return "Enter the percent off.";
@@ -400,6 +386,33 @@ function buildEditorFields(t) {
     if (wrap) { wrap.appendChild(inp); host.appendChild(wrap); }
     else host.appendChild(inp);
   }
+  buildToggleChips(t, host);
+}
+
+function buildToggleChips(t, host) {
+  const toggles = togglesForType(t);
+  if (!toggles.length) return;
+  let wrap = $("#toggleWrap", host);
+  if (!wrap) {
+    wrap = el("div");
+    wrap.id = "toggleWrap";
+    host.appendChild(wrap);
+  }
+  wrap.innerHTML = "";
+  wrap.appendChild(labelEl("Show on sign — click to hide an element"));
+  const row = el("div", "size-chips");
+  if (!App.spec.hide) App.spec.hide = {};
+  for (const tg of toggles) {
+    const on = !App.spec.hide[tg.key];
+    const c = el("button", "size-chip" + (on ? " active" : ""), (on ? "✓ " : "✕ ") + tg.label);
+    c.onclick = () => {
+      App.spec.hide[tg.key] = !App.spec.hide[tg.key];
+      buildToggleChips(t, host);
+      schedulePreview();
+    };
+    row.appendChild(c);
+  }
+  wrap.appendChild(row);
 }
 
 function labelEl(text) { return el("label", "f-label", text); }
@@ -462,8 +475,6 @@ const schedulePreview = debounce(async () => {
     } catch (e) {
       console.error(e);
     }
-  } else if (App.view === "stihl") {
-    renderStihlPreview();
   }
 }, 160);
 
@@ -477,245 +488,6 @@ function setPreviewSVG(svg, size) {
   holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
   const meta = $("#previewMeta");
   if (meta) meta.textContent = `${size.label.replace(/"/g, "″")} — prints at exact size · shown at ${(scale * 100).toFixed(0)}%`;
-}
-
-/* ---------------- STIHL editor ---------------- */
-function showStihl() {
-  App.view = "stihl";
-  markActiveNav();
-  const work = $("#work");
-  const meta = StihlData.meta;
-  work.innerHTML = `
-    <div class="work-inner">
-      <div class="editor-grid">
-        <div class="card">
-          <div class="card-head"><h2>STIHL Shelf Sign</h2><span class="hint">Pricing: ${esc(meta.label)}</span></div>
-          <div class="card-body">
-            <label class="f-label">Find a model</label>
-            <input class="f-input" id="stihlSearch" placeholder="Search by model, nickname, SKU, or UPC…">
-            <div class="stihl-results" id="stihlResults"></div>
-            <div id="stihlEditor"></div>
-            <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
-              <button class="btn btn-ghost btn-sm" id="stihlImportBtn">Update pricing from CSV…</button>
-              <input type="file" id="stihlImportFile" accept=".csv,text/csv" style="display:none">
-            </div>
-            <div class="f-help">Dealer price file (STIHL Material Number / Material Description / MSRP columns). Prices, UPCs and Ace SKUs update in place.</div>
-            <div class="msg" id="stihlImportMsg"></div>
-          </div>
-        </div>
-        <div class="card preview-card">
-          <div class="card-head">
-            <h2>Preview</h2>
-            <div class="size-chips" id="stihlSizeChips" style="margin-left:auto"></div>
-          </div>
-          <div class="preview-stage"><div class="sign-holder" id="signHolder"></div></div>
-          <div class="preview-meta" id="previewMeta"></div>
-          <div class="card-body" style="padding-top:0">
-            <div class="actions" style="margin-top:0">
-              <button class="btn btn-primary" id="stihlAddBtn">＋ Add to Queue</button>
-              <button class="btn btn-secondary" id="stihlPrintBtn">Print</button>
-              <button class="btn btn-secondary" id="stihlPdfBtn">PDF</button>
-            </div>
-            <div class="msg" id="stihlMsg"></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-  const t = typeById("stihl_shelf");
-  if (!t.sizes.includes(App.sizeId)) App.sizeId = t.defaultSize;
-  buildStihlSizeChips(t);
-  const search = $("#stihlSearch");
-  search.addEventListener("input", debounce(() => renderStihlResults(search.value), 200));
-  renderStihlResults("");
-  if (!App.stihlModelId && StihlData.models().length) App.stihlModelId = StihlData.models()[0].id;
-  buildStihlEditor();
-  renderStihlPreview();
-
-  $("#stihlImportBtn").onclick = () => $("#stihlImportFile").click();
-  $("#stihlImportFile").onchange = async (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    try {
-      const text = await f.text();
-      const res = stihlImportPriceCSV(text);
-      StihlData.meta = { source: "import", label: `${f.name} (${res.priceChanges} price changes)` };
-      persistState();
-      showMsg("stihlImportMsg", "ok", `Updated ${res.updated} items — ${res.priceChanges} price changes${res.missing ? `, ${res.missing} not in dataset` : ""}.`);
-      buildStihlEditor();
-      renderStihlPreview();
-    } catch (err) {
-      showMsg("stihlImportMsg", "err", "Import failed: " + err.message);
-    }
-    e.target.value = "";
-  };
-  $("#stihlAddBtn").onclick = () => {
-    const model = StihlData.byId(App.stihlModelId);
-    if (!model) return;
-    Queue.add("stihl_shelf", App.sizeId, stihlCurrent(model));
-    showMsg("stihlMsg", "ok", `Added to queue — ${Queue.items.length} queued.`);
-  };
-  $("#stihlPrintBtn").onclick = async () => {
-    const model = StihlData.byId(App.stihlModelId);
-    if (!model) return;
-    try {
-      const doc = await signToPdf({ typeId: "stihl_shelf", sizeId: App.sizeId, spec: stihlCurrent(model) });
-      printPdfDoc(doc);
-    } catch (e) { showMsg("stihlMsg", "err", "Print failed: " + e.message); }
-  };
-  $("#stihlPdfBtn").onclick = async () => {
-    const model = StihlData.byId(App.stihlModelId);
-    if (!model) return;
-    try {
-      const doc = await signToPdf({ typeId: "stihl_shelf", sizeId: App.sizeId, spec: stihlCurrent(model) });
-      downloadPdfDoc(doc, sanitizeFilename(model.model + " " + (model.nickname || "")) + ".pdf");
-    } catch (e) { showMsg("stihlMsg", "err", "PDF failed: " + e.message); }
-  };
-}
-
-function buildStihlSizeChips(t) {
-  const wrap = $("#stihlSizeChips");
-  wrap.innerHTML = "";
-  for (const s of sizesForType(t)) {
-    const c = el("button", "size-chip" + (s.id === App.sizeId ? " active" : ""), s.label.replace(/"$/, "″"));
-    c.onclick = () => { App.sizeId = s.id; buildStihlSizeChips(t); renderStihlPreview(); };
-    wrap.appendChild(c);
-  }
-}
-
-function renderStihlResults(q) {
-  const host = $("#stihlResults");
-  if (!host) return;
-  const models = StihlData.search(q).slice(0, 200);
-  host.innerHTML = "";
-  let lastCat = null;
-  for (const mo of models) {
-    if (mo.categoryName !== lastCat) {
-      lastCat = mo.categoryName;
-      host.appendChild(el("div", "stihl-group", mo.categoryName));
-    }
-    const row = el("div", "stihl-row" + (mo.id === App.stihlModelId ? " sel" : ""));
-    const dot = el("span", "spec-dot " + stihlSpecCompleteness(mo));
-    const price = mo.variants[0] ? "$" + (mo.variants[0].msrp || 0).toFixed(0) : "";
-    row.appendChild(dot);
-    const nm = el("span", "sr-name", mo.model);
-    row.appendChild(nm);
-    if (mo.nickname) row.appendChild(el("span", "sr-nick", mo.nickname));
-    row.appendChild(el("span", "sr-price", price));
-    row.onclick = () => {
-      App.stihlModelId = mo.id;
-      renderStihlResults($("#stihlSearch").value);
-      buildStihlEditor();
-      renderStihlPreview();
-    };
-    host.appendChild(row);
-  }
-  if (!models.length) host.appendChild(el("div", "queue-empty", "No matches"));
-}
-
-function buildStihlEditor() {
-  const host = $("#stihlEditor");
-  const model = StihlData.byId(App.stihlModelId);
-  if (!host || !model) { if (host) host.innerHTML = ""; return; }
-  const cfg = stihlCurrent(model);
-  host.innerHTML = "";
-
-  host.appendChild(labelEl("Model configured on floor"));
-  const vsel = el("select", "f-select");
-  model.variants.forEach((v, i) => {
-    const opt = el("option");
-    opt.value = String(i);
-    opt.textContent = `${stihlSideLabel(v, model.category)} — $${(v.msrp || 0).toFixed(2)}${v.aceSku ? " · " + v.aceSku : ""}`;
-    if (i === cfg.floorIdx) opt.selected = true;
-    vsel.appendChild(opt);
-  });
-  vsel.onchange = () => {
-    stihlSetFloorVariant(model.id, parseInt(vsel.value, 10));
-    persistState();
-    buildStihlEditor();
-    renderStihlPreview();
-  };
-  host.appendChild(vsel);
-
-  const row1 = el("div", "f-row");
-  row1.appendChild(fieldCol("Price", cfg.price, (v) => { stihlSetOverride(model.id, "price", v); }));
-  row1.appendChild(fieldCol("Store SKU", cfg.sku, (v) => { stihlSetOverride(model.id, "sku", v); }));
-  row1.appendChild(fieldCol("UPC", cfg.upc, (v) => { stihlSetOverride(model.id, "upc", v.replace(/\D/g, "")); }));
-  host.appendChild(row1);
-
-  const row2 = el("div", "f-row");
-  row2.appendChild(fieldCol("Nickname (orange)", cfg.model2, (v) => { stihlSetOverride(model.id, "model2", v); }));
-  row2.appendChild(fieldCol("Config pill", cfg.config, (v) => { stihlSetOverride(model.id, "config", v); }));
-  host.appendChild(row2);
-
-  host.appendChild(labelEl(`Specs — ${cfg.specTitle} (${cfg.specSource})`));
-  const specWrap = el("div");
-  cfg.specs.slice(0, 4).forEach((pair, i) => {
-    const r = el("div", "f-row");
-    r.style.marginTop = "6px";
-    const l = inputEl("text", pair[0]);
-    const v = inputEl("text", pair[1]);
-    l.placeholder = "LABEL"; v.placeholder = "value";
-    const save = () => {
-      const specs = cfg.specs.map((s) => s.slice());
-      specs[i] = [l.value, v.value];
-      stihlSetOverride(model.id, "specs", specs);
-      persistState();
-      renderStihlPreview();
-    };
-    l.addEventListener("input", debounce(save, 300));
-    v.addEventListener("input", debounce(save, 300));
-    r.appendChild(l); r.appendChild(v);
-    specWrap.appendChild(r);
-  });
-  host.appendChild(specWrap);
-
-  host.appendChild(labelEl("Other configurations (side panel)"));
-  cfg.side.forEach((s) => {
-    const box = el("div", "side-item-ed");
-    const head = el("div", "si-head");
-    const cb = el("input");
-    cb.type = "checkbox";
-    cb.checked = !!s.include;
-    cb.onchange = () => { setSideOverride(model.id, s.material, "include", cb.checked); };
-    head.appendChild(cb);
-    head.appendChild(el("span", "", s.label));
-    head.appendChild(el("span", "sr-price", "$" + s.price));
-    box.appendChild(head);
-    host.appendChild(box);
-  });
-
-  const reset = el("button", "btn btn-ghost btn-sm", "Reset this sign to file data");
-  reset.style.marginTop = "12px";
-  reset.onclick = () => { delete StihlData.overrides[model.id]; persistState(); buildStihlEditor(); renderStihlPreview(); };
-  host.appendChild(reset);
-
-  function fieldCol(label, value, save) {
-    const w = el("div");
-    w.appendChild(labelEl(label));
-    const i = inputEl("text", value);
-    i.addEventListener("input", debounce(() => { save(i.value); persistState(); renderStihlPreview(); }, 300));
-    w.appendChild(i);
-    return w;
-  }
-}
-
-function setSideOverride(modelId, material, key, value) {
-  const o = StihlData.overrides[modelId] || (StihlData.overrides[modelId] = {});
-  const side = o.side || (o.side = {});
-  const item = side[material] || (side[material] = {});
-  item[key] = value;
-  persistState();
-  renderStihlPreview();
-}
-
-async function renderStihlPreview() {
-  const model = StihlData.byId(App.stihlModelId);
-  if (!model || App.view !== "stihl") return;
-  await ensureFontsLoaded();
-  const size = sizeById(App.sizeId);
-  const svg = await renderStihlSign(stihlCurrent(model), size.w, size.h);
-  setPreviewSVG(svg, size);
 }
 
 /* ---------------- queue rail ---------------- */

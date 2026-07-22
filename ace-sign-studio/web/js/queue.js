@@ -55,9 +55,6 @@ function sizeOfQueueItem(q) {
 
 function queueItemTitle(q) {
   const t = typeById(q.typeId);
-  if (q.typeId === "stihl_shelf") {
-    return (q.spec.model1 || "STIHL") + (q.spec.model2 ? " " + q.spec.model2 : "");
-  }
   return q.spec.name || q.spec.category || (t ? t.label : q.typeId);
 }
 
@@ -79,7 +76,7 @@ function persistState() {
     const state = {
       settings: Settings.data,
       queue: Queue.items,
-      stihl: { overrides: StihlData.overrides, meta: StihlData.meta, dataset: StihlData.meta.source === "import" ? StihlData.data : null },
+      stihl: typeof StihlData !== "undefined" ? { overrides: StihlData.overrides, meta: StihlData.meta, dataset: StihlData.meta.source === "import" ? StihlData.data : null } : undefined,
     };
     const json = JSON.stringify(state);
     try { localStorage.setItem("acesignstudio.state.v1", json); } catch (e) {}
@@ -101,8 +98,10 @@ async function restoreState() {
   if (state) {
     if (state.settings) Object.assign(Settings.data, state.settings);
     if (Array.isArray(state.queue)) Queue.items = state.queue;
-    StihlData.init(state.stihl || null);
-  } else {
+    if (typeof StihlData !== "undefined") StihlData.init(state.stihl || null);
+  } else if (typeof StihlData !== "undefined") {
     StihlData.init(null);
   }
+  // drop queue entries whose sign type isn't registered (e.g. STIHL, disabled for now)
+  Queue.items = Queue.items.filter((q) => typeById(q.typeId));
 }

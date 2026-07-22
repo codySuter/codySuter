@@ -59,22 +59,26 @@ function datePill(rightX, topY, text, fontSize) {
 }
 
 /* Header: Ace logo top-left + optional red date pill top-right.
-   Returns content-top y. Logo natural aspect ≈ 1.856. */
-function signHeader(W, H, frame, logoURI, datesText, small) {
+   Returns content-top y. Logo natural aspect ≈ 1.856. The logo can be
+   toggled off (spec.showLogo === false); the layout reflows. */
+function signHeader(W, H, frame, logoURI, datesText, small, noLogo) {
   const m = frame.margin;
   const pad = Math.max(8, Math.min(W, H) * 0.022);
   const logoH = Math.max(22, Math.min(H * (small ? 0.15 : 0.115), 92));
   const logoW = logoH * 1.856;
   let markup = "";
-  if (logoURI) {
-    markup += `<image x="${(m + pad).toFixed(2)}" y="${(m + pad).toFixed(2)}" width="${logoW.toFixed(2)}" height="${logoH.toFixed(2)}" preserveAspectRatio="xMinYMin meet" href="${logoURI}"/>`;
-  } else {
-    markup += svgText(m + pad, m + pad + logoH * 0.82, "ACE", "RobotoBlack", logoH * 0.9, ACE_RED, { anchor: "start" });
+  if (!noLogo) {
+    if (logoURI) {
+      markup += `<image x="${(m + pad).toFixed(2)}" y="${(m + pad).toFixed(2)}" width="${logoW.toFixed(2)}" height="${logoH.toFixed(2)}" preserveAspectRatio="xMinYMin meet" href="${logoURI}"/>`;
+    } else {
+      markup += svgText(m + pad, m + pad + logoH * 0.82, "ACE", "RobotoBlack", logoH * 0.9, ACE_RED, { anchor: "start" });
+    }
   }
   const pillSize = Math.max(9, Math.min(16, H * 0.024));
   const pill = datePill(W - m - pad, m + pad, datesText, pillSize);
   markup += pill.markup;
-  return { markup, contentTop: m + pad + logoH + Math.max(6, H * 0.012) };
+  const headH = noLogo ? (datesText ? pill.h : 0) : logoH;
+  return { markup, contentTop: m + pad + headH + Math.max(6, H * 0.012) };
 }
 
 /* Brand red price block: [pre]$ DD ⁰⁰ [suffix under cents].
@@ -191,10 +195,11 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const W = Win * PPI, H = Hin * PPI;
   const o = opts || {};
   const frame = signFrame(W, H);
-  const logoURI = await getLogoURI();
+  const noLogo = spec.showLogo === false;
+  const logoURI = noLogo ? null : await getLogoURI();
   const dates = formatSaleDates(spec.startDate, spec.endDate);
   const small = Math.min(Win, Hin) <= 5.6;
-  const header = signHeader(W, H, frame, logoURI, dates, small);
+  const header = signHeader(W, H, frame, logoURI, dates, small, noLogo);
   const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine);
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
@@ -212,7 +217,7 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const contentH = contentBottom - contentTop;
 
   const nameTarget = Math.max(13, H * 0.058);
-  const priceH = contentH * priceAreaFrac;
+  const priceH = priceAreaFrac > 0 ? contentH * priceAreaFrac : 0;
   const gap = Math.max(5, H * 0.012);
 
   // name measured first so the image can absorb leftover space
@@ -230,13 +235,19 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
     y += gap * 0.5;
   }
   if (spec.name) {
+    // with no price area, the name centers in the remaining space
+    if (priceAreaFrac === 0 && !imgURI) {
+      y += Math.max(0, (contentBottom - y - nameH) / 2);
+    }
     const nb = nameBlock(cx, y, spec.name, maxW, nameTarget);
     markup += nb.markup;
     y += nb.h + gap * 0.6;
   }
-  const availH = Math.max(24, contentBottom - y);
-  const pa = priceArea(cx, y, maxW, availH, spec);
-  markup += pa.markup;
+  if (priceAreaFrac > 0) {
+    const availH = Math.max(24, contentBottom - y);
+    const pa = priceArea(cx, y, maxW, availH, spec);
+    markup += pa.markup;
+  }
   markup += footer.markup;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
@@ -267,7 +278,7 @@ const AceRenderers = {};
 
 /* Regular price — plain red price, superscript cents, optional unit. */
 AceRenderers.regular = (spec, W, H) =>
-  productSignTemplate(spec, W, H, 0.38, (cx, top, availW, availH) => {
+  productSignTemplate(spec, W, H, String(spec.price || "").trim() ? 0.38 : 0, (cx, top, availW, availH) => {
     const mp = moneyParts(spec.price);
     let S = Math.min(availH * 0.82, 200);
     const measure = (s) =>
@@ -286,28 +297,34 @@ AceRenderers.regular = (spec, W, H) =>
     return { markup: m, h: availH };
   });
 
-/* Sale — black SALE chip + red block price (+ optional REG chip). */
-AceRenderers.sale = (spec, W, H) =>
-  productSignTemplate(spec, W, H, 0.46, (cx, top, availW, availH, s) => {
-    const chipSize = Math.max(11, availH * 0.14);
+/* Sale — black SALE chip + red block price (+ optional REG chip).
+   Price/reg hide independently; the chip is the sign's identity. */
+AceRenderers.sale = (spec, W, H) => {
+  const hasPrice = !!String(spec.price || "").trim();
+  return productSignTemplate(spec, W, H, hasPrice ? 0.46 : 0.26, (cx, top, availW, availH, s) => {
+    const chipSize = Math.max(11, availH * (hasPrice ? 0.14 : 0.4));
     const regSize = Math.max(8, availH * 0.1);
-    const hasReg = !!s.regPrice;
+    const hasReg = !!String(s.regPrice || "").trim();
     const blockH = availH * (hasReg ? 0.52 : 0.6);
-    const parts = [chipSize * 1.52, blockH];
+    const parts = [chipSize * 1.52];
+    if (hasPrice) parts.push(blockH);
     if (hasReg) parts.push(regSize * 1.52);
     const st = stack(top, availH, parts, 0.05);
     let y = st.start;
     let m = "";
     const chip = blackChip(cx, y, "SALE", chipSize);
     m += chip.markup; y += chip.h + st.gap;
-    const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { suffixWord: s.unit ? s.unit.replace(/^\//, "") : "each" });
-    m += blk.markup; y += blk.h + st.gap;
+    if (hasPrice) {
+      const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { suffixWord: s.unit ? s.unit.replace(/^\//, "") : "each" });
+      m += blk.markup; y += blk.h + st.gap;
+    }
     if (hasReg) {
       const reg = blackChip(cx, y, `REG. ${fmtMoney(s.regPrice)}`, regSize);
       m += reg.markup;
     }
     return { markup: m, h: availH };
   });
+};
 
 /* Percent off — red block "00% OFF" (optionally "UP TO"). */
 AceRenderers.percent_off = (spec, W, H) =>
@@ -407,14 +424,17 @@ AceRenderers.two_for = (spec, W, H) =>
     return { markup: m, h: availH };
   });
 
-/* Instant savings — REWARDS line, SAVE $X INSTANTLY, price block, REG chip. */
+/* Instant savings — REWARDS line, SAVE $X INSTANTLY, price block, REG chip.
+   The price block and REG chip hide independently. */
 AceRenderers.instant_savings = (spec, W, H) =>
-  productSignTemplate(spec, W, H, 0.55, (cx, top, availW, availH, s) => {
+  productSignTemplate(spec, W, H, String(spec.price || "").trim() ? 0.55 : 0.4, (cx, top, availW, availH, s) => {
+    const hasPrice = !!String(s.price || "").trim();
     const rw = Math.max(9, availH * 0.075);
-    const saveSize = Math.max(13, availH * 0.15);
+    const saveSize = Math.max(13, availH * (hasPrice ? 0.15 : 0.24));
     const blockH = availH * 0.4;
     const regSize = Math.max(8, availH * 0.085);
-    const parts = [rw * 1.4, saveSize * 1.35, blockH];
+    const parts = [rw * 1.4, saveSize * 1.35];
+    if (hasPrice) parts.push(blockH);
     if (s.regPrice) parts.push(regSize * 1.5);
     const st = stack(top, availH, parts, 0.035);
     let y = st.start;
@@ -433,9 +453,11 @@ AceRenderers.instant_savings = (spec, W, H) =>
     m += roundRect(gx + saveW + saveSize * 0.3, y, amtW, abH, 0, ACE_RED);
     m += svgText(gx + saveW + saveSize * 0.3 + amtW / 2, y + abH / 2 + amtS * 0.36, amt, "RobotoBlack", amtS, "#fff");
     y += Math.max(saveSize * 1.35, abH) + st.gap;
-    const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { suffixWord: "each" });
-    m += blk.markup;
-    y += blk.h + st.gap;
+    if (hasPrice) {
+      const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { suffixWord: "each" });
+      m += blk.markup;
+      y += blk.h + st.gap;
+    }
     if (s.regPrice) {
       m += blackChip(cx, y, `REG. ${fmtMoney(s.regPrice)}`, regSize).markup;
     }
@@ -541,9 +563,10 @@ AceRenderers.under_amount = async (spec, W, H) => {
 AceRenderers.large_text = async (spec, W_in, H_in) => {
   const W = W_in * PPI, H = H_in * PPI;
   const frame = signFrame(W, H);
-  const logoURI = await getLogoURI();
+  const noLogo = spec.showLogo === false;
+  const logoURI = noLogo ? null : await getLogoURI();
   const dates = formatSaleDates(spec.startDate, spec.endDate);
-  const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6);
+  const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6, noLogo);
   const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine);
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
@@ -598,9 +621,10 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
 AceRenderers.text_only = async (spec, W_in, H_in) => {
   const W = W_in * PPI, H = H_in * PPI;
   const frame = signFrame(W, H);
-  const logoURI = await getLogoURI();
+  const noLogo = spec.showLogo === false;
+  const logoURI = noLogo ? null : await getLogoURI();
   const dates = formatSaleDates(spec.startDate, spec.endDate);
-  const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6);
+  const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6, noLogo);
   const footer = skuFooter(W, H, frame, spec.sku, "", spec.storeLine);
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);

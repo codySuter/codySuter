@@ -13,8 +13,13 @@ One app for every sign in the store. Replaces and unifies the three older tools:
 - **13 sign types**, each following the official Ace price point formats
   (brand guidelines pp. 72–74): Regular, Sale, Percent Off, BOGO Free,
   BOGO %, 2-for-$X, Instant Savings (Ace Rewards), Buy 2 Get $X Off,
-  Your Choice, Under $X, Large Text, Text Only — plus the **STIHL shelf
-  sign** (specs grid, UPC-A/EAN-13 barcode, other-configurations panel).
+  Was/Now (This Unit Only), Your Choice, Under $X, Large Text, Text Only.
+- **Per-field toggles** on every sign: hide the photo, price, reg price,
+  SKU, name, detail line, or the Ace logo — the layout reflows around
+  whatever is hidden.
+- **STIHL module (shelf sign, datasets, chain-finder posters) is
+  currently disabled** — files are retained under `web/data`, `web/tools`
+  and `js/*stihl*`; re-enable per the comment in `web/index.html`.
 - **Live store pricing**: type a SKU and the name, store-specific price
   (Mozu storefront API, `purchaseLocation` 12180 = Snyder's), sale price
   and product photo fill in automatically. Items on sale auto-switch to a
@@ -31,12 +36,6 @@ One app for every sign in the store. Replaces and unifies the three older tools:
   sheet. Layout preview shows each sheet before you print.
 - **Print All / Save PDF**: one vector PDF (brand Roboto + STIHL Barlow
   embedded), sent straight to the print dialog or saved.
-- **STIHL dealer price file import** (CSV with `STIHL Material Number`,
-  `Material Description`, `MSRP` [+ `UPC`, `ACE SKU`]): updates prices,
-  UPCs and SKUs in place. Note: brand-new models not in the bundled
-  dataset are skipped (the old full-dataset rebuild was not ported).
-- **Saw Chain Finder posters** (current + older saws, 24×36) preserved
-  verbatim under Tools.
 - Queue, settings and STIHL overrides persist to
   `%APPDATA%\AceSignStudio\state.json` (Windows) so nothing is lost
   between launches.
