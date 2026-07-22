@@ -59,6 +59,12 @@ jobs:
             echo "::notice::Release v$VERSION already exists — packaging without publishing. Bump ace-policy-studio/package.json version to ship an update."
             npx electron-builder --win --publish never
           else
+            # GitHub refuses to create a *published* release on a tag that
+            # doesn't exist yet, so push the version tag first.
+            if ! git ls-remote --tags origin "v$VERSION" | grep -q .; then
+              git tag "v$VERSION" "$GITHUB_SHA"
+              git push origin "v$VERSION"
+            fi
             npx electron-builder --win --publish always
             # Retire the legacy fixed-tag release so nobody downloads a stale build.
             gh release delete ace-policy-studio-windows --yes --cleanup-tag || true
