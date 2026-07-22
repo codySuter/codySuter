@@ -45,14 +45,30 @@ jobs:
       - name: Electron smoke test (seeding + printToPDF)
         run: node scripts/electron-smoke.mjs
 
-      - name: Package portable EXE
-        run: npx electron-builder --win portable
+      # Publishes a versioned release (tag v<version>) with the one-click
+      # installer + latest.yml so installed apps auto-update on launch.
+      # If the version tag already exists, the build still runs as a check
+      # but nothing is published — bump "version" in package.json to ship.
+      - name: Package & publish installer (auto-update feed)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::notice::Release v$VERSION already exists — packaging without publishing. Bump ace-policy-studio/package.json version to ship an update."
+            npx electron-builder --win --publish never
+          else
+            npx electron-builder --win --publish always
+            # Retire the legacy fixed-tag release so nobody downloads a stale build.
+            gh release delete ace-policy-studio-windows --yes --cleanup-tag || true
+          fi
 
-      - name: Upload EXE as a workflow artifact
+      - name: Upload installer as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: AcePolicyStudio-windows
-          path: ace-policy-studio/release/AcePolicyStudio.exe
+          path: ace-policy-studio/release/AcePolicyStudio-Setup.exe
           if-no-files-found: error
 
       - name: Upload test evidence
@@ -62,14 +78,3 @@ jobs:
           name: test-evidence
           path: ace-policy-studio/test-results/
           if-no-files-found: ignore
-
-      - name: Publish EXE to a Release (stable download link)
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete ace-policy-studio-windows --yes --cleanup-tag || true
-          gh release create ace-policy-studio-windows release/AcePolicyStudio.exe \
-            --title "Ace Policy Studio for Windows" \
-            --notes "Latest Windows build. Download **AcePolicyStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
-            --target "$GITHUB_SHA"
