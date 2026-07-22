@@ -58,14 +58,14 @@ function queueItemTitle(q) {
   return q.spec.name || q.spec.category || (t ? t.label : q.typeId);
 }
 
-/* Render a queue item's sign SVG at arbitrary size (used by thumbnails,
-   sheet composer, and PDF). */
-async function renderQueueItemSVG(qOrItem, w, h) {
+/* Render a queue item's sign SVG (used by thumbnails, sheet composer,
+   and PDF). Renders at the item's registered size, including the pallet
+   cut guide when the size carries one. */
+async function renderQueueItemSVG(qOrItem) {
   const q = qOrItem.q || qOrItem;
-  const t = typeById(q.typeId);
   const spec = Object.assign({}, q.spec);
   if (Settings.get().printStoreLine) spec.storeLine = Settings.get().storeLine;
-  return t.render(spec, w, h);
+  return renderSignSVG(q.typeId, spec, q.sizeId);
 }
 
 /* ---------- persistence ---------- */

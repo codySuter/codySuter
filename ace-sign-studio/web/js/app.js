@@ -470,7 +470,7 @@ const schedulePreview = debounce(async () => {
     await ensureFontsLoaded();
     const size = sizeById(App.sizeId);
     try {
-      const svg = await t.render(currentRenderSpec(), size.w, size.h);
+      const svg = await renderSignSVG(App.typeId, currentRenderSpec(), App.sizeId);
       if (seq !== App._previewSeq) return;
       setPreviewSVG(svg, size);
     } catch (e) {
@@ -488,7 +488,11 @@ function setPreviewSVG(svg, size) {
   const scale = Math.min(availW / (size.w * PPI), availH / (size.h * PPI), 1.6);
   holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
   const meta = $("#previewMeta");
-  if (meta) meta.textContent = `${size.label.replace(/"/g, "″")} — prints at exact size · shown at ${(scale * 100).toFixed(0)}%`;
+  if (meta) {
+    let txt = `${size.label.replace(/"/g, "″")} — prints at exact size · shown at ${(scale * 100).toFixed(0)}%`;
+    if (size.cut) txt += " · cut on the dashed line, laminate, and it fits the 8.5×11 holder";
+    meta.textContent = txt;
+  }
 }
 
 /* ---------------- queue rail ---------------- */
@@ -535,7 +539,7 @@ async function renderQueue() {
       if (!holder || holder.firstChild) continue;
       try {
         const size = sizeById(q.sizeId);
-        const svg = await renderQueueItemSVG(q, size.w, size.h);
+        const svg = await renderQueueItemSVG(q);
         const scale = Math.min(62 / (size.w * PPI), 42 / (size.h * PPI));
         holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
       } catch (e) {}

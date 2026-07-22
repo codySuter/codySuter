@@ -5,9 +5,17 @@
    ============================================================ */
 "use strict";
 
+/* PALLET_CUT: dashed cut-guide inset for Pallet Sign Holder sizes — the
+   legacy tool's CUT_MARGIN of 22pt. Print full page, cut on the dashed
+   line, laminate; the sealed edge brings it back to ≤ 8.5×11 so it slides
+   into the pallet holder. */
+const PALLET_CUT = 22 / 72;
+
 const SIZES = [
   { id: "letter-l",  w: 11,  h: 8.5, label: 'Full Page 11×8.5"' },
   { id: "letter-p",  w: 8.5, h: 11,  label: 'Full Page 8.5×11"' },
+  { id: "pallet-l",  w: 11,  h: 8.5, cut: PALLET_CUT, label: 'Pallet Holder 11×8.5"' },
+  { id: "pallet-p",  w: 8.5, h: 11,  cut: PALLET_CUT, label: 'Pallet Holder 8.5×11"' },
   { id: "holder-11x7", w: 11, h: 7,  label: 'Sign Holder 11×7"' },
   { id: "counter-7x5", w: 7,  h: 5,  label: 'Counter 7×5"' },
   { id: "card-6x4",  w: 6,   h: 4,   label: 'Card 6×4"' },

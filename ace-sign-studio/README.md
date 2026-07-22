@@ -24,9 +24,11 @@ One app for every sign in the store. Replaces and unifies the three older tools:
   (Mozu storefront API, `purchaseLocation` 12180 = Snyder's), sale price
   and product photo fill in automatically. Items on sale auto-switch to a
   Sale sign. Every lookup keeps a step-by-step diagnostics trail.
-- **Seven physical sizes**: Full Page (11×8.5 / 8.5×11), Sign Holder 11×7,
-  Counter 7×5, Card 6×4, Shelf 5×3, Shelf 5.5×3.5 — live preview at every
-  size, WYSIWYG with the printed output (same SVG → same PDF).
+- **Nine physical sizes**: Full Page (11×8.5 / 8.5×11), **Pallet Sign
+  Holder** (11×8.5 / 8.5×11 with the legacy 22pt dashed laminate cut
+  guide — cut, laminate, and it fits back into an 8.5×11 holder),
+  Sign Holder 11×7, Counter 7×5, Card 6×4, Shelf 5×3, Shelf 5.5×3.5 —
+  live preview at every size, WYSIWYG with the printed output.
 - **Print queue**: add any mix of signs/sizes, bulk-add by pasting SKUs
   (runs of 4+ digits are detected), duplicate/remove, live thumbnails.
 - **Sheet optimizer**: packs the queue onto US Letter sheets to fit as many

@@ -14,9 +14,7 @@ async function composeSheetSVG(page, showGuides) {
   for (const p of page.items) {
     const q = p.item.q;
     const rot = p.item.rot;
-    const specW = rot ? p.h : p.w;
-    const specH = rot ? p.w : p.h;
-    const svg = await renderQueueItemSVG(q, specW, specH);
+    const svg = await renderQueueItemSVG(q);
     const body = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
     const tx = p.x * PPI, ty = p.y * PPI;
     if (rot) {
@@ -69,7 +67,7 @@ async function signToPdf(q) {
   const w = q.size.w, h = q.size.h;
   const doc = new jsPDF({ unit: "in", format: [w, h], orientation: w > h ? "landscape" : "portrait" });
   await ensurePdfFonts(doc);
-  const svg = await renderQueueItemSVG(q, w, h);
+  const svg = await renderQueueItemSVG(q);
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:-12000px;top:0;";
   host.innerHTML = svg;
