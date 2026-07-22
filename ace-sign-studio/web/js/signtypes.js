@@ -135,7 +135,7 @@ const SIGN_TYPES = [
       F.dates,
     ],
     render: (spec, w, h) => AceRenderers.text_only(spec, w, h),
-    sample: { name: "RESTROOMS FOR CUSTOMERS", detail: "Ask any associate for the key" },
+    sample: { name: "STORE USE LADDERS", detail: "" },
   },
   {
     id: "stihl_shelf", group: "STIHL", label: "STIHL Shelf Sign",
