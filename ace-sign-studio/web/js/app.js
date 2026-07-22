@@ -289,9 +289,20 @@ function buildEditorFields(t) {
         if (si.onSale) {
           setField("price", si.sale);
           setField("regPrice", si.reg);
-          if (t.id === "regular") switchTypeKeepingSpec("sale");
-        } else if (res.price) setField("price", res.price);
-        else if (res.listPrice) setField("price", res.listPrice);
+          if (t.id === "regular") {
+            switchTypeKeepingSpec("sale");
+            const st = $("#editorFields .lookup-status");
+            if (st) {
+              st.className = "lookup-status ok";
+              st.innerHTML = `✓ ${esc(res.name || res.sku)} <span class="sale-flag">On Sale</span> — switched to a Sale sign <span class="diag-link" onclick="showDiagnostics()">details</span>`;
+            }
+          }
+        } else {
+          if (res.price) setField("price", res.price);
+          else if (res.listPrice) setField("price", res.listPrice);
+          // a fresh non-sale lookup means any earlier reg price is stale
+          if (t.fields.some((x) => x.key === "regPrice") && t.id !== "was_now") setField("regPrice", "");
+        }
         if (res.imageUrl) { App.spec.image = res.imageUrl; refreshImageDrop(); }
         schedulePreview();
       });

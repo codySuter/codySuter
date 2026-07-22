@@ -32,11 +32,23 @@ import (
 
 const (
 	defaultStoreCode = "12180" // Snyder's Ace Hardware
-	baseSite         = "https://www.acehardware.com"
-	warmupProductURL = baseSite + "/product/8315087"
-	storefrontAPI    = baseSite + "/api/commerce/catalog/storefront/products/"
-	userAgent        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	userAgent        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
 )
+
+// baseSite is overridable via ACE_BASE_URL for testing against a mock server.
+var (
+	baseSite         = "https://www.acehardware.com"
+	warmupProductURL string
+	storefrontAPI    string
+)
+
+func init() {
+	if v := os.Getenv("ACE_BASE_URL"); v != "" {
+		baseSite = strings.TrimRight(v, "/")
+	}
+	warmupProductURL = baseSite + "/product/8315087"
+	storefrontAPI = baseSite + "/api/commerce/catalog/storefront/products/"
+}
 
 type LookupResult struct {
 	OK          bool     `json:"ok"`
@@ -79,7 +91,7 @@ func getSession(forceRefresh bool) *http.Client {
 		jar, _ := cookiejar.New(nil)
 		session = &http.Client{Jar: jar, Timeout: 20 * time.Second}
 		req, _ := http.NewRequest("GET", warmupProductURL, nil)
-		req.Header.Set("User-Agent", userAgent)
+		setBrowserHeaders(req, "")
 		if resp, err := session.Do(req); err == nil {
 			io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 			resp.Body.Close()
@@ -93,11 +105,33 @@ func siteGet(c *http.Client, rawURL string, accept string) (*http.Response, erro
 	if err != nil {
 		return nil, err
 	}
+	setBrowserHeaders(req, accept)
+	return c.Do(req)
+}
+
+// setBrowserHeaders makes requests present like a current Chrome on Windows —
+// acehardware.com sits behind bot protection that scores stale user agents
+// and header-less clients.
+func setBrowserHeaders(req *http.Request, accept string) {
 	req.Header.Set("User-Agent", userAgent)
 	if accept != "" {
 		req.Header.Set("Accept", accept)
+		req.Header.Set("Referer", baseSite+"/")
+		req.Header.Set("Sec-Fetch-Dest", "empty")
+		req.Header.Set("Sec-Fetch-Mode", "cors")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
+	} else {
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+		req.Header.Set("Sec-Fetch-Dest", "document")
+		req.Header.Set("Sec-Fetch-Mode", "navigate")
+		req.Header.Set("Sec-Fetch-Site", "none")
+		req.Header.Set("Sec-Fetch-User", "?1")
+		req.Header.Set("Upgrade-Insecure-Requests", "1")
 	}
-	return c.Do(req)
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("sec-ch-ua", `"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"`)
+	req.Header.Set("sec-ch-ua-mobile", "?0")
+	req.Header.Set("sec-ch-ua-platform", `"Windows"`)
 }
 
 // fetchStorePrice queries the Mozu storefront API for the store-specific
@@ -114,8 +148,8 @@ func fetchStorePrice(sku, store string, diag *[]string) (price, sale, apiName, a
 		}
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 		resp.Body.Close()
-		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 {
-			*diag = append(*diag, "Store API returned 401 — refreshing session cookies")
+		if (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) && attempt == 0 {
+			*diag = append(*diag, fmt.Sprintf("Store API returned %d — refreshing session cookies and retrying", resp.StatusCode))
 			continue
 		}
 		if resp.StatusCode != http.StatusOK {
@@ -504,6 +538,9 @@ func fetchImageCached(raw string) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("bad image url")
 	}
 	host := strings.ToLower(u.Hostname())
+	if bu, err2 := url.Parse(baseSite); err2 == nil && strings.EqualFold(u.Host, bu.Host) {
+		host = "www.acehardware.com" // ACE_BASE_URL test override
+	}
 	allowed := strings.HasSuffix(host, "acehardware.com") ||
 		strings.HasSuffix(host, "mozu.com") ||
 		strings.HasSuffix(host, "kibocommerce.com") ||
