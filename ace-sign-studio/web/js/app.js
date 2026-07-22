@@ -1,0 +1,854 @@
+/* ============================================================
+   Ace Sign Studio — UI controller: nav, gallery, editors, preview,
+   queue rail, sheet previews, print/export, bulk add, settings.
+   ============================================================ */
+"use strict";
+
+const App = {
+  view: "gallery",       // gallery | editor | stihl | tools
+  typeId: null,
+  sizeId: "letter-l",
+  spec: {},              // editor working spec (Ace types)
+  stihlModelId: null,
+  userPickedType: false,
+  batchStart: "",
+  batchEnd: "",
+  _previewSeq: 0,
+};
+
+/* ---------------- boot ---------------- */
+window.addEventListener("DOMContentLoaded", async () => {
+  startHeartbeat();
+  await restoreState();
+  buildNav();
+  renderQueue();
+  showGallery();
+  ensureFontsLoaded().then(() => {
+    buildNavThumbs();
+    buildGalleryThumbs();
+  });
+  $("#settingsBtn").onclick = openSettings;
+  $("#homeBtn").onclick = showGallery;
+  $("#clearQueueBtn").onclick = () => { if (confirm("Clear the whole queue?")) Queue.clear(); };
+  $("#printAllBtn").onclick = () => exportQueue(true);
+  $("#exportAllBtn").onclick = () => exportQueue(false);
+  $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
+  initBulk();
+  $$(".modal-back").forEach((mb) => {
+    mb.addEventListener("click", (e) => { if (e.target === mb) mb.classList.remove("show"); });
+  });
+  $$(".modal-close").forEach((b) => (b.onclick = () => b.closest(".modal-back").classList.remove("show")));
+});
+
+function startHeartbeat() {
+  setInterval(() => { fetch("/__ping").catch(() => {}); }, 2000);
+}
+
+/* ---------------- nav ---------------- */
+function buildNav() {
+  const nav = $("#nav");
+  nav.innerHTML = "";
+  const groups = [...new Set(SIGN_TYPES.map((t) => t.group))];
+  const sec = (title) => {
+    const s = el("div", "nav-section");
+    s.appendChild(el("div", "nav-head", title));
+    nav.appendChild(s);
+    return s;
+  };
+  const home = sec("Ace Sign Studio");
+  const homeBtn = el("button", "nav-item");
+  homeBtn.innerHTML = `<div class="nav-thumb">🏠</div><div><div class="nav-label">All sign types</div><div class="nav-note">Gallery & previews</div></div>`;
+  homeBtn.onclick = showGallery;
+  homeBtn.id = "nav-home";
+  home.appendChild(homeBtn);
+
+  for (const g of groups) {
+    const s = sec(g);
+    for (const t of SIGN_TYPES.filter((x) => x.group === g)) {
+      const b = el("button", "nav-item");
+      b.dataset.type = t.id;
+      b.innerHTML = `<div class="nav-thumb" id="thumb-${t.id}"></div><div><div class="nav-label">${esc(t.label)}</div><div class="nav-note">${esc(t.note || "")}</div></div>`;
+      b.onclick = () => (t.stihl ? showStihl() : showEditor(t.id));
+      s.appendChild(b);
+    }
+  }
+  const tools = sec("Tools");
+  for (const [href, label, note] of [
+    ["tools/chain-finder.html", "Saw Chain Finder", "24×36 poster — current saws"],
+    ["tools/chain-finder-older.html", "Chain Finder — Older Saws", "24×36 poster — classic models"],
+  ]) {
+    const b = el("button", "nav-item");
+    b.innerHTML = `<div class="nav-thumb">🪚</div><div><div class="nav-label">${esc(label)}</div><div class="nav-note">${esc(note)}</div></div>`;
+    b.onclick = () => window.open(href, "_blank");
+    tools.appendChild(b);
+  }
+}
+
+function markActiveNav() {
+  $$(".nav-item").forEach((b) => b.classList.remove("active"));
+  if (App.view === "gallery") $("#nav-home") && $("#nav-home").classList.add("active");
+  else if (App.view === "stihl") { const b = $(`.nav-item[data-type="stihl_shelf"]`); b && b.classList.add("active"); }
+  else if (App.typeId) { const b = $(`.nav-item[data-type="${App.typeId}"]`); b && b.classList.add("active"); }
+}
+
+/* Small sample SVG thumbnails in nav + gallery. */
+async function typeThumbSVG(t, boxW, boxH) {
+  try {
+    let spec = t.sample;
+    let w = 11, h = 8.5;
+    if (t.stihl) {
+      const first = StihlData.models()[0];
+      if (!first) return "";
+      spec = stihlCurrent(first);
+      w = 5; h = 3;
+    }
+    const svg = await t.render(Object.assign({}, spec), w, h);
+    const scale = Math.min(boxW / (w * PPI), boxH / (h * PPI));
+    return svg.replace(/^<svg /, `<svg style="width:${w * PPI * scale}px;height:${h * PPI * scale}px" `);
+  } catch (e) {
+    return "";
+  }
+}
+
+async function buildNavThumbs() {
+  for (const t of SIGN_TYPES) {
+    const holder = $(`#thumb-${t.id}`);
+    if (holder) holder.innerHTML = await typeThumbSVG(t, 50, 34);
+  }
+}
+
+/* ---------------- gallery ---------------- */
+function showGallery() {
+  App.view = "gallery";
+  markActiveNav();
+  const work = $("#work");
+  work.innerHTML = `
+    <div class="work-inner">
+      <div class="gallery-head">
+        <h2>What are we making today?</h2>
+        <p>Pick a sign type — live pricing fills in automatically from acehardware.com for store #${esc(Settings.get().storeCode)}. Every sign can go to the print queue.</p>
+      </div>
+      <div class="gallery" id="gallery"></div>
+    </div>`;
+  const g = $("#gallery");
+  for (const t of SIGN_TYPES) {
+    const card = el("button", "g-card");
+    card.innerHTML = `<div class="g-prev" id="g-prev-${t.id}"></div><div class="g-label">${esc(t.label)}</div><div class="g-note">${esc(t.note || "")}</div>`;
+    card.onclick = () => (t.stihl ? showStihl() : showEditor(t.id));
+    g.appendChild(card);
+  }
+  buildGalleryThumbs();
+}
+
+async function buildGalleryThumbs() {
+  if (App.view !== "gallery") return;
+  await ensureFontsLoaded();
+  for (const t of SIGN_TYPES) {
+    const holder = $(`#g-prev-${t.id}`);
+    if (holder && !holder.firstChild) holder.innerHTML = await typeThumbSVG(t, 190, 100);
+  }
+}
+
+/* ---------------- Ace editor ---------------- */
+function showEditor(typeId) {
+  const t = typeById(typeId);
+  if (!t) return;
+  App.view = "editor";
+  App.typeId = typeId;
+  App.userPickedType = true;
+  if (!t.sizes && !SIZES.some((s) => s.id === App.sizeId)) App.sizeId = "letter-l";
+  if (t.sizes && !t.sizes.includes(App.sizeId)) App.sizeId = t.defaultSize;
+  // keep shared fields (sku/name/image/price) when switching types
+  const keep = App.spec || {};
+  App.spec = Object.assign({ startDate: App.batchStart, endDate: App.batchEnd }, keep);
+  markActiveNav();
+
+  const work = $("#work");
+  work.innerHTML = `
+    <div class="work-inner">
+      <div class="editor-grid">
+        <div class="card">
+          <div class="card-head"><h2>${esc(t.label)}</h2><span class="hint">${esc(t.note || "")}</span></div>
+          <div class="card-body" id="editorFields"></div>
+        </div>
+        <div class="card preview-card">
+          <div class="card-head">
+            <h2>Preview</h2>
+            <div class="size-chips" id="sizeChips" style="margin-left:auto"></div>
+          </div>
+          <div class="preview-stage"><div class="sign-holder" id="signHolder"></div></div>
+          <div class="preview-meta" id="previewMeta"></div>
+          <div class="card-body" style="padding-top:0">
+            <div class="actions" style="margin-top:0">
+              <button class="btn btn-primary" id="addQueueBtn">＋ Add to Queue</button>
+              <button class="btn btn-secondary" id="printOneBtn">Print</button>
+              <button class="btn btn-secondary" id="pdfOneBtn">PDF</button>
+            </div>
+            <div class="msg" id="editorMsg"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  buildSizeChips(t);
+  buildEditorFields(t);
+  $("#addQueueBtn").onclick = () => {
+    const err = validateSpec(t, App.spec);
+    if (err) return showMsg("editorMsg", "err", err);
+    Queue.add(t.id, App.sizeId, currentRenderSpec());
+    showMsg("editorMsg", "ok", `Added to queue — ${Queue.items.length} sign${Queue.items.length === 1 ? "" : "s"} queued.`);
+  };
+  $("#printOneBtn").onclick = async () => {
+    const err = validateSpec(t, App.spec);
+    if (err) return showMsg("editorMsg", "err", err);
+    showMsg("editorMsg", "ok", "Preparing print…");
+    try {
+      const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
+      printPdfDoc(doc);
+      showMsg("editorMsg", "ok", "Sent to the print dialog.");
+    } catch (e) { showMsg("editorMsg", "err", "Print failed: " + e.message); }
+  };
+  $("#pdfOneBtn").onclick = async () => {
+    const err = validateSpec(t, App.spec);
+    if (err) return showMsg("editorMsg", "err", err);
+    showMsg("editorMsg", "ok", "Building PDF…");
+    try {
+      const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
+      downloadPdfDoc(doc, sanitizeFilename(queueItemTitle({ typeId: t.id, spec: App.spec })) + ".pdf");
+      showMsg("editorMsg", "ok", "PDF saved.");
+    } catch (e) { showMsg("editorMsg", "err", "PDF failed: " + e.message); }
+  };
+  schedulePreview();
+}
+
+function currentRenderSpec() {
+  return Object.assign({}, App.spec);
+}
+
+function validateSpec(t, spec) {
+  const need = (f) => t.fields.some((x) => x.key === f);
+  if (need("name") && !String(spec.name || "").trim() && t.id !== "under_amount") return "Enter a product name (or look up a SKU).";
+  if (need("price") && !String(spec.price || "").trim()) return "Enter a price.";
+  if (need("percent") && !String(spec.percent || "").trim()) return "Enter the percent off.";
+  if (need("savings") && !String(spec.savings || "").trim()) return "Enter the savings amount.";
+  if (need("category") && !String(spec.category || "").trim()) return "Enter the category name.";
+  return null;
+}
+
+function buildSizeChips(t) {
+  const wrap = $("#sizeChips");
+  wrap.innerHTML = "";
+  for (const s of sizesForType(t)) {
+    const c = el("button", "size-chip" + (s.id === App.sizeId ? " active" : ""), s.label.replace(/"$/, "″"));
+    c.onclick = () => { App.sizeId = s.id; buildSizeChips(t); schedulePreview(); };
+    wrap.appendChild(c);
+  }
+}
+
+function buildEditorFields(t) {
+  const host = $("#editorFields");
+  host.innerHTML = "";
+  for (const f of t.fields) {
+    if (f.kind === "sku") {
+      host.appendChild(labelEl(f.label));
+      const inp = inputEl("text", App.spec.sku || "", "e.g. 7135975 — or paste a product URL");
+      const status = el("div", "lookup-status");
+      inp.addEventListener("input", () => { App.spec.sku = onlyDigitsMaybe(inp.value); });
+      attachAutoLookup(inp, status, (res, si) => {
+        App.spec.sku = res.sku || inp.value.trim();
+        if (res.name) setField("name", res.name);
+        if (si.onSale) {
+          setField("price", si.sale);
+          setField("regPrice", si.reg);
+          if (t.id === "regular") switchTypeKeepingSpec("sale");
+        } else if (res.price) setField("price", res.price);
+        else if (res.listPrice) setField("price", res.listPrice);
+        if (res.imageUrl) { App.spec.image = res.imageUrl; refreshImageDrop(); }
+        schedulePreview();
+      });
+      host.appendChild(inp);
+      host.appendChild(status);
+      continue;
+    }
+    if (f.kind === "image") {
+      host.appendChild(labelEl(f.label));
+      const drop = el("div", "img-drop");
+      drop.id = "imgDrop";
+      drop.innerHTML = `<img id="imgPrev" style="display:none"><div class="img-note" id="imgNote">Auto-fetched on SKU lookup.<br>Click to use your own photo, or drag one here.</div><button class="img-clear" id="imgClear" title="Remove photo" style="display:none">✕</button>`;
+      const file = el("input");
+      file.type = "file";
+      file.accept = "image/*";
+      file.style.display = "none";
+      drop.appendChild(file);
+      drop.onclick = (e) => { if (e.target.id !== "imgClear") file.click(); };
+      file.onchange = () => {
+        const fl = file.files && file.files[0];
+        if (!fl) return;
+        const r = new FileReader();
+        r.onload = () => { App.spec.image = r.result; App.spec._customImage = true; refreshImageDrop(); schedulePreview(); };
+        r.readAsDataURL(fl);
+        file.value = "";
+      };
+      drop.addEventListener("dragover", (e) => { e.preventDefault(); });
+      drop.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const fl = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!fl || !/^image\//.test(fl.type)) return;
+        const r = new FileReader();
+        r.onload = () => { App.spec.image = r.result; App.spec._customImage = true; refreshImageDrop(); schedulePreview(); };
+        r.readAsDataURL(fl);
+      });
+      host.appendChild(drop);
+      setTimeout(refreshImageDrop, 0);
+      $("#imgDrop").querySelector("#imgClear").onclick = () => { App.spec.image = null; App.spec._customImage = false; refreshImageDrop(); schedulePreview(); };
+      continue;
+    }
+    if (f.kind === "dates") {
+      host.appendChild(labelEl("Sale dates (prints as a red pill — leave blank for none)"));
+      const row = el("div", "f-row");
+      const s = inputEl("date", App.spec.startDate || "");
+      const e2 = inputEl("date", App.spec.endDate || "");
+      const clr = el("button", "btn btn-ghost btn-sm", "Clear");
+      s.onchange = () => {
+        App.spec.startDate = s.value;
+        if (s.value && (!e2.value || e2.value < s.value)) { e2.value = plusDaysISO(s.value, 7); App.spec.endDate = e2.value; }
+        App.batchStart = s.value; App.batchEnd = e2.value;
+        schedulePreview();
+      };
+      e2.onchange = () => { App.spec.endDate = e2.value; App.batchEnd = e2.value; schedulePreview(); };
+      clr.onclick = () => { s.value = ""; e2.value = ""; App.spec.startDate = ""; App.spec.endDate = ""; schedulePreview(); };
+      row.appendChild(s); row.appendChild(e2); row.appendChild(clr);
+      host.appendChild(row);
+      continue;
+    }
+    if (f.kind === "check") {
+      const lab = el("label", "f-check");
+      const cb = el("input");
+      cb.type = "checkbox";
+      cb.checked = !!App.spec[f.key];
+      cb.onchange = () => { App.spec[f.key] = cb.checked; schedulePreview(); };
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(f.label));
+      host.appendChild(lab);
+      continue;
+    }
+    host.appendChild(labelEl(f.label));
+    let wrap = null, inp;
+    if (f.kind === "money") {
+      wrap = el("div", "prefix-wrap");
+      wrap.dataset.prefix = "$";
+      inp = inputEl("text", App.spec[f.key] != null ? App.spec[f.key] : (f.def != null ? f.def : ""));
+    } else if (f.kind === "percent") {
+      wrap = el("div", "suffix-wrap");
+      wrap.dataset.suffix = "%";
+      inp = inputEl("text", App.spec[f.key] || "");
+    } else if (f.kind === "int") {
+      inp = inputEl("number", App.spec[f.key] != null ? App.spec[f.key] : f.def || 2);
+      inp.min = "2"; inp.max = "9";
+    } else if (f.kind === "textarea") {
+      inp = el("textarea", "f-textarea");
+      inp.value = App.spec[f.key] || "";
+    } else {
+      inp = inputEl("text", App.spec[f.key] || "");
+    }
+    inp.dataset.field = f.key;
+    inp.addEventListener("input", () => { App.spec[f.key] = inp.value; schedulePreview(); });
+    if (wrap) { wrap.appendChild(inp); host.appendChild(wrap); }
+    else host.appendChild(inp);
+  }
+}
+
+function labelEl(text) { return el("label", "f-label", text); }
+function inputEl(type, value, placeholder) {
+  const i = el("input", "f-input");
+  i.type = type;
+  if (value != null) i.value = value;
+  if (placeholder) i.placeholder = placeholder;
+  return i;
+}
+function onlyDigitsMaybe(v) {
+  const t = String(v || "").trim();
+  return /^\d+$/.test(t) ? t : t;
+}
+function setField(key, value) {
+  App.spec[key] = value;
+  const inp = $(`#editorFields [data-field="${key}"]`);
+  if (inp) inp.value = value;
+}
+function refreshImageDrop() {
+  const prev = $("#imgPrev"), note = $("#imgNote"), clear = $("#imgClear");
+  if (!prev) return;
+  if (App.spec.image) {
+    const src = /^https?:\/\//.test(App.spec.image) ? `/api/img?u=${encodeURIComponent(App.spec.image)}` : App.spec.image;
+    prev.src = src;
+    prev.style.display = "";
+    clear.style.display = "";
+    note.innerHTML = App.spec._customImage ? "Using your custom photo." : "Photo from acehardware.com.<br>Click to replace, or drag a new one here.";
+  } else {
+    prev.style.display = "none";
+    clear.style.display = "none";
+    note.innerHTML = "Auto-fetched on SKU lookup.<br>Click to use your own photo, or drag one here.";
+  }
+}
+function switchTypeKeepingSpec(newType) {
+  const keep = App.spec;
+  showEditor(newType);
+  App.spec = Object.assign(App.spec, keep);
+}
+
+function showMsg(id, cls, text) {
+  const m = $("#" + id);
+  if (!m) return;
+  m.className = `msg show ${cls}`;
+  m.textContent = text;
+}
+
+/* live preview */
+const schedulePreview = debounce(async () => {
+  if (App.view === "editor") {
+    const t = typeById(App.typeId);
+    if (!t) return;
+    const seq = ++App._previewSeq;
+    await ensureFontsLoaded();
+    const size = sizeById(App.sizeId);
+    try {
+      const svg = await t.render(currentRenderSpec(), size.w, size.h);
+      if (seq !== App._previewSeq) return;
+      setPreviewSVG(svg, size);
+    } catch (e) {
+      console.error(e);
+    }
+  } else if (App.view === "stihl") {
+    renderStihlPreview();
+  }
+}, 160);
+
+function setPreviewSVG(svg, size) {
+  const holder = $("#signHolder");
+  if (!holder) return;
+  const stage = holder.parentElement;
+  const availW = stage.clientWidth - 44;
+  const availH = Math.max(300, window.innerHeight - 420);
+  const scale = Math.min(availW / (size.w * PPI), availH / (size.h * PPI), 1.6);
+  holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
+  const meta = $("#previewMeta");
+  if (meta) meta.textContent = `${size.label.replace(/"/g, "″")} — prints at exact size · shown at ${(scale * 100).toFixed(0)}%`;
+}
+
+/* ---------------- STIHL editor ---------------- */
+function showStihl() {
+  App.view = "stihl";
+  markActiveNav();
+  const work = $("#work");
+  const meta = StihlData.meta;
+  work.innerHTML = `
+    <div class="work-inner">
+      <div class="editor-grid">
+        <div class="card">
+          <div class="card-head"><h2>STIHL Shelf Sign</h2><span class="hint">Pricing: ${esc(meta.label)}</span></div>
+          <div class="card-body">
+            <label class="f-label">Find a model</label>
+            <input class="f-input" id="stihlSearch" placeholder="Search by model, nickname, SKU, or UPC…">
+            <div class="stihl-results" id="stihlResults"></div>
+            <div id="stihlEditor"></div>
+            <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+              <button class="btn btn-ghost btn-sm" id="stihlImportBtn">Update pricing from CSV…</button>
+              <input type="file" id="stihlImportFile" accept=".csv,text/csv" style="display:none">
+            </div>
+            <div class="f-help">Dealer price file (STIHL Material Number / Material Description / MSRP columns). Prices, UPCs and Ace SKUs update in place.</div>
+            <div class="msg" id="stihlImportMsg"></div>
+          </div>
+        </div>
+        <div class="card preview-card">
+          <div class="card-head">
+            <h2>Preview</h2>
+            <div class="size-chips" id="stihlSizeChips" style="margin-left:auto"></div>
+          </div>
+          <div class="preview-stage"><div class="sign-holder" id="signHolder"></div></div>
+          <div class="preview-meta" id="previewMeta"></div>
+          <div class="card-body" style="padding-top:0">
+            <div class="actions" style="margin-top:0">
+              <button class="btn btn-primary" id="stihlAddBtn">＋ Add to Queue</button>
+              <button class="btn btn-secondary" id="stihlPrintBtn">Print</button>
+              <button class="btn btn-secondary" id="stihlPdfBtn">PDF</button>
+            </div>
+            <div class="msg" id="stihlMsg"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const t = typeById("stihl_shelf");
+  if (!t.sizes.includes(App.sizeId)) App.sizeId = t.defaultSize;
+  buildStihlSizeChips(t);
+  const search = $("#stihlSearch");
+  search.addEventListener("input", debounce(() => renderStihlResults(search.value), 200));
+  renderStihlResults("");
+  if (!App.stihlModelId && StihlData.models().length) App.stihlModelId = StihlData.models()[0].id;
+  buildStihlEditor();
+  renderStihlPreview();
+
+  $("#stihlImportBtn").onclick = () => $("#stihlImportFile").click();
+  $("#stihlImportFile").onchange = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      const text = await f.text();
+      const res = stihlImportPriceCSV(text);
+      StihlData.meta = { source: "import", label: `${f.name} (${res.priceChanges} price changes)` };
+      persistState();
+      showMsg("stihlImportMsg", "ok", `Updated ${res.updated} items — ${res.priceChanges} price changes${res.missing ? `, ${res.missing} not in dataset` : ""}.`);
+      buildStihlEditor();
+      renderStihlPreview();
+    } catch (err) {
+      showMsg("stihlImportMsg", "err", "Import failed: " + err.message);
+    }
+    e.target.value = "";
+  };
+  $("#stihlAddBtn").onclick = () => {
+    const model = StihlData.byId(App.stihlModelId);
+    if (!model) return;
+    Queue.add("stihl_shelf", App.sizeId, stihlCurrent(model));
+    showMsg("stihlMsg", "ok", `Added to queue — ${Queue.items.length} queued.`);
+  };
+  $("#stihlPrintBtn").onclick = async () => {
+    const model = StihlData.byId(App.stihlModelId);
+    if (!model) return;
+    try {
+      const doc = await signToPdf({ typeId: "stihl_shelf", sizeId: App.sizeId, spec: stihlCurrent(model) });
+      printPdfDoc(doc);
+    } catch (e) { showMsg("stihlMsg", "err", "Print failed: " + e.message); }
+  };
+  $("#stihlPdfBtn").onclick = async () => {
+    const model = StihlData.byId(App.stihlModelId);
+    if (!model) return;
+    try {
+      const doc = await signToPdf({ typeId: "stihl_shelf", sizeId: App.sizeId, spec: stihlCurrent(model) });
+      downloadPdfDoc(doc, sanitizeFilename(model.model + " " + (model.nickname || "")) + ".pdf");
+    } catch (e) { showMsg("stihlMsg", "err", "PDF failed: " + e.message); }
+  };
+}
+
+function buildStihlSizeChips(t) {
+  const wrap = $("#stihlSizeChips");
+  wrap.innerHTML = "";
+  for (const s of sizesForType(t)) {
+    const c = el("button", "size-chip" + (s.id === App.sizeId ? " active" : ""), s.label.replace(/"$/, "″"));
+    c.onclick = () => { App.sizeId = s.id; buildStihlSizeChips(t); renderStihlPreview(); };
+    wrap.appendChild(c);
+  }
+}
+
+function renderStihlResults(q) {
+  const host = $("#stihlResults");
+  if (!host) return;
+  const models = StihlData.search(q).slice(0, 200);
+  host.innerHTML = "";
+  let lastCat = null;
+  for (const mo of models) {
+    if (mo.categoryName !== lastCat) {
+      lastCat = mo.categoryName;
+      host.appendChild(el("div", "stihl-group", mo.categoryName));
+    }
+    const row = el("div", "stihl-row" + (mo.id === App.stihlModelId ? " sel" : ""));
+    const dot = el("span", "spec-dot " + stihlSpecCompleteness(mo));
+    const price = mo.variants[0] ? "$" + (mo.variants[0].msrp || 0).toFixed(0) : "";
+    row.appendChild(dot);
+    const nm = el("span", "sr-name", mo.model);
+    row.appendChild(nm);
+    if (mo.nickname) row.appendChild(el("span", "sr-nick", mo.nickname));
+    row.appendChild(el("span", "sr-price", price));
+    row.onclick = () => {
+      App.stihlModelId = mo.id;
+      renderStihlResults($("#stihlSearch").value);
+      buildStihlEditor();
+      renderStihlPreview();
+    };
+    host.appendChild(row);
+  }
+  if (!models.length) host.appendChild(el("div", "queue-empty", "No matches"));
+}
+
+function buildStihlEditor() {
+  const host = $("#stihlEditor");
+  const model = StihlData.byId(App.stihlModelId);
+  if (!host || !model) { if (host) host.innerHTML = ""; return; }
+  const cfg = stihlCurrent(model);
+  host.innerHTML = "";
+
+  host.appendChild(labelEl("Model configured on floor"));
+  const vsel = el("select", "f-select");
+  model.variants.forEach((v, i) => {
+    const opt = el("option");
+    opt.value = String(i);
+    opt.textContent = `${stihlSideLabel(v, model.category)} — $${(v.msrp || 0).toFixed(2)}${v.aceSku ? " · " + v.aceSku : ""}`;
+    if (i === cfg.floorIdx) opt.selected = true;
+    vsel.appendChild(opt);
+  });
+  vsel.onchange = () => {
+    stihlSetFloorVariant(model.id, parseInt(vsel.value, 10));
+    persistState();
+    buildStihlEditor();
+    renderStihlPreview();
+  };
+  host.appendChild(vsel);
+
+  const row1 = el("div", "f-row");
+  row1.appendChild(fieldCol("Price", cfg.price, (v) => { stihlSetOverride(model.id, "price", v); }));
+  row1.appendChild(fieldCol("Store SKU", cfg.sku, (v) => { stihlSetOverride(model.id, "sku", v); }));
+  row1.appendChild(fieldCol("UPC", cfg.upc, (v) => { stihlSetOverride(model.id, "upc", v.replace(/\D/g, "")); }));
+  host.appendChild(row1);
+
+  const row2 = el("div", "f-row");
+  row2.appendChild(fieldCol("Nickname (orange)", cfg.model2, (v) => { stihlSetOverride(model.id, "model2", v); }));
+  row2.appendChild(fieldCol("Config pill", cfg.config, (v) => { stihlSetOverride(model.id, "config", v); }));
+  host.appendChild(row2);
+
+  host.appendChild(labelEl(`Specs — ${cfg.specTitle} (${cfg.specSource})`));
+  const specWrap = el("div");
+  cfg.specs.slice(0, 4).forEach((pair, i) => {
+    const r = el("div", "f-row");
+    r.style.marginTop = "6px";
+    const l = inputEl("text", pair[0]);
+    const v = inputEl("text", pair[1]);
+    l.placeholder = "LABEL"; v.placeholder = "value";
+    const save = () => {
+      const specs = cfg.specs.map((s) => s.slice());
+      specs[i] = [l.value, v.value];
+      stihlSetOverride(model.id, "specs", specs);
+      persistState();
+      renderStihlPreview();
+    };
+    l.addEventListener("input", debounce(save, 300));
+    v.addEventListener("input", debounce(save, 300));
+    r.appendChild(l); r.appendChild(v);
+    specWrap.appendChild(r);
+  });
+  host.appendChild(specWrap);
+
+  host.appendChild(labelEl("Other configurations (side panel)"));
+  cfg.side.forEach((s) => {
+    const box = el("div", "side-item-ed");
+    const head = el("div", "si-head");
+    const cb = el("input");
+    cb.type = "checkbox";
+    cb.checked = !!s.include;
+    cb.onchange = () => { setSideOverride(model.id, s.material, "include", cb.checked); };
+    head.appendChild(cb);
+    head.appendChild(el("span", "", s.label));
+    head.appendChild(el("span", "sr-price", "$" + s.price));
+    box.appendChild(head);
+    host.appendChild(box);
+  });
+
+  const reset = el("button", "btn btn-ghost btn-sm", "Reset this sign to file data");
+  reset.style.marginTop = "12px";
+  reset.onclick = () => { delete StihlData.overrides[model.id]; persistState(); buildStihlEditor(); renderStihlPreview(); };
+  host.appendChild(reset);
+
+  function fieldCol(label, value, save) {
+    const w = el("div");
+    w.appendChild(labelEl(label));
+    const i = inputEl("text", value);
+    i.addEventListener("input", debounce(() => { save(i.value); persistState(); renderStihlPreview(); }, 300));
+    w.appendChild(i);
+    return w;
+  }
+}
+
+function setSideOverride(modelId, material, key, value) {
+  const o = StihlData.overrides[modelId] || (StihlData.overrides[modelId] = {});
+  const side = o.side || (o.side = {});
+  const item = side[material] || (side[material] = {});
+  item[key] = value;
+  persistState();
+  renderStihlPreview();
+}
+
+async function renderStihlPreview() {
+  const model = StihlData.byId(App.stihlModelId);
+  if (!model || App.view !== "stihl") return;
+  await ensureFontsLoaded();
+  const size = sizeById(App.sizeId);
+  const svg = await renderStihlSign(stihlCurrent(model), size.w, size.h);
+  setPreviewSVG(svg, size);
+}
+
+/* ---------------- queue rail ---------------- */
+async function renderQueue() {
+  const host = $("#queueItems");
+  const count = $("#queueCount");
+  count.textContent = String(Queue.items.length);
+  if (!Queue.items.length) {
+    host.innerHTML = `<div class="queue-empty">Queue is empty.<br>Build a sign and hit <b>＋ Add to Queue</b> — mix any types and sizes, then print them all at once.</div>`;
+    $("#sheetPreviews").innerHTML = "";
+    $("#queueStats").textContent = "";
+    updateQueueButtons();
+    return;
+  }
+  host.innerHTML = "";
+  for (const q of Queue.items) {
+    const item = el("div", "q-item");
+    const thumb = el("div", "q-thumb");
+    thumb.dataset.uid = q.uid;
+    const info = el("div", "q-info");
+    const size = sizeById(q.sizeId);
+    info.appendChild(el("div", "q-title", queueItemTitle(q)));
+    info.appendChild(el("div", "q-sub", `${typeById(q.typeId) ? typeById(q.typeId).label : q.typeId} · ${size.w}×${size.h}″`));
+    const actions = el("div", "q-actions");
+    const dup = el("button", "q-btn", "⧉");
+    dup.title = "Duplicate";
+    dup.onclick = () => Queue.duplicate(q.uid);
+    const del = el("button", "q-btn", "✕");
+    del.title = "Remove";
+    del.onclick = () => Queue.remove(q.uid);
+    actions.appendChild(dup);
+    actions.appendChild(del);
+    item.appendChild(thumb);
+    item.appendChild(info);
+    item.appendChild(actions);
+    host.appendChild(item);
+  }
+  updateQueueButtons();
+  renderSheetPreviews();
+  // thumbnails (async, after list is in place)
+  ensureFontsLoaded().then(async () => {
+    for (const q of Queue.items) {
+      const holder = $(`.q-thumb[data-uid="${q.uid}"]`);
+      if (!holder || holder.firstChild) continue;
+      try {
+        const size = sizeById(q.sizeId);
+        const svg = await renderQueueItemSVG(q, size.w, size.h);
+        const scale = Math.min(62 / (size.w * PPI), 42 / (size.h * PPI));
+        holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
+      } catch (e) {}
+    }
+  });
+}
+
+function updateQueueButtons() {
+  const has = Queue.items.length > 0;
+  $("#printAllBtn").disabled = !has;
+  $("#exportAllBtn").disabled = !has;
+  $("#clearQueueBtn").disabled = !has;
+}
+
+async function renderSheetPreviews() {
+  const host = $("#sheetPreviews");
+  host.innerHTML = "";
+  const packed = packQueue(Queue.packable(), { margin: Settings.get().margin });
+  const stats = $("#queueStats");
+  const nSigns = Queue.items.length;
+  stats.textContent = `${nSigns} sign${nSigns === 1 ? "" : "s"} → ${packed.pages.length} sheet${packed.pages.length === 1 ? "" : "s"} (optimized layout, straight cuts)`;
+  await ensureFontsLoaded();
+  for (let i = 0; i < packed.pages.length && i < 8; i++) {
+    const page = packed.pages[i];
+    const box = el("div", "sheet-thumb");
+    const { svg, pw, ph } = await composeSheetSVG(page, Settings.get().cutGuides);
+    const scale = Math.min(84 / (pw * PPI), 106 / (ph * PPI));
+    box.innerHTML = svg.replace(/^<svg /, `<svg style="width:${pw * PPI * scale}px;height:${ph * PPI * scale}px" `);
+    box.appendChild(el("span", "pg", String(i + 1)));
+    host.appendChild(box);
+  }
+  if (packed.pages.length > 8) {
+    host.appendChild(el("div", "queue-stats", `+${packed.pages.length - 8} more sheets`));
+  }
+  return packed;
+}
+
+async function exportQueue(print) {
+  if (!Queue.items.length) return;
+  const btn = print ? $("#printAllBtn") : $("#exportAllBtn");
+  const orig = btn.textContent;
+  btn.disabled = true;
+  try {
+    const packed = packQueue(Queue.packable(), { margin: Settings.get().margin });
+    btn.textContent = "Rendering…";
+    const doc = await pagesToPdf(packed.pages, Settings.get().cutGuides, (i, n) => {
+      btn.textContent = `Sheet ${i}/${n}…`;
+    });
+    if (print) printPdfDoc(doc);
+    else {
+      const d = new Date();
+      const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      downloadPdfDoc(doc, `ace-signs-${stamp}.pdf`);
+    }
+  } catch (e) {
+    alert("Export failed: " + e.message);
+    console.error(e);
+  } finally {
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+}
+
+/* ---------------- bulk add ---------------- */
+function initBulk() {
+  const ta = $("#bulkSkus");
+  const badge = $("#bulkCount");
+  ta.addEventListener("input", () => {
+    const n = parseBulkSkus(ta.value).length;
+    badge.textContent = n ? `${n} SKU${n === 1 ? "" : "s"} detected` : "";
+  });
+  $("#bulkAddBtn").onclick = async () => {
+    const skus = parseBulkSkus(ta.value);
+    if (!skus.length) return;
+    const typeId = $("#bulkType").value;
+    const sizeId = $("#bulkSize").value;
+    const prog = $("#bulkProgress");
+    const fill = prog.querySelector("i");
+    prog.classList.add("show");
+    let done = 0, ok = 0;
+    const CONCURRENCY = 5;
+    const work = skus.slice();
+    const runOne = async () => {
+      const sku = work.shift();
+      if (sku == null) return;
+      try {
+        const res = await fetch(`/api/lookup?q=${encodeURIComponent(sku)}&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
+        if (res.ok) {
+          const si = saleInfo(res);
+          const spec = {
+            sku: res.sku || sku,
+            name: res.name || "",
+            image: res.imageUrl || null,
+            price: si.onSale ? si.sale : (res.price || res.listPrice || ""),
+            regPrice: si.onSale ? si.reg : "",
+            startDate: App.batchStart, endDate: App.batchEnd,
+          };
+          Queue.add(si.onSale && typeId === "regular" ? "sale" : typeId, sizeId, spec);
+          ok++;
+        }
+      } catch (e) {}
+      done++;
+      fill.style.width = `${(done / skus.length) * 100}%`;
+      await runOne();
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, skus.length) }, runOne));
+    prog.classList.remove("show");
+    fill.style.width = "0";
+    badge.textContent = `Added ${ok} of ${skus.length}`;
+    if (ok) ta.value = "";
+  };
+}
+
+/* ---------------- settings ---------------- */
+function openSettings() {
+  const s = Settings.get();
+  $("#setStore").value = s.storeCode;
+  $("#setStoreLine").value = s.storeLine;
+  $("#setPrintStoreLine").checked = !!s.printStoreLine;
+  $("#setCutGuides").checked = !!s.cutGuides;
+  $("#setMargin").value = String(s.margin);
+  $("#settingsModal").classList.add("show");
+  $("#settingsSave").onclick = () => {
+    Settings.set({
+      storeCode: $("#setStore").value.trim() || "12180",
+      storeLine: $("#setStoreLine").value.trim(),
+      printStoreLine: $("#setPrintStoreLine").checked,
+      cutGuides: $("#setCutGuides").checked,
+      margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),
+    });
+    $("#settingsModal").classList.remove("show");
+    renderQueue();
+  };
+}

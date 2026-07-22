@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>STIHL Saw Chain Finder</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+  @page { size: 24in 36in; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 24in; height: 36in; overflow: hidden; }
+  body {
+    font-family: "Barlow", sans-serif; color: #191919; background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .band { background: #EF7A1A; color: #fff; padding: .45in .9in .4in; }
+  .band .logo {
+    display: inline-block; background: #fff; color: #EF7A1A;
+    font-family: "Barlow Semi Condensed", sans-serif; font-weight: 800;
+    font-style: italic; font-size: .62in; line-height: 1;
+    padding: .1in .22in .13in .18in; border-radius: .06in;
+  }
+  .band .logo sup { font-size: .16in; font-style: normal; vertical-align: .3in; }
+  .band h1 {
+    font-family: "Barlow Semi Condensed", sans-serif; font-weight: 800;
+    font-style: italic; font-size: 1.35in; line-height: .95;
+    letter-spacing: -.02in; margin-top: .25in;
+  }
+  .band .sub {
+    font-family: "Barlow Condensed", sans-serif; font-weight: 600;
+    font-size: .42in; letter-spacing: .04in; margin-top: .18in; opacity: .92;
+  }
+  .howto {
+    display: flex; gap: .6in; padding: .45in .9in;
+    background: #191919; color: #fff;
+  }
+  .step { display: flex; align-items: center; gap: .25in; flex: 1; }
+  .step .n {
+    flex: none; width: .75in; height: .75in; border-radius: 50%;
+    background: #EF7A1A; color: #fff; display: flex; align-items: center;
+    justify-content: center; font-family: "Barlow Semi Condensed", sans-serif;
+    font-weight: 800; font-style: italic; font-size: .46in;
+  }
+  .step .t { font-family: "Barlow", sans-serif; font-weight: 600;
+    font-size: .27in; line-height: 1.25; }
+  .step .t b { color: #F9A05B; }
+
+  .content { height: 24.9in; padding: .5in .9in .2in; column-count: 3;
+    column-gap: .7in; column-fill: auto; overflow: hidden; }
+  .group { break-inside: avoid-column; margin-bottom: .5in; }
+  .group-head {
+    font-family: "Barlow Semi Condensed", sans-serif; font-weight: 800;
+    font-style: italic; font-size: .44in; color: #EF7A1A;
+    border-bottom: .045in solid #EF7A1A; padding-bottom: .08in;
+    margin-bottom: .14in;
+  }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.mb { break-inside: avoid-column; }
+  .group { break-after: avoid-column; }
+  th {
+    font-family: "Barlow", sans-serif; font-weight: 600; font-size: .16in;
+    letter-spacing: .035in; color: #9C9C9C; text-align: left;
+    padding: .05in .08in .07in; border-bottom: .02in solid #E4E4E4;
+  }
+  td {
+    font-family: "Barlow Condensed", sans-serif; font-weight: 600;
+    font-size: .255in; padding: .055in .08in;
+    border-bottom: .014in solid #ECECEC; white-space: nowrap;
+  }
+  td.m { font-weight: 700; }
+  td.b, th.b { text-align: center; }
+  td.b { font-weight: 700; color: #EF7A1A; }
+  td.c { letter-spacing: .01in; }
+  td.p { font-family: "Barlow", sans-serif; font-weight: 600; font-size: .22in; }
+  td.s { color: #666; font-size: .22in; }
+  tbody tr:nth-child(even) { background: #F7F7F7; }
+
+  .legend { background: #F4F4F4; padding: .32in .9in .3in; }
+  .legend-head {
+    font-family: "Barlow", sans-serif; font-weight: 700; font-size: .3in;
+    letter-spacing: .07in; color: #EF7A1A; margin-bottom: .22in;
+  }
+  .fams { display: flex; flex-wrap: wrap; gap: .22in .45in; }
+  .fam { min-width: 2.55in; }
+  .fam-code {
+    font-family: "Barlow Semi Condensed", sans-serif; font-weight: 800;
+    font-style: italic; font-size: .34in; color: #191919;
+  }
+  .fam-name { font-family: "Barlow Condensed", sans-serif; font-weight: 600;
+    font-size: .26in; margin-top: .02in; }
+  .fam-pitch { font-family: "Barlow", sans-serif; font-weight: 600;
+    font-size: .19in; letter-spacing: .03in; color: #9C9C9C; margin-top: .02in; }
+  .footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .22in .9in .3in; background: #F4F4F4;
+    font-family: "Barlow", sans-serif; font-weight: 500; font-size: .2in;
+    color: #9C9C9C;
+  }
+</style>
+</head>
+<body>
+  <div class="band">
+    <div class="logo">STIHL<sup>®</sup></div>
+    <h1>FIND YOUR SAW CHAIN</h1>
+    <div class="sub">MATCH YOUR SAW &amp; BAR LENGTH TO THE RIGHT STIHL OILOMATIC&reg; CHAIN</div>
+  </div>
+  <div class="howto">
+    <div class="step"><div class="n">1</div><div class="t">Find your <b>saw model</b> — it&rsquo;s printed on the starter cover or the side of the housing.</div></div>
+    <div class="step"><div class="n">2</div><div class="t">Check your <b>bar length</b> — stamped near the tip of the guide bar (16&Prime;, 18&Prime;, 20&Prime;&hellip;).</div></div>
+    <div class="step"><div class="n">3</div><div class="t">Match the row below and bring the <b>chain part #</b> to the counter. We&rsquo;ll take it from there.</div></div>
+  </div>
+  <div class="content">
+
+    <div class="group">
+      <div class="group-head">GAS CHAIN SAWS</div>
+      <table class="hdr"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup>
+        <thead><tr><th class="m">SAW MODEL</th><th class="b">BAR</th>
+        <th class="c">CHAIN</th><th class="p">CHAIN PART #</th>
+        <th class="s">STORE SKU</th></tr></thead>
+      </table>
+    </div>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 151 TC-E</td><td class="b">12&Prime;</td><td class="c">71PM3 64</td><td class="p">3670-005-0064</td><td class="s">7000168D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 162</td><td class="b">16&Prime;</td><td class="c">61PMM3 55</td><td class="p">3610-005-0055</td><td class="s">7000994D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 172 C-E</td><td class="b">16&Prime;</td><td class="c">61PMM3 55</td><td class="p">3610-005-0055</td><td class="s">7000994D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 182</td><td class="b">16&Prime;</td><td class="c">63PM3 55</td><td class="p">3636-005-0055</td><td class="s">7001029D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 182 C-BE</td><td class="b">16&Prime;</td><td class="c">63PM3 55</td><td class="p">3636-005-0055</td><td class="s">7001029D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 194 C-E</td><td class="b">12&Prime;</td><td class="c">63PS3 44</td><td class="p">3616-005-0044</td><td class="s">7001160D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">63PS3 50</td><td class="p">3616-005-0050</td><td class="s">7001161D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">61PMM3 50</td><td class="p">3610-005-0050</td><td class="s">7000993D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">63PS3 55</td><td class="p">3616-005-0055</td><td class="s">7001162D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">61PMM3 55</td><td class="p">3610-005-0055</td><td class="s">7000994D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 194 T</td><td class="b">12&Prime;</td><td class="c">63PM3 44</td><td class="p">3636-005-0044</td><td class="s">7001024D</td></tr>
+<tr><td class="m"></td><td class="b">12&Prime;</td><td class="c">61PMM3 44</td><td class="p">3610-005-0044</td><td class="s">7000129D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">61PMM3 50</td><td class="p">3610-005-0050</td><td class="s">7000993D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">63PM3 50</td><td class="p">3636-005-0050</td><td class="s">7001026D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">61PS3 50</td><td class="p">3699-005-0050</td><td class="s">7033320D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">63PM3 55</td><td class="p">3636-005-0055</td><td class="s">7001029D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">61PMM3 55</td><td class="p">3610-005-0055</td><td class="s">7000994D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 201 C-EM</td><td class="b">12&Prime;</td><td class="c">63PS3 44</td><td class="p">3616-005-0044</td><td class="s">7001160D</td></tr>
+<tr><td class="m"></td><td class="b">12&Prime;</td><td class="c">63PM3 44</td><td class="p">3636-005-0044</td><td class="s">7001024D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">63PS3 50</td><td class="p">3616-005-0050</td><td class="s">7001161D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">63PM3 50</td><td class="p">3636-005-0050</td><td class="s">7001026D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">63PS3 55</td><td class="p">3616-005-0055</td><td class="s">7001162D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">63PM3 55</td><td class="p">3636-005-0055</td><td class="s">7001029D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 201 TC-M</td><td class="b">12&Prime;</td><td class="c">63PS3 44</td><td class="p">3616-005-0044</td><td class="s">7001160D</td></tr>
+<tr><td class="m"></td><td class="b">12&Prime;</td><td class="c">63PM3 44</td><td class="p">3636-005-0044</td><td class="s">7001024D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">63PS3 50</td><td class="p">3616-005-0050</td><td class="s">7001161D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">63PM3 50</td><td class="p">3636-005-0050</td><td class="s">7001026D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">63PM3 55</td><td class="p">3636-005-0055</td><td class="s">7001029D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">63PS3 55</td><td class="p">3616-005-0055</td><td class="s">7001162D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">61PS3 55</td><td class="p">3699-005-0055</td><td class="s">7033308D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 212 C-BE</td><td class="b">18&Prime;</td><td class="c">63PM3 61</td><td class="p">3636-005-0061</td><td class="s">7001031D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 250</td><td class="b">18&Prime;</td><td class="c">23RM3 68</td><td class="p">3695-005-0068</td><td class="s">7020390D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 251 C-BE</td><td class="b">18&Prime;</td><td class="c">23RM3 68</td><td class="p">3695-005-0068</td><td class="s">7020390D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 251 WOOD BOSS</td><td class="b">18&Prime;</td><td class="c">23RM3 68</td><td class="p">3695-005-0068</td><td class="s">7020390D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 261</td><td class="b">16&Prime;</td><td class="c">23RM3 67</td><td class="p">3695-005-0067</td><td class="s">7020437D</td></tr>
+<tr><td class="m"></td><td class="b">18&Prime;</td><td class="c">23RM3 74</td><td class="p">3695-005-0074</td><td class="s">7019556D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">23RM3 81</td><td class="p">3695-005-0081</td><td class="s">7020403D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 261 C-M</td><td class="b">16&Prime;</td><td class="c">23RM3 67</td><td class="p">3695-005-0067</td><td class="s">7020437D</td></tr>
+<tr><td class="m"></td><td class="b">18&Prime;</td><td class="c">23RM3 74</td><td class="p">3695-005-0074</td><td class="s">7019556D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">23RM3 81</td><td class="p">3695-005-0081</td><td class="s">7020403D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 271 FARM BOSS</td><td class="b">18&Prime;</td><td class="c">23RM3 74</td><td class="p">3695-005-0074</td><td class="s">7019556D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">23RM3 81</td><td class="p">3695-005-0081</td><td class="s">7020403D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 291</td><td class="b">18&Prime;</td><td class="c">23RM3 74</td><td class="p">3695-005-0074</td><td class="s">7019556D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">23RM3 81</td><td class="p">3695-005-0081</td><td class="s">7020403D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 311</td><td class="b">18&Prime;</td><td class="c">33RS3 66</td><td class="p">3624-005-0066</td><td class="s">7000659D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS3 72</td><td class="p">3624-005-0072</td><td class="s">7000665D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 362</td><td class="b">18&Prime;</td><td class="c">33RS3 66</td><td class="p">3624-005-0066</td><td class="s">7000659D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS3 72</td><td class="p">3624-005-0072</td><td class="s">7000665D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 362 C-M</td><td class="b">18&Prime;</td><td class="c">33RS3 66</td><td class="p">3624-005-0066</td><td class="s">7000659D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS3 72</td><td class="p">3624-005-0072</td><td class="s">7000665D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 362 C-M R</td><td class="b">18&Prime;</td><td class="c">33RS3 66</td><td class="p">3624-005-0066</td><td class="s">7000659D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS3 72</td><td class="p">3624-005-0072</td><td class="s">7000665D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 391</td><td class="b">18&Prime;</td><td class="c">33RS3 66</td><td class="p">3624-005-0066</td><td class="s">7000659D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS3 72</td><td class="p">3624-005-0072</td><td class="s">7000665D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 400 C-M</td><td class="b">18&Prime;</td><td class="c">33RS3 66</td><td class="p">3624-005-0066</td><td class="s">7000659D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS3 72</td><td class="p">3624-005-0072</td><td class="s">7000665D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RM3 72</td><td class="p">3662-005-0072</td><td class="s">7000934D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 462</td><td class="b">20&Prime;</td><td class="c">33RS 72</td><td class="p">3623-005-0072</td><td class="s">7001017D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 462 C-M</td><td class="b">32&Prime;</td><td class="c">33RS 105</td><td class="p">3623-005-0105</td><td class="s">7001201D</td></tr>
+<tr><td class="m"></td><td class="b">36&Prime;</td><td class="c">33RS 114</td><td class="p">3623-005-0114</td><td class="s">7001022D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 462 C-M R</td><td class="b">20&Prime;</td><td class="c">33RS 72</td><td class="p">3623-005-0072</td><td class="s">7001017D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">36RDR 72</td><td class="p">3944-005-0072</td><td class="s">7000810D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RSF 91</td><td class="p">3676-005-0091</td><td class="s">7000701D</td></tr>
+<tr><td class="m"></td><td class="b">32&Prime;</td><td class="c">33RS 105</td><td class="p">3623-005-0105</td><td class="s">7001201D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 462 R</td><td class="b">18&Prime;</td><td class="c">33RS 66</td><td class="p">3623-005-0066</td><td class="s">7001016D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS 72</td><td class="p">3623-005-0072</td><td class="s">7001017D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr>
+<tr><td class="m"></td><td class="b">32&Prime;</td><td class="c">33RS 105</td><td class="p">3623-005-0105</td><td class="s">7001201D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 500i</td><td class="b">18&Prime;</td><td class="c">33RS 66</td><td class="p">3623-005-0066</td><td class="s">7001016D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS 72</td><td class="p">3623-005-0072</td><td class="s">7001017D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 500i R</td><td class="b">16&Prime;</td><td class="c">33RS3 60</td><td class="p">3624-005-0060</td><td class="s">7000657D</td></tr>
+<tr><td class="m"></td><td class="b">18&Prime;</td><td class="c">33RS 66</td><td class="p">3623-005-0066</td><td class="s">7001016D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RS 72</td><td class="p">3623-005-0072</td><td class="s">7001017D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">33RH 72</td><td class="p">3133-005-0072</td><td class="s">7019685D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS3 84</td><td class="p">3624-005-0084</td><td class="s">7000669D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RH 84</td><td class="p">3133-005-0084</td><td class="s">7033307D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RSF 91</td><td class="p">3676-005-0091</td><td class="s">7000701D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 661 C-M MAGNUM</td><td class="b">20&Prime;</td><td class="c">33RS 72</td><td class="p">3623-005-0072</td><td class="s">7001017D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr>
+<tr><td class="m"></td><td class="b">32&Prime;</td><td class="c">33RS 105</td><td class="p">3623-005-0105</td><td class="s">7001201D</td></tr>
+<tr><td class="m"></td><td class="b">36&Prime;</td><td class="c">33RS 114</td><td class="p">3623-005-0114</td><td class="s">7001022D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 661 C-M R MAGNUM</td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr>
+<tr><td class="m"></td><td class="b">32&Prime;</td><td class="c">33RS 105</td><td class="p">3623-005-0105</td><td class="s">7001201D</td></tr>
+<tr><td class="m"></td><td class="b">36&Prime;</td><td class="c">33RS 114</td><td class="p">3623-005-0114</td><td class="s">7001022D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 661 MAGNUM</td><td class="b">20&Prime;</td><td class="c">33RS 72</td><td class="p">3623-005-0072</td><td class="s">7001017D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr>
+<tr><td class="m"></td><td class="b">32&Prime;</td><td class="c">33RS 105</td><td class="p">3623-005-0105</td><td class="s">7001201D</td></tr>
+<tr><td class="m"></td><td class="b">36&Prime;</td><td class="c">33RS 114</td><td class="p">3623-005-0114</td><td class="s">7001022D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 661 R MAGNUM</td><td class="b">20&Prime;</td><td class="c">33RS 72</td><td class="p">3623-005-0072</td><td class="s">7001017D</td></tr>
+<tr><td class="m"></td><td class="b">25&Prime;</td><td class="c">33RS 84</td><td class="p">3623-005-0084</td><td class="s">7001018D</td></tr>
+<tr><td class="m"></td><td class="b">28&Prime;</td><td class="c">33RS 91</td><td class="p">3623-005-0091</td><td class="s">7000860D</td></tr>
+<tr><td class="m"></td><td class="b">36&Prime;</td><td class="c">33RS 114</td><td class="p">3623-005-0114</td><td class="s">7001022D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 881 MAGNUM</td><td class="b">25&Prime;</td><td class="c">46RS 80</td><td class="p">3946-005-0080</td><td class="s">7001152D</td></tr>
+<tr><td class="m"></td><td class="b">36&Prime;</td><td class="c">46RS 108</td><td class="p">3946-005-0108</td><td class="s">7001188D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MS 881 R MAGNUM</td><td class="b">25&Prime;</td><td class="c">46RS 80</td><td class="p">3946-005-0080</td><td class="s">7001152D</td></tr>
+<tr><td class="m"></td><td class="b">36&Prime;</td><td class="c">46RS 108</td><td class="p">3946-005-0108</td><td class="s">7001188D</td></tr></tbody></table>
+
+    <div class="group">
+      <div class="group-head">BATTERY CHAIN SAWS</div>
+      <table class="hdr"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup>
+        <thead><tr><th class="m">SAW MODEL</th><th class="b">BAR</th>
+        <th class="c">CHAIN</th><th class="p">CHAIN PART #</th>
+        <th class="s">STORE SKU</th></tr></thead>
+      </table>
+    </div>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 160.0 C-B</td><td class="b">12&Prime;</td><td class="c">71PM3 64</td><td class="p">3670-005-0064</td><td class="s">7000168D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">71PM3 72</td><td class="p">3670-005-0072</td><td class="s">7001677D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 161 T</td><td class="b">12&Prime;</td><td class="c">71PM3 65</td><td class="p">3670-005-0065</td><td class="s">7000922D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 200.0 C-B</td><td class="b">14&Prime;</td><td class="c">61PS3 50</td><td class="p">3699-005-0050</td><td class="s">7033320D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">61PS3 55</td><td class="p">3699-005-0055</td><td class="s">7033308D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 220.0 C-B</td><td class="b">14&Prime;</td><td class="c">61PS3 50</td><td class="p">3699-005-0050</td><td class="s">7033320D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">61PS3 55</td><td class="p">3699-005-0055</td><td class="s">7033308D</td></tr>
+<tr><td class="m"></td><td class="b">18&Prime;</td><td class="c">61PS3 61</td><td class="p">3699-005-0061</td><td class="s">7033309D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 220.0 TC-O</td><td class="b">12&Prime;</td><td class="c">63PS3 44</td><td class="p">3616-005-0044</td><td class="s">7001160D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">63PS3 50</td><td class="p">3616-005-0050</td><td class="s">7001161D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">61PS3 50</td><td class="p">3699-005-0050</td><td class="s">7033320D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">63PS3 55</td><td class="p">3616-005-0055</td><td class="s">7001162D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 300.0 C-O</td><td class="b">16&Prime;</td><td class="c">23 RS3 67</td><td class="p">3694-005-0067</td><td class="s">7019545D</td></tr>
+<tr><td class="m"></td><td class="b">18&Prime;</td><td class="c">23 RS3 74</td><td class="p">3694-005-0074</td><td class="s">7020321D</td></tr>
+<tr><td class="m"></td><td class="b">20&Prime;</td><td class="c">23 RS3 81</td><td class="p">3694-005-0081</td><td class="s">7019714D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 60.0 C-B SET</td><td class="b">12&Prime;</td><td class="c">71PM3 64</td><td class="p">3670-005-0064</td><td class="s">7000168D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 70.0 C-B SET</td><td class="b">12&Prime;</td><td class="c">71PM3 64</td><td class="p">3670-005-0064</td><td class="s">7000168D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 80.0 C-B</td><td class="b">14&Prime;</td><td class="c">71PM3 64</td><td class="p">3670-005-0064</td><td class="s">7000168D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSA 80.0 C-B SET</td><td class="b">14&Prime;</td><td class="c">71PM3 72</td><td class="p">3670-005-0072</td><td class="s">7001677D</td></tr></tbody></table>
+
+    <div class="group">
+      <div class="group-head">POLE PRUNERS & ELECTRIC SAWS</div>
+      <table class="hdr"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup>
+        <thead><tr><th class="m">SAW MODEL</th><th class="b">BAR</th>
+        <th class="c">CHAIN</th><th class="p">CHAIN PART #</th>
+        <th class="s">STORE SKU</th></tr></thead>
+      </table>
+    </div>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">HT 105</td><td class="b">12&Prime;</td><td class="c">71PM3 64</td><td class="p">3670-005-0064</td><td class="s">7000168D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">HT 134</td><td class="b">14&Prime;</td><td class="c">61PMM3 50</td><td class="p">3610-005-0050</td><td class="s">7000993D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">HT 135</td><td class="b">14&Prime;</td><td class="c">61PMM3 50</td><td class="p">3610-005-0050</td><td class="s">7000993D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">HT 250</td><td class="b">14&Prime;</td><td class="c">61PMM3 50</td><td class="p">3610-005-0050</td><td class="s">7000993D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">HT 56 C-E</td><td class="b">10&Prime;</td><td class="c">71PM3 56</td><td class="p">3670-005-0056</td><td class="s">7001676D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">HT-KM</td><td class="b">10&Prime;</td><td class="c">71PM3 56</td><td class="p">3670-005-0056</td><td class="s">7001676D</td></tr>
+<tr><td class="m"></td><td class="b">12&Prime;</td><td class="c">71PM3 64</td><td class="p">3670-005-0064</td><td class="s">7000168D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">HTA 50.0</td><td class="b">10&Prime;</td><td class="c">71PM3 56</td><td class="p">3670-005-0056</td><td class="s">7001676D</td></tr></tbody></table>
+<table class="mb"><colgroup><col style="width:29%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:17%"></colgroup><tbody><tr><td class="m">MSE 170 C-BQ</td><td class="b">12&Prime;</td><td class="c">63PM3 45</td><td class="p">3636-005-0045</td><td class="s">7001025D</td></tr>
+<tr><td class="m"></td><td class="b">14&Prime;</td><td class="c">63PM3 51</td><td class="p">3636-005-0051</td><td class="s">7000978D</td></tr>
+<tr><td class="m"></td><td class="b">16&Prime;</td><td class="c">63PM3 56</td><td class="p">3636-005-0056</td><td class="s">7001030D</td></tr></tbody></table>
+  </div>
+  <div class="legend">
+    <div class="legend-head">KNOW YOUR CHAIN FAMILIES</div>
+    <div class="fams">
+<div class="fam"><div class="fam-code">23 RM3</div><div class="fam-name">Rapid Micro</div><div class="fam-pitch">.325" pitch</div></div>
+<div class="fam"><div class="fam-code">23 RS3</div><div class="fam-name">Rapid Super</div><div class="fam-pitch">.325" pitch</div></div>
+<div class="fam"><div class="fam-code">33 RH</div><div class="fam-name">Rapid Hexa</div><div class="fam-pitch">3/8" pitch</div></div>
+<div class="fam"><div class="fam-code">33 RM3</div><div class="fam-name">Rapid Micro</div><div class="fam-pitch">3/8" pitch</div></div>
+<div class="fam"><div class="fam-code">33 RS</div><div class="fam-name">Rapid Super</div><div class="fam-pitch">3/8" pitch</div></div>
+<div class="fam"><div class="fam-code">33 RS3</div><div class="fam-name">Rapid Super</div><div class="fam-pitch">3/8" pitch</div></div>
+<div class="fam"><div class="fam-code">33 RSF</div><div class="fam-name">Rapid Super</div><div class="fam-pitch">3/8" pitch</div></div>
+<div class="fam"><div class="fam-code">36 RDR</div><div class="fam-name">Rapid Duro</div><div class="fam-pitch">3/8" pitch</div></div>
+<div class="fam"><div class="fam-code">46 RS</div><div class="fam-name">Rapid Super</div><div class="fam-pitch">.404" pitch</div></div>
+<div class="fam"><div class="fam-code">61 PMM3</div><div class="fam-name">Picco Micro Mini</div><div class="fam-pitch">3/8" PICCO pitch</div></div>
+<div class="fam"><div class="fam-code">61 PS3</div><div class="fam-name">Picco Super</div><div class="fam-pitch">3/8" PICCO pitch</div></div>
+<div class="fam"><div class="fam-code">63 PM3</div><div class="fam-name">Picco Micro</div><div class="fam-pitch">3/8" PICCO pitch</div></div>
+<div class="fam"><div class="fam-code">63 PS3</div><div class="fam-name">Picco Super</div><div class="fam-pitch">3/8" PICCO pitch</div></div>
+<div class="fam"><div class="fam-code">71 PM3</div><div class="fam-name">Picco Micro</div><div class="fam-pitch">1/4" PICCO pitch</div></div>
+    </div>
+  </div>
+  <div class="footer">
+    <div>Factory configurations from the 2026 STIHL Dealer Support Manual. The number after the chain name is the drive-link count &mdash; it must match your bar.</div>
+    <div>Running a non-standard bar? Ask us &mdash; we&rsquo;ll match the loop.</div>
+  </div>
+</body>
+</html>
