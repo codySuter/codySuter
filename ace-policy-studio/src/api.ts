@@ -9,6 +9,7 @@ export interface StudioApi {
   printDoc(id: string): Promise<{ ok: boolean; error?: string }>;
   printReady(): void;
   onMenu(handler: (cmd: string) => void): () => void;
+  onUpdateStatus?(handler: (text: string) => void): () => void;
 }
 
 declare global {

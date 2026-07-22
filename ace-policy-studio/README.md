@@ -9,12 +9,18 @@ controls on the left, a live page on the right, and Print / Export PDF one click
 
 | Download |
 |---|
-| [**AcePolicyStudio.exe**](https://github.com/codysuter/codysuter/releases/download/ace-policy-studio-windows/AcePolicyStudio.exe) — Windows 10/11, portable, no install |
+| [**AcePolicyStudio-Setup.exe**](https://github.com/codysuter/codysuter/releases/latest/download/AcePolicyStudio-Setup.exe) — Windows 10/11 one-click installer |
 
-> The link serves the latest build, published automatically by GitHub Actions
-> (see [`.github/workflows/build-policy-windows.yml`](../.github/workflows/build-policy-windows.yml)).
-> On first launch Windows SmartScreen may warn about an unrecognized app (it's
-> unsigned) — click **More info → Run anyway** (once).
+> Install once — **the app updates itself from then on**: it checks GitHub at
+> launch, downloads new versions in the background (small delta downloads),
+> and offers *Restart & Update* — or installs on quit. `Help → Check for
+> Updates…` runs a manual check. Releases are published automatically by
+> GitHub Actions
+> ([`build-policy-windows.yml`](../.github/workflows/build-policy-windows.yml));
+> ship a new version by bumping `version` in `package.json`.
+> On first install Windows SmartScreen may warn about an unrecognized app
+> (it's unsigned) — click **More info → Run anyway** (once). Auto-updates
+> don't re-trigger the warning. Documents are never touched by updates.
 
 ![The editor](docs/editor.png)
 
@@ -80,7 +86,7 @@ machines. PDFs export wherever you choose (defaults to Documents).
 cd ace-policy-studio
 npm install
 npm run dev:app     # live-reload app (Vite + Electron)
-npm run dist:win    # portable AcePolicyStudio.exe → release/
+npm run dist:win    # AcePolicyStudio-Setup.exe (one-click installer) → release/
 ```
 
 Other scripts: `npm run dev` (browser-only dev server), `npm run typecheck`,
