@@ -93,6 +93,19 @@ const SIGN_TYPES = [
     sample: { name: "Clark+Kensington Paint Gallons", qty: 2, savings: "10" },
   },
   {
+    id: "was_now", group: "Price & Promo", label: "Was / Now",
+    note: "Clearance — this unit only",
+    fields: [
+      F.sku, F.name, F.detail,
+      Object.assign({}, F.regPrice, { label: "Was price", optional: false }),
+      Object.assign({}, F.price, { label: "Now price" }),
+      { key: "unitOnly", kind: "check", label: "Show “THIS UNIT ONLY”", def: true },
+      F.image, F.dates,
+    ],
+    render: (spec, w, h) => AceRenderers.was_now(spec, w, h),
+    sample: { name: "Weber Spirit E-325 Gas Grill", regPrice: "549.00", price: "399.00", unitOnly: true },
+  },
+  {
     id: "your_choice", group: "Price & Promo", label: "Your Choice",
     note: "Red circle — your choice $00",
     fields: [F.sku, F.name, F.detail, F.price, F.image, F.dates],
@@ -136,6 +149,45 @@ const SIGN_TYPES = [
 ];
 
 const typeById = (id) => SIGN_TYPES.find((t) => t.id === id) || null;
+
+/* ---------- gallery template product ----------
+   Gallery/nav thumbnails render with a real product so previews show an
+   actual photo. Default template SKU 81995 (Ace Premium Wild Bird Food
+   20 lb); a live lookup at launch swaps in the real store photo/price and
+   caches it. This fallback keeps thumbnails working offline. */
+const TEMPLATE_FALLBACK = {
+  sku: "81995",
+  name: "Ace Premium Wild Bird Food 20 lb",
+  price: "12.99",
+  salePrice: "",
+  image: "img/template_product.png",
+};
+
+function applyTemplateProduct(p) {
+  const price = parseFloat(p.price) || 12.99;
+  const sale = parseFloat(p.salePrice) || null;
+  const onSale = sale != null && sale < price;
+  const now = (onSale ? sale : price).toFixed(2);
+  const was = (onSale ? price : Math.max(price + 1, price * 1.25)).toFixed(2);
+  const base = { name: p.name, image: p.image, sku: p.sku };
+  const set = (id, extra) => {
+    const t = typeById(id);
+    if (t) t.sample = Object.assign({}, base, extra);
+  };
+  set("regular", { price: price.toFixed(2) });
+  set("sale", { price: now, regPrice: was });
+  set("percent_off", { percent: "25" });
+  set("bogo_free", {});
+  set("bogo_percent", { percent: "50" });
+  set("two_for", { qty: 2, price: Math.max(1, Math.round(price * 0.8)) + ".00" });
+  set("instant_savings", { price: now, regPrice: was, savings: String(Math.max(1, Math.round(was - now))) });
+  set("buy_get_off", { qty: 2, savings: "10" });
+  set("your_choice", { price: price.toFixed(2) });
+  set("was_now", { price: now, regPrice: was, unitOnly: true });
+  set("large_text", { price: price.toFixed(2) });
+}
+
+applyTemplateProduct(TEMPLATE_FALLBACK);
 
 /* Per-type allowed sizes (Ace types allow all; STIHL keeps 5:3 aspect). */
 function sizesForType(t) {

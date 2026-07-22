@@ -442,6 +442,39 @@ AceRenderers.instant_savings = (spec, W, H) =>
     return { markup: m, h: availH };
   });
 
+/* Was / Now — clearance pricing: THIS UNIT ONLY chip, struck WAS price,
+   red block "NOW $00⁰⁰". */
+AceRenderers.was_now = (spec, W, H) =>
+  productSignTemplate(spec, W, H, 0.5, (cx, top, availW, availH, s) => {
+    const showChip = s.unitOnly !== false;
+    const chipSize = Math.max(10, availH * 0.115);
+    const wasSize = Math.max(11, availH * 0.155);
+    const blockH = availH * (showChip ? 0.46 : 0.54);
+    const parts = [];
+    if (showChip) parts.push(chipSize * 1.52);
+    parts.push(wasSize * 1.3, blockH);
+    const st = stack(top, availH, parts, 0.05);
+    let y = st.start;
+    let m = "";
+    if (showChip) {
+      const chip = blackChip(cx, y, "THIS UNIT ONLY", chipSize);
+      m += chip.markup;
+      y += chip.h + st.gap;
+    }
+    const wasText = `WAS ${fmtMoney(s.regPrice)}`;
+    let wSz = wasSize;
+    const wW = () => textWidth(wasText, "RobotoBold", wSz);
+    if (wW() > availW * 0.8) wSz *= (availW * 0.8) / wW();
+    m += svgText(cx, y + wSz * 0.85, wasText, "RobotoBold", wSz, GRAY11);
+    const strikeY = y + wSz * 0.55;
+    const strikeW = wW();
+    m += `<line x1="${(cx - strikeW / 2 - wSz * 0.12).toFixed(2)}" y1="${strikeY.toFixed(2)}" x2="${(cx + strikeW / 2 + wSz * 0.12).toFixed(2)}" y2="${strikeY.toFixed(2)}" stroke="${ACE_RED}" stroke-width="${Math.max(1.6, wSz * 0.09).toFixed(2)}"/>`;
+    y += wSz * 1.3 + st.gap;
+    const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { pre: "NOW " });
+    m += blk.markup;
+    return { markup: m, h: availH };
+  });
+
 /* Buy N get $X off — BUY TWO GET + red block "$00 OFF". */
 AceRenderers.buy_get_off = (spec, W, H) =>
   productSignTemplate(spec, W, H, 0.48, (cx, top, availW, availH, s) => {

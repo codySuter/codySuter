@@ -27,6 +27,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     buildNavThumbs();
     buildGalleryThumbs();
   });
+  loadTemplateProduct();
   $("#settingsBtn").onclick = openSettings;
   $("#homeBtn").onclick = showGallery;
   $("#clearQueueBtn").onclick = () => { if (confirm("Clear the whole queue?")) Queue.clear(); };
@@ -115,6 +116,48 @@ async function buildNavThumbs() {
     const holder = $(`#thumb-${t.id}`);
     if (holder) holder.innerHTML = await typeThumbSVG(t, 50, 34);
   }
+}
+
+/* Load the gallery template product (default SKU 81995): cached copy first,
+   then a live lookup so previews show the real store photo and price. */
+async function loadTemplateProduct() {
+  const sku = (Settings.get().templateSku || "81995").trim();
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem("acesignstudio.template.v1") || "null"); } catch (e) {}
+  if (cached && cached.sku === sku && cached.image) {
+    applyTemplateProduct(cached);
+    refreshTypeThumbs();
+  }
+  try {
+    const res = await fetch(`/api/lookup?q=${encodeURIComponent(sku)}&store=${encodeURIComponent(Settings.get().storeCode || "12180")}`).then((r) => r.json());
+    if (res.ok && (res.name || res.imageUrl)) {
+      let image = TEMPLATE_FALLBACK.image;
+      if (res.imageUrl) {
+        try { image = await toDataURI(res.imageUrl); } catch (e) {}
+      }
+      const t = {
+        sku,
+        name: res.name || TEMPLATE_FALLBACK.name,
+        price: res.price || res.listPrice || TEMPLATE_FALLBACK.price,
+        salePrice: res.salePrice || "",
+        image,
+      };
+      try { localStorage.setItem("acesignstudio.template.v1", JSON.stringify(t)); } catch (e) {}
+      applyTemplateProduct(t);
+      refreshTypeThumbs();
+    }
+  } catch (e) { /* offline — fallback/cached template stays */ }
+}
+
+function refreshTypeThumbs() {
+  ensureFontsLoaded().then(async () => {
+    for (const t of SIGN_TYPES) {
+      const holder = $(`#thumb-${t.id}`);
+      if (holder) holder.innerHTML = await typeThumbSVG(t, 50, 34);
+      const g = $(`#g-prev-${t.id}`);
+      if (g) g.innerHTML = await typeThumbSVG(t, 190, 100);
+    }
+  });
 }
 
 /* ---------------- gallery ---------------- */
@@ -231,6 +274,7 @@ function validateSpec(t, spec) {
   if (need("percent") && !String(spec.percent || "").trim()) return "Enter the percent off.";
   if (need("savings") && !String(spec.savings || "").trim()) return "Enter the savings amount.";
   if (need("category") && !String(spec.category || "").trim()) return "Enter the category name.";
+  if (t.id === "was_now" && !String(spec.regPrice || "").trim()) return "Enter the was price.";
   return null;
 }
 
@@ -324,6 +368,7 @@ function buildEditorFields(t) {
       const lab = el("label", "f-check");
       const cb = el("input");
       cb.type = "checkbox";
+      if (App.spec[f.key] == null && f.def != null) App.spec[f.key] = f.def;
       cb.checked = !!App.spec[f.key];
       cb.onchange = () => { App.spec[f.key] = cb.checked; schedulePreview(); };
       lab.appendChild(cb);
@@ -839,16 +884,24 @@ function openSettings() {
   $("#setPrintStoreLine").checked = !!s.printStoreLine;
   $("#setCutGuides").checked = !!s.cutGuides;
   $("#setMargin").value = String(s.margin);
+  $("#setTemplateSku").value = s.templateSku || "81995";
   $("#settingsModal").classList.add("show");
   $("#settingsSave").onclick = () => {
+    const prevTemplate = Settings.get().templateSku || "81995";
     Settings.set({
       storeCode: $("#setStore").value.trim() || "12180",
       storeLine: $("#setStoreLine").value.trim(),
       printStoreLine: $("#setPrintStoreLine").checked,
       cutGuides: $("#setCutGuides").checked,
       margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),
+      templateSku: $("#setTemplateSku").value.trim() || "81995",
     });
     $("#settingsModal").classList.remove("show");
+    $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
+    if (Settings.get().templateSku !== prevTemplate) {
+      try { localStorage.removeItem("acesignstudio.template.v1"); } catch (e) {}
+      loadTemplateProduct();
+    }
     renderQueue();
   };
 }

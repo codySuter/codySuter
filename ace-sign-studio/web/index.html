@@ -47,6 +47,7 @@
             <select class="f-select" id="bulkType" style="flex:1">
               <option value="regular">Regular Price</option>
               <option value="sale">Sale</option>
+              <option value="was_now">Was / Now</option>
               <option value="large_text">Large Text</option>
             </select>
             <select class="f-select" id="bulkSize" style="flex:1">
@@ -90,6 +91,9 @@
       <label class="f-label">Sheet packing margin (inches)</label>
       <input class="f-input" id="setMargin" type="number" step="0.025" min="0.25" max="0.6">
       <div class="f-help">Keep at 0.375″ or more for the Brother MFC-L9160CDN (≈0.25″ non-printable edge).</div>
+      <label class="f-label">Gallery template SKU</label>
+      <input class="f-input" id="setTemplateSku">
+      <div class="f-help">The product whose photo &amp; price fill the sign previews in the gallery (default 81995 — Ace Premium Wild Bird Food 20 lb). Looked up live at launch and cached.</div>
       <div class="actions" style="position:static;background:none">
         <button class="btn btn-primary" id="settingsSave">Save</button>
       </div>

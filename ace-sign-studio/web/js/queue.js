@@ -11,6 +11,7 @@ const Settings = {
     printStoreLine: false,
     cutGuides: true,
     margin: 0.375,
+    templateSku: "81995",
   },
   get() { return this.data; },
   set(patch) { Object.assign(this.data, patch); persistState(); },
