@@ -119,6 +119,7 @@ func watchdog() {
 		heartbeatMu.Unlock()
 		if pinged && time.Since(last) > 25*time.Second {
 			log.Println("UI window closed — exiting")
+			shutdownBrowser() // close the headless lookup browser too
 			os.Exit(0)
 		}
 	}

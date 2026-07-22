@@ -20,10 +20,16 @@ One app for every sign in the store. Replaces and unifies the three older tools:
 - **STIHL module (shelf sign, datasets, chain-finder posters) is
   currently disabled** — files are retained under `web/data`, `web/tools`
   and `js/*stihl*`; re-enable per the comment in `web/index.html`.
-- **Live store pricing**: type a SKU and the name, store-specific price
-  (Mozu storefront API, `purchaseLocation` 12180 = Snyder's), sale price
-  and product photo fill in automatically. Items on sale auto-switch to a
-  Sale sign. Every lookup keeps a step-by-step diagnostics trail.
+- **Live store pricing**: type a SKU and the name, store-specific price,
+  sale price and product photo fill in automatically. acehardware.com is
+  behind bot protection that blocks plain HTTP clients (empty page + 401
+  on the price API), so lookups drive a **headless instance of the user's
+  own Edge/Chrome** — a real browser clears the challenge and authorizes
+  the in-page storefront price fetch (`purchaseLocation` 12180 = Snyder's),
+  the same approach the original Mac app used with a WKWebView. Falls back
+  to a direct HTTP request when a browser can't be launched. Items on sale
+  auto-switch to a Sale sign; every lookup keeps a step-by-step diagnostics
+  trail (set `ACE_LOOKUP_MODE=http` to force the direct path).
 - **Nine physical sizes**: Full Page (11×8.5 / 8.5×11), **Pallet Sign
   Holder** (11×8.5 / 8.5×11 with the legacy 22pt dashed laminate cut
   guide — cut, laminate, and it fits back into an 8.5×11 holder),

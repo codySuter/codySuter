@@ -400,6 +400,7 @@ func doLookup(query, store string) LookupResult {
 
 	sku := ""
 	pageURL := ""
+	isSearch := false
 	q := strings.TrimSpace(query)
 	switch {
 	case skuRe.MatchString(q):
@@ -410,7 +411,32 @@ func doLookup(query, store string) LookupResult {
 		pageURL = q
 		diag = append(diag, "Treating input as a product URL")
 	default:
+		isSearch = true
+		pageURL = baseSite + "/search?query=" + url.QueryEscape(q)
 		diag = append(diag, "Treating input as a search phrase")
+	}
+
+	// Primary path: drive a real browser. acehardware.com's bot protection
+	// serves a raw HTTP client an empty shell page and 401s the price API;
+	// a real browser clears the challenge and authorizes the in-page price
+	// fetch. This is how the original Mac app (a WKWebView) worked.
+	if !lookupForceHTTP() {
+		if page, sp, salep, finalURL, ok := lookupViaBrowser(pageURL, isSearch, sku, store, &diag); ok {
+			if sku == "" && page.sku != "" {
+				sku = page.sku
+			}
+			assembleResult(&res, sku, finalURL, page, sp, salep, "", "", &diag)
+			if res.OK {
+				res.Diagnostics = diag
+				return res
+			}
+		}
+		diag = append(diag, "Falling back to a direct HTTP request")
+	}
+
+	// Fallback path: raw HTTP (works when the site isn't challenging us, and
+	// in headless/no-browser environments).
+	if isSearch {
 		found, d := searchForProduct(q)
 		diag = append(diag, d...)
 		if found == "" {
@@ -420,7 +446,6 @@ func doLookup(query, store string) LookupResult {
 		}
 		pageURL = found
 	}
-
 	html, finalURL, ok := fetchProductPage(pageURL, &diag)
 	var page *pageProduct
 	if ok {
@@ -458,10 +483,20 @@ func doLookup(query, store string) LookupResult {
 	}
 
 	price, sale, apiName, apiImage := fetchStorePrice(sku, store, &diag)
+	assembleResult(&res, sku, finalURL, page, price, sale, apiName, apiImage, &diag)
+	if !res.OK {
+		res.Error = "No product data found for \"" + query + "\"."
+	}
+	res.Diagnostics = diag
+	return res
+}
 
+// assembleResult fills a LookupResult from a parsed page plus store prices,
+// applying the same precedence rules for both the browser and HTTP paths.
+func assembleResult(res *LookupResult, sku, finalURL string, page *pageProduct, price, sale, apiName, apiImage string, diag *[]string) {
 	res.SKU = sku
 	res.ProductURL = finalURL
-	if res.ProductURL == "" {
+	if res.ProductURL == "" && sku != "" {
 		res.ProductURL = baseSite + "/product/" + sku
 	}
 	if page != nil {
@@ -473,24 +508,29 @@ func doLookup(query, store string) LookupResult {
 	}
 	if res.Name == "" && apiName != "" {
 		res.Name = apiName
-		diag = append(diag, "Product name taken from store API")
+		*diag = append(*diag, "Product name taken from store API")
 	}
 	if apiImage != "" {
 		// Store API image is authoritative when present (matches the Mac app).
 		res.ImageURL = apiImage
-		diag = append(diag, "Photo taken from the store API (authoritative)")
+		*diag = append(*diag, "Photo taken from the store API (authoritative)")
 	}
-	res.Price = price
-	res.SalePrice = sale
+	if price != "" {
+		res.Price = price
+	}
+	if sale != "" {
+		res.SalePrice = sale
+	}
 	if res.Price == "" && res.ListPrice != "" {
-		diag = append(diag, "Store-specific price unavailable — using site price. Double-check the price on acehardware.com")
+		*diag = append(*diag, "Store-specific price unavailable — using site price. Double-check the price on acehardware.com")
 	}
 	res.OK = res.Name != "" || res.Price != "" || res.ListPrice != ""
-	if !res.OK {
-		res.Error = "No product data found for \"" + query + "\"."
-	}
-	res.Diagnostics = diag
-	return res
+}
+
+// lookupForceHTTP disables the browser path (ACE_LOOKUP_MODE=http), for
+// environments where launching a browser is undesirable.
+func lookupForceHTTP() bool {
+	return strings.EqualFold(os.Getenv("ACE_LOOKUP_MODE"), "http")
 }
 
 // searchForProduct runs a site search and returns the first product page URL.
