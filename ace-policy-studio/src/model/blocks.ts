@@ -15,8 +15,9 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   checklist: 'Checklist',
   callout: 'Callout box',
   table: 'Table',
-  signoff: 'Sign-off lines',
+  signoff: 'Signature block',
   image: 'Image',
+  columns: 'Two columns',
 };
 
 export function newBlock(type: BlockType): Block {
@@ -78,18 +79,91 @@ export function newBlock(type: BlockType): Block {
       return {
         id,
         type,
-        heading: 'Employee acknowledgment',
-        rows: 5,
+        heading: 'Employee Acknowledgment & Agreement',
+        body: 'By signing below, I acknowledge that I have read and understand the policy above, and I agree to follow it.',
+        lines: [
+          { label: 'Employee signature', withDate: true },
+          { label: 'Manager signature', withDate: true },
+        ],
       };
     case 'image':
       return { id, type, src: '', caption: '', widthPct: 60 };
+    case 'columns':
+      return {
+        id,
+        type,
+        ratio: 50,
+        left: {
+          heading: 'Left column',
+          blocks: [
+            {
+              id: uid(),
+              type: 'paragraph',
+              html: 'Click to edit — use the buttons under this column to add lists.',
+              muted: false,
+            },
+          ],
+        },
+        right: {
+          heading: 'Right column',
+          blocks: [
+            {
+              id: uid(),
+              type: 'paragraph',
+              html: 'Two columns are great for DO / DON’T lists or side-by-side steps.',
+              muted: false,
+            },
+          ],
+        },
+      };
   }
 }
 
 export function cloneBlock(block: Block): Block {
   const copy = structuredClone(block) as Block;
   copy.id = uid();
+  if (copy.type === 'columns') {
+    for (const side of [copy.left, copy.right]) {
+      side.blocks = side.blocks.map((b) => cloneBlock(b));
+    }
+  }
   return copy;
+}
+
+// ---- deep helpers (columns hold nested child blocks) ----
+
+/** Every array that directly contains blocks: the top level plus each column. */
+export function blockArrays(doc: { blocks: Block[] }): Block[][] {
+  const arrays: Block[][] = [doc.blocks];
+  for (const b of doc.blocks) {
+    if (b.type === 'columns') {
+      arrays.push(b.left.blocks, b.right.blocks);
+    }
+  }
+  return arrays;
+}
+
+export function findBlockDeep(doc: { blocks: Block[] }, id: string): Block | undefined {
+  for (const arr of blockArrays(doc)) {
+    const hit = arr.find((b) => b.id === id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/** The array containing the block with this id, or undefined. */
+export function containerOf(doc: { blocks: Block[] }, id: string): Block[] | undefined {
+  return blockArrays(doc).find((arr) => arr.some((b) => b.id === id));
+}
+
+/** Index of the top-level block that is — or contains — this id. */
+export function topLevelIndexOf(doc: { blocks: Block[] }, id: string): number {
+  return doc.blocks.findIndex(
+    (b) =>
+      b.id === id ||
+      (b.type === 'columns' &&
+        (b.left.blocks.some((c) => c.id === id) || b.right.blocks.some((c) => c.id === id))),
+  );
 }
 
 // Auto-numbering: a section's number is its position among section blocks.

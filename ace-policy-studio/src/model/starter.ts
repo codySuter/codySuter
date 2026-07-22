@@ -40,7 +40,7 @@ function doc(
     subtitle,
     chip,
     accent: '#C8102E',
-    audience: 'employee',
+    typeScale: 100,
     blocks,
     createdAt: now,
     updatedAt: now,

@@ -35,18 +35,22 @@ controls on the left, a live page on the right, and Print / Export PDF one click
 - **Click anything to edit.** Title, badges, bullets, callouts — it's all
   editable in place. **Ctrl+B** bold, **Ctrl+I** italics, **Ctrl+H** yellow
   highlight inside a callout bar. Sections renumber themselves automatically.
-- **New Document wizard.** Pick a type (Employee policy / Procedure (SOP) /
-  Customer posting), answer a few questions, tick the sections you want, and it
-  builds the outline — with a live preview as you choose.
+- **New Document goes straight to work.** One click opens the editor with a
+  ready-to-edit policy outline — title, numbered sections, badge rows, and the
+  warning callout already in place. No forms first.
 - **One-page focus.** A live meter shows how full the page is; if content
   spills, a dashed "PAGE 2 STARTS" line appears right where the break lands.
 - **Block library**: section headers, paragraphs, badge rows, bullet lists,
-  numbered step lists, checklists, dark callouts, tables, signature/sign-off
-  lines, and images (stored inside the document, auto-scaled).
+  numbered step lists, checklists, dark callouts, tables, **two-column
+  sections** (each column with its own heading, text, and lists — great for
+  DO / DON'T), **agreement signature blocks** in the exact style of the Radio &
+  Scanner Policy Contract (sign-above-the-line rows, date column, wide lines
+  for serial numbers), and images (stored inside the document, auto-scaled).
 - **Print & PDF** through Chromium's print engine: Letter paper, 0.4″ margins,
   full-bleed color — identical geometry to the original documents.
-- **Autosave, undo/redo, duplicate, customer-posting type size** (bigger print
-  for public postings), and per-document accent color (Ace red, dark red, ink).
+- **Autosave, undo/redo, duplicate, a type-size slider** (90–140%: compact
+  handbook pages through big customer postings), and per-document accent color
+  (Ace red, dark red, ink).
 
 ![A finished document](docs/document.png)
 
@@ -60,7 +64,7 @@ machines. PDFs export wherever you choose (defaults to Documents).
 
 | Keys | Action |
 |---|---|
-| `Ctrl+N` | New document (wizard) |
+| `Ctrl+N` | New document (opens the editor with a fresh outline) |
 | `Ctrl+L` | Back to library |
 | `Ctrl+E` | Export PDF |
 | `Ctrl+P` | Print |
@@ -88,8 +92,7 @@ production `printToPDF`), `npm run icon` (regenerates `build/icon.*`).
 
 Electron 43 + React 19 + Vite + Tailwind 4, `@dnd-kit` for drag-and-drop,
 `zustand` for state. Documents render from a small block model through one
-`PageView` component used everywhere — the editor, the library thumbnails, the
-wizard preview, and the hidden print window — so what you see is exactly what
-prints. CI builds and tests on a real Windows runner (renderer E2E + an
+`PageView` component used everywhere — the editor, the library thumbnails, and
+the hidden print window — so what you see is exactly what prints. CI builds and tests on a real Windows runner (renderer E2E + an
 Electron smoke test that seeds the library and exports a PDF) before every
 release.

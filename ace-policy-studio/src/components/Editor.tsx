@@ -14,6 +14,7 @@ import {
 import {
   AlignLeft,
   ArrowLeft,
+  Columns2,
   FileDown,
   Heading1,
   Image as ImageIcon,
@@ -30,10 +31,15 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { BLOCK_LABELS } from '../model/blocks';
+import { BLOCK_LABELS, findBlockDeep, topLevelIndexOf } from '../model/blocks';
 import { plainText } from '../model/sanitize';
 import type { Block, BlockType } from '../model/types';
-import { ACCENT_PRESETS, PRINTABLE_H_PX } from '../model/types';
+import {
+  ACCENT_PRESETS,
+  PRINTABLE_H_PX,
+  TYPE_SCALE_MAX,
+  TYPE_SCALE_MIN,
+} from '../model/types';
 import { useStore, type Zoom } from '../store';
 import { toggleHighlightSelection } from './Editable';
 import { PageView } from './PageView';
@@ -48,6 +54,7 @@ const PALETTE: { type: BlockType; icon: React.ReactNode }[] = [
   { type: 'checklist', icon: <ListChecks size={15} /> },
   { type: 'callout', icon: <TriangleAlert size={15} /> },
   { type: 'table', icon: <TableIcon size={15} /> },
+  { type: 'columns', icon: <Columns2 size={15} /> },
   { type: 'signoff', icon: <PenLine size={15} /> },
   { type: 'image', icon: <ImageIcon size={15} /> },
 ];
@@ -64,8 +71,9 @@ function PaletteTile({ type, icon }: { type: BlockType; icon: React.ReactNode })
   const addByClick = () => {
     const st = useStore.getState();
     const sel = st.selectedId;
-    const idx =
-      st.current && sel ? st.current.blocks.findIndex((b) => b.id === sel) + 1 : 0;
+    // Insert after the selected block — or after the two-column block
+    // that contains it when the selection is nested.
+    const idx = st.current && sel ? topLevelIndexOf(st.current, sel) + 1 : 0;
     insertBlock(type, idx > 0 ? idx : undefined);
   };
 
@@ -118,6 +126,8 @@ function Inspector({ block }: { block: Block }) {
   const updateBlock = useStore((s) => s.updateBlock);
   const addListItem = useStore((s) => s.addListItem);
   const tableOp = useStore((s) => s.tableOp);
+  const addSignLine = useStore((s) => s.addSignLine);
+  const removeSignLine = useStore((s) => s.removeSignLine);
 
   switch (block.type) {
     case 'section':
@@ -181,19 +191,40 @@ function Inspector({ block }: { block: Block }) {
       );
     case 'signoff':
       return (
-        <label className="flex items-center gap-2 text-[12px] text-[#20242B]">
-          Signature lines
-          <input
-            type="number"
-            min={1}
-            max={20}
-            value={block.rows}
-            onChange={(e) =>
-              updateBlock(block.id, { rows: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })
-            }
-            className="w-16 rounded border border-[#C9CED4] px-2 py-1"
-          />
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <Btn onClick={() => addSignLine(block.id, true)}>+ Line with date</Btn>
+          <Btn onClick={() => addSignLine(block.id, false)}>+ Wide line (no date)</Btn>
+          <Btn onClick={() => removeSignLine(block.id, block.lines.length - 1)}>
+            − Remove last line
+          </Btn>
+          <p className="text-[11px] text-[#6D6E71]">
+            Line labels edit right on the page — Backspace on an empty label removes its
+            line. Wide lines suit things like “Assigned Radio Serial #”.
+          </p>
+        </div>
+      );
+    case 'columns':
+      return (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] text-[#20242B]">
+            Left column width · {block.ratio}%
+            <input
+              type="range"
+              min={30}
+              max={70}
+              step={5}
+              value={block.ratio}
+              onChange={(e) =>
+                updateBlock(block.id, { ratio: Number(e.target.value) }, `ratio:${block.id}`)
+              }
+              className="mt-1 w-full accent-[#C8102E]"
+            />
+          </label>
+          <p className="text-[11px] text-[#6D6E71]">
+            Use the small + buttons under each column to add text, bullets, steps, or
+            checklists. Column headings are optional — leave one blank to hide it.
+          </p>
+        </div>
       );
     case 'image':
       return (
@@ -345,7 +376,7 @@ export function Editor() {
     }
   };
 
-  const selectedBlock = doc.blocks.find((b) => b.id === selectedId) ?? null;
+  const selectedBlock = (selectedId && findBlockDeep(doc, selectedId)) || null;
   const scale = zoom === 'fit' ? Math.min(1, (deskW - 64) / 816) : zoom;
   const pageH = Math.max(1056, contentH + 2 * 38.4);
   const chipOn = !!doc.chip;
@@ -432,16 +463,29 @@ export function Editor() {
                   presets={ACCENT_PRESETS}
                 />
               </div>
-              <div className="mb-2.5 flex items-center justify-between">
-                <span className="text-[11.5px] text-[#6D6E71]">Type size</span>
-                <Seg
-                  value={doc.audience}
-                  onChange={(v) => setDocField('audience', v)}
-                  options={[
-                    { value: 'employee', label: 'Employee' },
-                    { value: 'customer', label: 'Customer' },
-                  ]}
+              <div className="mb-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11.5px] text-[#6D6E71]">Type size</span>
+                  <span className="text-[11.5px] font-semibold text-[#20242B]" data-testid="type-scale-label">
+                    {doc.typeScale}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  aria-label="Type size"
+                  data-testid="type-scale"
+                  min={TYPE_SCALE_MIN}
+                  max={TYPE_SCALE_MAX}
+                  step={2}
+                  value={doc.typeScale}
+                  onChange={(e) => setDocField('typeScale', Number(e.target.value), 'doc:scale')}
+                  className="mt-1 w-full accent-[#C8102E]"
                 />
+                <div className="flex justify-between text-[9.5px] text-[#9AA1A8]">
+                  <span>90% compact</span>
+                  <span>100% standard</span>
+                  <span>140% posting</span>
+                </div>
               </div>
               <label className="flex items-center gap-2 text-[12px] text-[#20242B]">
                 <input
