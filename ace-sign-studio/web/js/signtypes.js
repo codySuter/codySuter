@@ -106,6 +106,18 @@ const SIGN_TYPES = [
     sample: { name: "Weber Spirit E-325 Gas Grill", regPrice: "549.00", price: "399.00", unitOnly: true },
   },
   {
+    id: "final_sale", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Price & Promo", label: "Final Sale",
+    note: "FINAL SALE — *No returns",
+    fields: [
+      F.sku, F.name, F.detail,
+      Object.assign({}, F.price, { label: "Final price" }),
+      { key: "note", kind: "text", label: "Fine print (small line)", def: "*No returns" },
+      F.image, F.dates,
+    ],
+    render: (spec, w, h) => AceRenderers.final_sale(spec, w, h),
+    sample: { name: "Char-Broil Performance 4-Burner Grill", price: "249.00", note: "*No returns" },
+  },
+  {
     id: "your_choice", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "Your Choice",
     note: "Red circle — your choice $00",
     fields: [F.sku, F.name, F.detail, F.price, F.image, F.dates],
@@ -175,6 +187,7 @@ function applyTemplateProduct(p) {
   set("buy_get_off", { qty: 2, savings: "10" });
   set("your_choice", { price: price.toFixed(2) });
   set("was_now", { price: now, regPrice: was, unitOnly: true });
+  set("final_sale", { price: now, note: "*No returns" });
   set("large_text", { price: price.toFixed(2) });
 }
 

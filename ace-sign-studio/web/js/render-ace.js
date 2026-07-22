@@ -497,6 +497,49 @@ AceRenderers.was_now = (spec, W, H) =>
     return { markup: m, h: availH };
   });
 
+/* Final sale — stacked FINAL (ink) / SALE (red) headline with a linked
+   asterisk, optional price block, and a small fine-print line
+   (default "*No returns"). */
+AceRenderers.final_sale = (spec, W, H) => {
+  const hasPrice = !!String(spec.price || "").trim();
+  return productSignTemplate(spec, W, H, hasPrice ? 0.52 : 0.44, (cx, top, availW, availH, s) => {
+    const noteText = String(s.note == null ? "*No returns" : s.note).trim();
+    const noteSize = Math.max(8.5, availH * 0.072);
+    const noteH = noteText ? noteSize * 1.5 : 0;
+    const blockH = hasPrice ? availH * 0.34 : 0;
+    const wordAvail = availH - noteH - blockH;
+    let wordSize = wordAvail * 0.38;
+    const fitW = (t, sz) => textWidth(t, "RobotoBlack", sz) + sz * 0.16 * (t.length - 1);
+    for (const word of ["FINAL", "SALE"]) {
+      if (fitW(word, wordSize) > availW) wordSize *= availW / fitW(word, wordSize);
+    }
+    const parts = [wordSize * 1.06, wordSize * 1.06];
+    if (hasPrice) parts.push(blockH);
+    if (noteText) parts.push(noteH);
+    const st = stack(top, availH, parts, 0.03);
+    let y = st.start;
+    const ls = (wordSize * 0.16).toFixed(2);
+    let m = svgText(cx, y + wordSize * 0.88, "FINAL", "RobotoBlack", wordSize, INK, { letterSpacing: ls });
+    y += wordSize * 1.06 + st.gap;
+    m += svgText(cx, y + wordSize * 0.88, "SALE", "RobotoBlack", wordSize, ACE_RED, { letterSpacing: ls });
+    if (noteText) {
+      // linked asterisk raised after SALE
+      const saleW = fitW("SALE", wordSize);
+      m += svgText(cx + saleW / 2 + wordSize * 0.1, y + wordSize * 0.42, "*", "RobotoBlack", wordSize * 0.42, ACE_RED, { anchor: "start" });
+    }
+    y += wordSize * 1.06 + st.gap;
+    if (hasPrice) {
+      const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { suffixWord: "each" });
+      m += blk.markup;
+      y += blk.h + st.gap;
+    }
+    if (noteText) {
+      m += svgText(cx, y + noteSize, noteText, "RobotoBold", noteSize, GRAY11);
+    }
+    return { markup: m, h: availH };
+  });
+};
+
 /* Buy N get $X off — BUY TWO GET + red block "$00 OFF". */
 AceRenderers.buy_get_off = (spec, W, H) =>
   productSignTemplate(spec, W, H, 0.48, (cx, top, availW, availH, s) => {

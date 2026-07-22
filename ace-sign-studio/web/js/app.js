@@ -379,6 +379,7 @@ function buildEditorFields(t) {
       inp = el("textarea", "f-textarea");
       inp.value = App.spec[f.key] || "";
     } else {
+      if (App.spec[f.key] == null && f.def != null) App.spec[f.key] = f.def;
       inp = inputEl("text", App.spec[f.key] || "");
     }
     inp.dataset.field = f.key;
