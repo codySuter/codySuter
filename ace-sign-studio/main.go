@@ -28,7 +28,8 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const appVersion = "2.0.0"
+// appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
+var appVersion = "2.1.0"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -44,6 +45,14 @@ func main() {
 	noExit := flag.Bool("no-exit", false, "keep running even when the window closes")
 	flag.Parse()
 
+	// Optional file logging (field debugging + test observability).
+	if lp := os.Getenv("ACE_DEBUG_LOG"); lp != "" {
+		if f, err := os.OpenFile(lp, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
+			log.SetOutput(f)
+		}
+	}
+	log.Printf("[pid %d] starting v%s (updated=%q) args=%v", os.Getpid(), appVersion, os.Getenv("ACE_UPDATED"), os.Args[1:])
+
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
 		log.Fatal(err)
@@ -55,9 +64,21 @@ func main() {
 	mux.HandleFunc("/api/lookup", handleLookup)
 	mux.HandleFunc("/api/img", handleImageProxy)
 	mux.HandleFunc("/api/state", handleState)
+	mux.HandleFunc("/api/update/check", handleUpdateCheck)
+	mux.HandleFunc("/api/update/apply", handleUpdateApply)
 	mux.HandleFunc("/__ping", handlePing)
 
+	cleanupOldUpdate() // remove a prior exe left by a self-update
+
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
+	if err != nil && *port != 0 && os.Getenv("ACE_UPDATED") == "1" {
+		// Just relaunched by a self-update: wait for the outgoing instance to
+		// release the port rather than focusing it.
+		for i := 0; i < 20 && err != nil; i++ {
+			time.Sleep(300 * time.Millisecond)
+			ln, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
+		}
+	}
 	if err != nil && *port != 0 {
 		// Port taken — if it's another Ace Sign Studio, just focus it.
 		if isRunningInstance(*port) {
@@ -74,7 +95,7 @@ func main() {
 		log.Fatalf("listen: %v", err)
 	}
 	url := fmt.Sprintf("http://%s", ln.Addr().String())
-	log.Printf("Ace Sign Studio %s serving at %s", appVersion, url)
+	log.Printf("[pid %d] Ace Sign Studio %s serving at %s", os.Getpid(), appVersion, url)
 
 	if !*noExit {
 		go watchdog()
