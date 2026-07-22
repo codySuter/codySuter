@@ -1,0 +1,155 @@
+@import 'tailwindcss';
+
+@import '@fontsource/barlow-semi-condensed/600.css';
+@import '@fontsource/barlow-semi-condensed/700.css';
+@import '@fontsource/barlow-semi-condensed/800.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans/700.css';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #e9e9ec;
+  font-family: 'IBM Plex Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.print-mode {
+  background: #fff;
+}
+
+/* ---- document text ---- */
+/* The original policy docs render with the browser's font-normal line
+   height; Tailwind preflight's global 1.5 would inflate every line and
+   break one-page fit, so reset it inside the document surface. */
+.aps-doc {
+  line-height: normal;
+}
+.aps-doc .hl {
+  color: #f5c714;
+}
+.aps-doc strong,
+.aps-doc b {
+  font-weight: 700;
+}
+.aps-muted strong,
+.aps-muted b {
+  color: #20242b;
+}
+
+/* ---- inline editing ---- */
+.aps-editable {
+  outline: none;
+  border-radius: 2px;
+  transition: background-color 100ms;
+  cursor: text;
+  min-width: 8px;
+}
+.aps-editable:hover {
+  background: rgba(200, 16, 46, 0.05);
+}
+.aps-editable:focus {
+  background: rgba(200, 16, 46, 0.07);
+}
+.aps-editable:empty::before {
+  content: attr(data-ph);
+  color: #b9bec5;
+  pointer-events: none;
+}
+
+/* ---- block chrome ---- */
+.aps-block {
+  border-radius: 3px;
+}
+.aps-block:hover {
+  outline: 1px dashed #c4c9ce;
+  outline-offset: 5px;
+}
+.aps-block.sel {
+  outline: 2px solid rgba(200, 16, 46, 0.5);
+  outline-offset: 5px;
+}
+.aps-chrome {
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.aps-block:hover .aps-chrome,
+.aps-block.sel .aps-chrome {
+  opacity: 1;
+}
+.aps-handle {
+  position: absolute;
+  left: -31px;
+  top: 0;
+  width: 22px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #dde0e3;
+  border-radius: 5px;
+  color: #9aa1a8;
+  cursor: grab;
+  touch-action: none;
+}
+.aps-handle:active {
+  cursor: grabbing;
+}
+.aps-handle:hover {
+  color: #c8102e;
+  border-color: #c8102e;
+}
+.aps-toolbar {
+  position: absolute;
+  top: -15px;
+  right: 0;
+  z-index: 45;
+  display: flex;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid #dde0e3;
+  border-radius: 6px;
+  padding: 2px;
+  box-shadow: 0 2px 8px rgba(21, 24, 29, 0.14);
+}
+.aps-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: #4a4f57;
+  cursor: pointer;
+}
+.aps-toolbar button:hover {
+  background: #f3f4f5;
+  color: #15181d;
+}
+.aps-toolbar button.danger:hover {
+  background: #fdecee;
+  color: #c8102e;
+}
+
+/* ---- print ---- */
+@media print {
+  .aps-keep {
+    break-inside: avoid;
+  }
+  .aps-doc p,
+  .aps-doc li,
+  .aps-doc div {
+    orphans: 3;
+    widows: 3;
+  }
+}
