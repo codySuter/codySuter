@@ -1,0 +1,14 @@
+import { chromium } from '@playwright/test';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const page = await browser.newPage({ viewport: { width: 1440, height: 920 } });
+await page.goto('http://localhost:4173/');
+await page.waitForSelector('[data-testid="library-card"]');
+await page.getByText('STIHL Special Order Inquiries').first().click();
+await page.waitForSelector('[data-testid="page-edit"]');
+await page.getByTestId('palette-signoff').click();
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+const block = page.getByTestId('block').filter({ hasText: 'Employee Acknowledgment' }).first();
+await block.scrollIntoViewIfNeeded();
+await block.screenshot({ path: process.env.OUT + '/vcheck-signoff.png' });
+await browser.close();

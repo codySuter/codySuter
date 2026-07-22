@@ -1,0 +1,75 @@
+name: Build Ace Policy Studio (Windows)
+
+# Builds Ace Policy Studio into a portable Windows .exe on a real Windows
+# runner — after running the renderer E2E suite and an Electron smoke test
+# (library seeding + a production printToPDF) — and publishes it as both a
+# workflow artifact and a stable GitHub Release download.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "ace-policy-studio/**"
+      - ".github/workflows/build-policy-windows.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ace-policy-studio
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ace-policy-studio/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Renderer E2E (Playwright)
+        run: |
+          npx playwright install chromium
+          npx playwright test tests/app.spec.ts
+
+      - name: Electron smoke test (seeding + printToPDF)
+        run: node scripts/electron-smoke.mjs
+
+      - name: Package portable EXE
+        run: npx electron-builder --win portable
+
+      - name: Upload EXE as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AcePolicyStudio-windows
+          path: ace-policy-studio/release/AcePolicyStudio.exe
+          if-no-files-found: error
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-evidence
+          path: ace-policy-studio/test-results/
+          if-no-files-found: ignore
+
+      - name: Publish EXE to a Release (stable download link)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ace-policy-studio-windows --yes --cleanup-tag || true
+          gh release create ace-policy-studio-windows release/AcePolicyStudio.exe \
+            --title "Ace Policy Studio for Windows" \
+            --notes "Latest Windows build. Download **AcePolicyStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
+            --target "$GITHUB_SHA"
