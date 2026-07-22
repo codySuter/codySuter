@@ -13,4 +13,9 @@ contextBridge.exposeInMainWorld('aps', {
     ipcRenderer.on('menu', handler);
     return () => ipcRenderer.removeListener('menu', handler);
   },
+  onUpdateStatus: (cb) => {
+    const handler = (_e, text) => cb(text);
+    ipcRenderer.on('update-status', handler);
+    return () => ipcRenderer.removeListener('update-status', handler);
+  },
 });

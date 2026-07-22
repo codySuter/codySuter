@@ -133,6 +133,87 @@ function sendMenu(cmd) {
   }
 }
 
+// ---- auto-update (GitHub Releases + electron-updater) -------------------
+// On launch (packaged builds only): check GitHub, download in the
+// background, then offer "Restart & Update" — or install on quit.
+let updater = null;
+let manualCheck = false;
+
+function sendUpdateStatus(text) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-status', text);
+  }
+}
+
+function ensureUpdater() {
+  if (updater || !app.isPackaged) return updater;
+  const { autoUpdater } = require('electron-updater');
+  updater = autoUpdater;
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+
+  updater.on('update-available', (info) => {
+    sendUpdateStatus(`Update v${info.version} found — downloading in the background…`);
+  });
+  updater.on('update-not-available', () => {
+    if (manualCheck) {
+      dialog.showMessageBox(mainWindow, {
+        title: 'Up to date',
+        message: `You're on the latest version (v${app.getVersion()}).`,
+      });
+    }
+    manualCheck = false;
+  });
+  updater.on('error', (err) => {
+    if (manualCheck) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Update check failed',
+        message: 'Couldn’t check for updates.',
+        detail: String((err && err.message) || err),
+      });
+    }
+    manualCheck = false;
+  });
+  updater.on('update-downloaded', async (info) => {
+    sendUpdateStatus(`Update v${info.version} is ready.`);
+    manualCheck = false;
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      buttons: ['Restart & Update', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Update ready',
+      message: `Ace Policy Studio v${info.version} is ready to install.`,
+      detail:
+        'Restart now to update — or keep working, and it installs itself when you close the app. Your documents are not affected.',
+    });
+    if (response === 0) {
+      setImmediate(() => updater.quitAndInstall(true, true));
+    }
+  });
+  return updater;
+}
+
+function checkForUpdates(fromMenu) {
+  if (!app.isPackaged) {
+    if (fromMenu) {
+      dialog.showMessageBox(mainWindow, {
+        title: 'Development build',
+        message: 'Update checks only run in the packaged app.',
+      });
+    }
+    return;
+  }
+  manualCheck = !!fromMenu;
+  ensureUpdater()
+    .checkForUpdates()
+    .catch(() => {
+      // Offline or GitHub unreachable — silent unless manually invoked
+      // (the 'error' handler above covers the manual case).
+    });
+}
+
 const menuTemplate = [
   {
     label: 'File',
@@ -176,6 +257,11 @@ const menuTemplate = [
     label: 'Help',
     submenu: [
       {
+        label: 'Check for Updates…',
+        click: () => checkForUpdates(true),
+      },
+      { type: 'separator' },
+      {
         label: 'About Ace Policy Studio',
         click: () =>
           dialog.showMessageBox(mainWindow, {
@@ -213,6 +299,8 @@ function createMainWindow() {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
   createMainWindow();
+  // Give the window a moment to paint before hitting the network.
+  setTimeout(() => checkForUpdates(false), 2500);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });

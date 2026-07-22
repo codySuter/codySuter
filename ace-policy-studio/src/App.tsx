@@ -38,6 +38,13 @@ export default function App() {
     });
   }, []);
 
+  // Auto-updater progress lands in the status bar.
+  useEffect(() => {
+    return api.onUpdateStatus?.((text) => {
+      if (text) useStore.getState().setStatus(text);
+    });
+  }, []);
+
   // Deep links (#/print/<id>) — how the hidden print window finds its doc.
   useEffect(() => {
     const onHash = () => {
