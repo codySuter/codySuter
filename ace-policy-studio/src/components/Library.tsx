@@ -1,4 +1,4 @@
-import { Copy, Plus, Trash2 } from 'lucide-react';
+import { Copy, LifeBuoy, Plus, Trash2 } from 'lucide-react';
 import { plainText } from '../model/sanitize';
 import type { PolicyDoc } from '../model/types';
 import { useStore } from '../store';
@@ -99,15 +99,21 @@ function Card({ doc }: { doc: PolicyDoc }) {
 export function Library() {
   const docs = useStore((s) => s.docs);
   const createNewDoc = useStore((s) => s.createNewDoc);
+  const toSupport = useStore((s) => s.toSupport);
   const status = useStore((s) => s.status);
 
   return (
     <div className="flex h-full flex-col">
       <AppHeader
         right={
-          <Btn variant="topbar-primary" onClick={() => void createNewDoc()} data-testid="new-doc">
-            <Plus size={14} /> New Document
-          </Btn>
+          <>
+            <Btn variant="topbar" onClick={toSupport} data-testid="support-btn">
+              <LifeBuoy size={14} /> Support
+            </Btn>
+            <Btn variant="topbar-primary" onClick={() => void createNewDoc()} data-testid="new-doc">
+              <Plus size={14} /> New Document
+            </Btn>
+          </>
         }
       />
       <main className="min-h-0 flex-1 overflow-y-auto">
