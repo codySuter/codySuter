@@ -62,6 +62,7 @@ type LookupResult struct {
 	ListPrice   string   `json:"listPrice,omitempty"` // site/list price fallback
 	ImageURL    string   `json:"imageUrl,omitempty"`  // remote URL (use /api/img?u=)
 	ProductURL  string   `json:"productUrl,omitempty"`
+	FetchedAt   string   `json:"fetchedAt,omitempty"` // when the data actually came from the site (RFC3339) — cached serves keep the original
 	Error       string   `json:"error,omitempty"`
 	Diagnostics []string `json:"diagnostics"`
 }
@@ -472,6 +473,7 @@ func lookupProduct(query, store string, refresh bool) LookupResult {
 
 	res := doLookup(query, store)
 	if res.OK {
+		res.FetchedAt = time.Now().UTC().Format(time.RFC3339)
 		lookupMu.Lock()
 		loadDiskCache()
 		lookupCache[key] = cacheEntry{res: res, at: time.Now()}
@@ -504,6 +506,13 @@ func doLookup(query, store string) LookupResult {
 		pageURL = baseSite + "/product/" + sku
 		diag = append(diag, "Treating input as SKU "+sku)
 	case strings.HasPrefix(q, "http://") || strings.HasPrefix(q, "https://"):
+		// only acehardware.com URLs are fetchable — the lookup endpoint must
+		// not be usable as a generic server-side URL fetcher
+		if u, err := url.Parse(q); err != nil || !allowedLookupHost(strings.ToLower(u.Hostname())) {
+			res.Error = "Only acehardware.com product URLs can be looked up."
+			res.Diagnostics = append(diag, "Rejected non-acehardware.com URL")
+			return res
+		}
 		pageURL = q
 		diag = append(diag, "Treating input as a product URL")
 	default:
@@ -666,6 +675,29 @@ func htmlUnescape(s string) string {
 	return r.Replace(s)
 }
 
+// allowedLookupHost limits pasted product URLs to acehardware.com (and the
+// ACE_BASE_URL test override).
+func allowedLookupHost(host string) bool {
+	if host == "acehardware.com" || strings.HasSuffix(host, ".acehardware.com") {
+		return true
+	}
+	if bu, err := url.Parse(baseSite); err == nil && strings.EqualFold(host, bu.Hostname()) {
+		return true
+	}
+	return false
+}
+
+// allowedImageHost anchors the CDN allowlist: exact domain or a true
+// subdomain. A plain suffix match would let evilacehardware.com through.
+func allowedImageHost(host string) bool {
+	for _, d := range []string{"acehardware.com", "mozu.com", "kibocommerce.com", "cloudfront.net", "scene7.com"} {
+		if host == d || strings.HasSuffix(host, "."+d) {
+			return true
+		}
+	}
+	return false
+}
+
 // fetchImageCached downloads an image once per session, restricted to
 // acehardware.com and its image CDNs.
 func fetchImageCached(raw string) ([]byte, string, error) {
@@ -677,12 +709,7 @@ func fetchImageCached(raw string) ([]byte, string, error) {
 	if bu, err2 := url.Parse(baseSite); err2 == nil && strings.EqualFold(u.Host, bu.Host) {
 		host = "www.acehardware.com" // ACE_BASE_URL test override
 	}
-	allowed := strings.HasSuffix(host, "acehardware.com") ||
-		strings.HasSuffix(host, "mozu.com") ||
-		strings.HasSuffix(host, "kibocommerce.com") ||
-		strings.HasSuffix(host, "cloudfront.net") ||
-		strings.HasSuffix(host, "scene7.com")
-	if !allowed {
+	if !allowedImageHost(host) {
 		return nil, "", fmt.Errorf("image host not allowed: %s", host)
 	}
 

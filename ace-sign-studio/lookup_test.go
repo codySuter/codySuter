@@ -265,6 +265,46 @@ func TestImageProxyHostAllowlist(t *testing.T) {
 	if _, _, err := fetchImageCached("ftp://acehardware.com/x.png"); err == nil {
 		t.Error("non-http scheme should error")
 	}
+	// the allowlist must be anchored — lookalike registrations don't pass
+	if _, _, err := fetchImageCached("https://evilacehardware.com/x.png"); err == nil || !strings.Contains(err.Error(), "not allowed") {
+		t.Errorf("lookalike host should error, got %v", err)
+	}
+	for host, want := range map[string]bool{
+		"acehardware.com":     true,
+		"www.acehardware.com": true,
+		"cdn.mozu.com":        true,
+		"evilacehardware.com": false,
+		"mozu.com.evil.io":    false,
+		"cloudfront.net.x":    false,
+	} {
+		if allowedImageHost(host) != want {
+			t.Errorf("allowedImageHost(%q) = %v, want %v", host, !want, want)
+		}
+	}
+}
+
+func TestLookupRejectsForeignURLs(t *testing.T) {
+	mockAce(t, testProducts)
+	res := lookupProduct("https://evil.example.com/anything", "12180", false)
+	if res.OK || !strings.Contains(res.Error, "acehardware.com") {
+		t.Errorf("foreign URL should be rejected, got %+v", res)
+	}
+}
+
+func TestLookupCarriesFetchedAt(t *testing.T) {
+	mockAce(t, testProducts)
+	res := lookupProduct("3000003", "12180", false)
+	if !res.OK || res.FetchedAt == "" {
+		t.Fatalf("live lookup missing fetchedAt: %+v", res)
+	}
+	if _, err := time.Parse(time.RFC3339, res.FetchedAt); err != nil {
+		t.Errorf("fetchedAt not RFC3339: %q", res.FetchedAt)
+	}
+	// cached serves keep the ORIGINAL fetch time (the stale badge depends on it)
+	res2 := lookupProduct("3000003", "12180", false)
+	if res2.FetchedAt != res.FetchedAt {
+		t.Errorf("cached fetchedAt %q != original %q", res2.FetchedAt, res.FetchedAt)
+	}
 }
 
 func TestMoneyAndImageURLHelpers(t *testing.T) {

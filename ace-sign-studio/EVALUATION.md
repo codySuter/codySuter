@@ -7,9 +7,17 @@ re-verified end-to-end.*
 
 > **Status update:** every open defect (#4–#7), every recommended feature (1–8), and
 > every engineering recommendation below has since been **implemented on this branch**
-> as Ace Sign Studio 2.1, verified by a new 44-check Playwright E2E suite
+> as Ace Sign Studio 2.1, verified by a new 48-check Playwright E2E suite
 > (`e2e/run.mjs`) plus a Go test suite, with CI publishing the exe to a GitHub
-> Release. The sections below are kept as the record of the original evaluation.
+> Release. A follow-up adversarial review (30 agents over the full diff) surfaced
+> 20 further defects in the new code — all fixed and regression-tested, notably:
+> a price refresh that could demote a Sale sign while keeping its discounted
+> price, export printing incomplete Was/Now signs as "NOW $—", undo snapshots
+> destroying signs added during the toast window, pre-2.1 state migration gaps
+> (destructively-hidden fields became uneditable), cross-site request guards for
+> the local API (blind-SSRF vectors via `/api/lookup`/`/api/img`), an unanchored
+> image-host allowlist, and lookup timestamps that masked cache staleness.
+> The sections below are kept as the record of the original evaluation.
 
 ---
 

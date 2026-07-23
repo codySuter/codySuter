@@ -84,7 +84,7 @@ func main() {
 		go openAppWindow(url)
 	}
 
-	srv := &http.Server{Handler: requireLoopbackHost(mux)}
+	srv := &http.Server{Handler: requireLoopbackHost(blockCrossSite(mux))}
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
@@ -94,6 +94,24 @@ func noCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
+	})
+}
+
+// blockCrossSite rejects browser requests initiated by another origin.
+// The Host check below can't catch a cross-origin fetch/img aimed straight
+// at http://127.0.0.1:8347 (the browser sends our own Host), but every
+// current browser stamps such requests with Sec-Fetch-Site — anything not
+// same-origin/none is an outside page poking the local API (e.g. blind
+// SSRF via /api/lookup?q=<url>). Non-browser clients don't send the
+// header and pass through.
+func blockCrossSite(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Header.Get("Sec-Fetch-Site") {
+		case "", "same-origin", "none":
+			next.ServeHTTP(w, r)
+		default:
+			http.Error(w, "cross-site request blocked", http.StatusForbidden)
+		}
 	})
 }
 

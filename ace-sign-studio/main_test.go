@@ -93,6 +93,34 @@ func TestRequireLoopbackHost(t *testing.T) {
 	}
 }
 
+func TestBlockCrossSite(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	h := blockCrossSite(inner)
+
+	for _, sfs := range []string{"", "same-origin", "none"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/lookup?q=1", nil)
+		if sfs != "" {
+			req.Header.Set("Sec-Fetch-Site", sfs)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Errorf("Sec-Fetch-Site %q = %d, want pass-through", sfs, rec.Code)
+		}
+	}
+	for _, sfs := range []string{"cross-site", "same-site"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/lookup?q=http://evil", nil)
+		req.Header.Set("Sec-Fetch-Site", sfs)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("Sec-Fetch-Site %q = %d, want 403", sfs, rec.Code)
+		}
+	}
+}
+
 func fileExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil

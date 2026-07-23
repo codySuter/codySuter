@@ -12,14 +12,23 @@ import { fileURLToPath } from "node:url";
 const BRAND = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(BRAND, "..");
 
+// Resolve a playwright from anywhere in the repo — bare specifiers only
+// resolve from ace-studio-brand/, so also try each app's own install
+// (@playwright/test exports chromium too).
 let chromium;
-try { ({ chromium } = await import("playwright")); }
-catch {
-  try { ({ chromium } = await import("playwright-core")); }
-  catch {
-    // fall back to the sign-studio e2e install
-    ({ chromium } = await import(path.join(REPO, "ace-sign-studio/e2e/node_modules/playwright/index.mjs")));
-  }
+for (const candidate of [
+  "playwright",
+  "playwright-core",
+  "@playwright/test",
+  path.join(REPO, "ace-sign-studio/e2e/node_modules/playwright/index.mjs"),
+  path.join(REPO, "ace-policy-studio/node_modules/@playwright/test/index.mjs"),
+  path.join(REPO, "ace-policy-studio/node_modules/playwright-core/index.mjs"),
+]) {
+  try { ({ chromium } = await import(candidate)); break; } catch {}
+}
+if (!chromium) {
+  console.error("No playwright found — run `npm install` in ace-sign-studio/e2e or ace-policy-studio first.");
+  process.exit(1);
 }
 
 const SANDBOX_CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";

@@ -28,11 +28,16 @@ function clampCopies(n) {
 
 const Queue = {
   items: [], // {uid, typeId, sizeId, spec (raw, incl. hide), copies}
+  _gen: 0,   // bumps on every mutation — lets undo closures detect divergence
   _uid() { return Date.now() + "-" + Math.random().toString(36).slice(2, 7); },
-  add(typeId, sizeId, spec, copies) {
-    this.items.push({ uid: this._uid(), typeId, sizeId, spec: JSON.parse(JSON.stringify(spec)), copies: clampCopies(copies) });
+  _touch() {
+    this._gen++;
     persistState();
     renderQueue();
+  },
+  add(typeId, sizeId, spec, copies) {
+    this.items.push({ uid: this._uid(), typeId, sizeId, spec: JSON.parse(JSON.stringify(spec)), copies: clampCopies(copies) });
+    this._touch();
   },
   update(uid, typeId, sizeId, spec) {
     const q = this.items.find((x) => x.uid === uid);
@@ -40,22 +45,19 @@ const Queue = {
     q.typeId = typeId;
     q.sizeId = sizeId;
     q.spec = JSON.parse(JSON.stringify(spec));
-    persistState();
-    renderQueue();
+    this._touch();
     return true;
   },
   remove(uid) {
     const i = this.items.findIndex((q) => q.uid === uid);
     if (i === -1) return null;
     const [item] = this.items.splice(i, 1);
-    persistState();
-    renderQueue();
+    this._touch();
     return { item, index: i };
   },
   restore(item, index) {
     this.items.splice(Math.min(index, this.items.length), 0, item);
-    persistState();
-    renderQueue();
+    this._touch();
   },
   duplicate(uid) {
     const i = this.items.findIndex((q) => q.uid === uid);
@@ -63,15 +65,13 @@ const Queue = {
     const copy = JSON.parse(JSON.stringify(this.items[i]));
     copy.uid = this._uid();
     this.items.splice(i + 1, 0, copy);
-    persistState();
-    renderQueue();
+    this._touch();
   },
   setCopies(uid, n) {
     const q = this.items.find((x) => x.uid === uid);
     if (!q) return;
     q.copies = clampCopies(n);
-    persistState();
-    renderQueue();
+    this._touch();
   },
   move(uid, dir) {
     const i = this.items.findIndex((q) => q.uid === uid);
@@ -79,21 +79,18 @@ const Queue = {
     if (i === -1 || j < 0 || j >= this.items.length) return;
     const [it] = this.items.splice(i, 1);
     this.items.splice(j, 0, it);
-    persistState();
-    renderQueue();
+    this._touch();
   },
   clear() {
     const snap = this.items;
     this.items = [];
-    persistState();
-    renderQueue();
+    this._touch();
     return snap;
   },
   replaceAll(items) {
     this.items = JSON.parse(JSON.stringify(items || []));
     this.items.forEach((q) => { if (!q.copies) q.copies = 1; });
-    persistState();
-    renderQueue();
+    this._touch();
   },
   totalSigns() { return this.items.reduce((a, q) => a + (q.copies || 1), 0); },
   packable() {
@@ -150,22 +147,37 @@ async function renderQueueItemSVG(qOrItem) {
 
 /* ---------- persistence ---------- */
 let _persistTimer = null;
+function stateJSON() {
+  return JSON.stringify({
+    settings: Settings.data,
+    queue: Queue.items,
+    batches: Batches.data,
+    stihl: typeof StihlData !== "undefined" ? { overrides: StihlData.overrides, meta: StihlData.meta, dataset: StihlData.meta.source === "import" ? StihlData.data : null } : undefined,
+  });
+}
 function persistState() {
   clearTimeout(_persistTimer);
   _persistTimer = setTimeout(async () => {
-    const state = {
-      settings: Settings.data,
-      queue: Queue.items,
-      batches: Batches.data,
-      stihl: typeof StihlData !== "undefined" ? { overrides: StihlData.overrides, meta: StihlData.meta, dataset: StihlData.meta.source === "import" ? StihlData.data : null } : undefined,
-    };
-    const json = JSON.stringify(state);
+    _persistTimer = null;
+    const json = stateJSON();
     try { localStorage.setItem("acesignstudio.state.v1", json); } catch (e) {}
     try {
       await fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: json });
     } catch (e) {}
   }, 400);
 }
+
+/* The debounce loses the last mutation if the window closes inside the
+   400 ms window — flush synchronously on pagehide (sendBeacon survives
+   page teardown; the Blob type satisfies the server's JSON check). */
+window.addEventListener("pagehide", () => {
+  if (_persistTimer == null) return;
+  clearTimeout(_persistTimer);
+  _persistTimer = null;
+  const json = stateJSON();
+  try { localStorage.setItem("acesignstudio.state.v1", json); } catch (e) {}
+  try { navigator.sendBeacon("/api/state", new Blob([json], { type: "application/json" })); } catch (e) {}
+});
 
 async function restoreState() {
   let state = null;
@@ -186,6 +198,24 @@ async function restoreState() {
   }
   // drop queue entries whose sign type isn't registered (e.g. STIHL, disabled for now)
   Queue.items = Queue.items.filter((q) => typeById(q.typeId));
-  // migrate pre-2.1 items (no copies counter yet)
-  Queue.items.forEach((q) => { if (!q.copies) q.copies = 1; });
+  // migrate pre-2.1 items: no copies counter, and hides applied
+  // destructively (blanked fields / showLogo:false with no hide map) —
+  // reconstruct the hide map so the sign is editable and the toggle
+  // chips report the truth
+  Queue.items.forEach((q) => {
+    if (!q.copies) q.copies = 1;
+    const spec = q.spec || (q.spec = {});
+    if (!spec.hide) {
+      spec.hide = {};
+      const t = typeById(q.typeId);
+      for (const k of (t && t.hideable) || []) {
+        if (k === "logo") { if (spec.showLogo === false) spec.hide.logo = true; }
+        else if (k === "image") { if (spec.image == null) spec.hide.image = true; }
+        else if (!String(spec[k] == null ? "" : spec[k]).trim()) spec.hide[k] = true;
+      }
+    } else if (spec.showLogo === false) {
+      spec.hide.logo = true;
+    }
+    delete spec.showLogo;
+  });
 }

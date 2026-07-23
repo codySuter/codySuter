@@ -33,6 +33,18 @@ const EXECUTABLE =
 const results = [];
 let page;
 
+/* Kill children even when a failure happens outside the main try (the app
+   runs with -no-exit, so a leaked process never terminates itself). */
+let appProc = null, mockSrv = null;
+function cleanupChildren() {
+  try { if (appProc) appProc.kill(); } catch {}
+  try { if (mockSrv) mockSrv.close(); } catch {}
+}
+process.on("exit", () => { if (!process.env.E2E_KEEP) cleanupChildren(); });
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => { cleanupChildren(); process.exit(130); });
+}
+
 function ok(name, condition, extra) {
   results.push({ name, pass: Boolean(condition) });
   console.log(`${condition ? "  ✓" : "  ✗ FAIL"} ${name}${!condition && extra ? ` — ${extra}` : ""}`);
@@ -61,6 +73,7 @@ async function run() {
 
   // ---- mock acehardware.com ----
   const mock = await startMockAce();
+  mockSrv = mock;
   console.log(`→ Mock acehardware.com at ${mock.url}`);
 
   // ---- launch the app ----
@@ -74,6 +87,7 @@ async function run() {
       XDG_CONFIG_HOME: cfgDir,
     },
   });
+  appProc = app;
   const appUrl = await new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("app did not start")), 15000);
     const scan = (buf) => {
@@ -274,6 +288,32 @@ async function run() {
       Queue.items.some((q) => q.typeId === "was_now" && q.spec.regPrice === "129.00")));
     await page.waitForSelector(".toast");
     ok("refresh reports a price change", (await page.textContent(".toast")).includes("1 price change"));
+    await waitToastGone();
+
+    // a lookup that succeeds WITHOUT price data must never rewrite a sign
+    console.log("→ Priceless-lookup refresh regression");
+    await mock.setNameOnly("2000002");
+    await page.click("#refreshPricesBtn");
+    await page.waitForSelector(".toast", { timeout: 30000 });
+    ok("priceless lookup reported, not applied", (await page.textContent(".toast")).includes("without price data"));
+    ok("sale sign untouched by priceless lookup", await page.evaluate(() =>
+      Queue.items.some((q) => q.typeId === "sale" && q.spec.price === "19.99" && q.spec.regPrice === "24.99")));
+    await waitToastGone();
+
+    // ================= export guard =================
+    console.log("→ Export blocks incomplete signs");
+    await page.click("#exportAllBtn");
+    await page.waitForSelector(".toast");
+    ok("export blocked while a sign needs its Now price", (await page.textContent(".toast")).includes("incomplete"));
+    await waitToastGone();
+    // fix it through the click-to-edit flow
+    await page.click('.q-item:has-text("Was / Now") .q-main');
+    await page.waitForSelector("#editBanner", { state: "visible" });
+    await fill('[data-field="price"]', "89.99");
+    await page.click("#addQueueBtn");
+    await page.waitForSelector(".toast");
+    ok("Now price set via queue edit", await page.evaluate(() =>
+      Queue.items.some((q) => q.typeId === "was_now" && q.spec.price === "89.99")));
     await waitToastGone();
 
     // ================= PDF export =================

@@ -178,7 +178,9 @@ function skuFooter(W, H, frame, sku, detail, storeLine, barcode) {
   }
   if (sku) {
     let drewBars = false;
-    if (barcode && typeof code128Rects === "function") {
+    // only a real 4–9 digit item number becomes a barcode — a pasted URL
+    // or search phrase in the SKU field must not print as scannable noise
+    if (barcode && /^\d{4,9}$/.test(String(sku)) && typeof code128Rects === "function") {
       const bcH = Math.max(15, Math.min(30, H * 0.045));
       const bw = Math.min(W * 0.5, Math.max(112, W * 0.24));
       const dsize = skuSize * 0.95;

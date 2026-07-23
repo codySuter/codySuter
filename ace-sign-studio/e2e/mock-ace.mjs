@@ -25,14 +25,18 @@ export function startMockAce() {
     const url = new URL(req.url, "http://x");
     const path = url.pathname;
 
-    // test control: change a price mid-run
+    // test control: change a price mid-run; nameonly=1 simulates the
+    // bot-shell state where a lookup succeeds with no price data at all
     if (path === "/__setprice") {
       const sku = url.searchParams.get("sku");
       const p = products[sku];
       if (p) {
-        p.price = parseFloat(url.searchParams.get("price"));
-        const sale = url.searchParams.get("sale");
-        p.sale = sale ? parseFloat(sale) : null;
+        p.nameOnly = url.searchParams.get("nameonly") === "1";
+        if (!p.nameOnly) {
+          p.price = parseFloat(url.searchParams.get("price"));
+          const sale = url.searchParams.get("sale");
+          p.sale = sale ? parseFloat(sale) : null;
+        }
       }
       res.writeHead(p ? 200 : 404).end("ok");
       return;
@@ -53,12 +57,14 @@ export function startMockAce() {
       }
       const base = `http://127.0.0.1:${server.address().port}`;
       const body = {
-        price: Object.assign({ price: p.price }, p.sale != null ? { salePrice: p.sale } : {}),
         content: {
           productName: p.name,
           productImages: [{ imageUrl: `${base}/img/${api[1]}.png` }],
         },
       };
+      if (!p.nameOnly) {
+        body.price = Object.assign({ price: p.price }, p.sale != null ? { salePrice: p.sale } : {});
+      }
       res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(body));
       return;
     }
@@ -80,8 +86,10 @@ export function startMockAce() {
         sku: prod[1],
         image: `${base}/img/${prod[1]}.png`,
         brand: { "@type": "Brand", name: "Ace" },
-        offers: { "@type": "Offer", price: String(p.sale != null ? p.sale : p.price), priceCurrency: "USD" },
       };
+      if (!p.nameOnly) {
+        ld.offers = { "@type": "Offer", price: String(p.sale != null ? p.sale : p.price), priceCurrency: "USD" };
+      }
       res.writeHead(200, { "Content-Type": "text/html" }).end(
         `<html><head><title>${p.name}</title>` +
           `<script type="application/ld+json">${JSON.stringify(ld)}</script>` +
@@ -110,6 +118,12 @@ export function startMockAce() {
           q.searchParams.set("sku", sku);
           q.searchParams.set("price", String(price));
           if (sale != null) q.searchParams.set("sale", String(sale));
+          return fetch(q).then((r) => r.text());
+        },
+        setNameOnly(sku) {
+          const q = new URL(`http://127.0.0.1:${server.address().port}/__setprice`);
+          q.searchParams.set("sku", sku);
+          q.searchParams.set("nameonly", "1");
           return fetch(q).then((r) => r.text());
         },
         close: () => server.close(),

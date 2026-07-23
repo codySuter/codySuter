@@ -16,6 +16,12 @@ on:
 permissions:
   contents: write
 
+# One release publish at a time — overlapping runs would race the
+# delete-then-create of the stable release tag.
+concurrency:
+  group: build-sign-windows
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest

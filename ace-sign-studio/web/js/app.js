@@ -335,7 +335,9 @@ function buildEditorFields(t) {
       inp.addEventListener("input", () => { App.spec.sku = inp.value.trim(); });
       attachAutoLookup(inp, status, (res, si) => {
         App.spec.sku = res.sku || inp.value.trim();
-        App.spec.lookedUpAt = new Date().toISOString();
+        // prefer the server's fetch time — cached results carry the
+        // ORIGINAL lookup time, so the stale badge stays honest
+        App.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
         if (res.name) setField("name", res.name);
         if (si.onSale) {
           setField("price", si.sale);
@@ -587,6 +589,11 @@ async function renderQueue() {
     sub.appendChild(document.createTextNode(`${typeById(q.typeId) ? typeById(q.typeId).label : q.typeId} · ${size.w}×${size.h}″`));
     const age = priceAgeDays(q.spec);
     if (age != null && age > 3) sub.appendChild(el("span", "q-stale", `price ${age}d old`));
+    else if (age == null && PRICE_REFRESH_TYPES[q.typeId] && String(q.spec.sku || "").trim()) {
+      // pre-2.1 items carry no lookup timestamp — call that out rather
+      // than silently skipping the badge on the stalest signs of all
+      sub.appendChild(el("span", "q-stale", "price unchecked"));
+    }
     if (q.typeId === "was_now" && !String(q.spec.price || "").trim()) sub.appendChild(el("span", "q-warn", "needs Now price"));
     info.appendChild(sub);
     main.onclick = () => startEditQueueItem(q.uid);
@@ -650,14 +657,15 @@ function updateQueueButtons() {
   $("#printAllBtn").disabled = !has;
   $("#exportAllBtn").disabled = !has;
   $("#clearQueueBtn").disabled = !has;
-  $("#refreshPricesBtn").disabled = !has;
+  $("#refreshPricesBtn").disabled = !has || _refreshingPrices;
 }
 
 function clearQueueWithUndo() {
   if (!Queue.items.length) return;
   const snap = Queue.clear();
   const n = snap.reduce((a, q) => a + (q.copies || 1), 0);
-  showToast(`Queue cleared — ${n} sign${n === 1 ? "" : "s"}.`, { undo: () => Queue.replaceAll(snap) });
+  // prepend on undo: signs added during the toast window survive
+  showToast(`Queue cleared — ${n} sign${n === 1 ? "" : "s"}.`, { undo: () => Queue.replaceAll(snap.concat(Queue.items)) });
 }
 
 /* ---------------- toasts ---------------- */
@@ -687,16 +695,20 @@ function showToast(text, opts) {
 /* Types whose price fields map 1:1 onto lookup results. Everything else
    (percent/BOGO/savings…) is hand-entered and left alone. */
 const PRICE_REFRESH_TYPES = { regular: true, sale: true, large_text: true };
+let _refreshingPrices = false;
 
 async function refreshQueuePrices() {
-  const targets = Queue.items.filter((q) => String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId]);
-  const manual = Queue.items.filter((q) => !(String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId])).length;
+  if (_refreshingPrices) return;
+  const refreshable = (q) => String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId] && q.uid !== App.editingUid;
+  const targets = Queue.items.filter(refreshable);
+  const manual = Queue.items.filter((q) => !refreshable(q)).length;
   if (!targets.length) {
     showToast("Nothing to refresh — no queued Regular/Sale/Large Text signs with a SKU.");
     return;
   }
   const btn = $("#refreshPricesBtn");
   const orig = btn.textContent;
+  _refreshingPrices = true;
   btn.disabled = true;
   let done = 0, changed = 0, failed = 0;
   const work = targets.slice();
@@ -706,23 +718,32 @@ async function refreshQueuePrices() {
     btn.textContent = `↻ ${++done}/${targets.length}`;
     try {
       const res = await fetch(`/api/lookup?q=${encodeURIComponent(q.spec.sku)}&refresh=1&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
-      if (!res.ok) {
+      const si = res.ok ? saleInfo(res) : { onSale: false };
+      const plain = res.ok ? (res.price || res.listPrice || "") : "";
+      if (!res.ok || (!si.onSale && !plain)) {
+        // a lookup with no price data must never rewrite a sign — a Sale
+        // sign demoted here would print its discount as the regular price
         failed++;
       } else {
-        const si = saleInfo(res);
         const before = `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
         if (si.onSale) {
           if (q.typeId === "regular") q.typeId = "sale";
           if (q.typeId === "sale") { q.spec.price = si.sale; q.spec.regPrice = si.reg; }
           else q.spec.price = si.sale;
         } else {
-          const p = res.price || res.listPrice || "";
-          if (q.typeId === "sale") { q.typeId = "regular"; q.spec.regPrice = ""; }
-          if (p) q.spec.price = p;
+          if (q.typeId === "sale") {
+            q.typeId = "regular";
+            q.spec.regPrice = "";
+            // the sale's date pill has no field on a Regular sign — drop it
+            q.spec.startDate = "";
+            q.spec.endDate = "";
+          }
+          q.spec.price = plain;
         }
-        if (res.name && !q.spec.name) q.spec.name = res.name;
-        if (res.imageUrl && !q.spec._customImage) q.spec.image = res.imageUrl;
-        q.spec.lookedUpAt = new Date().toISOString();
+        // photos refresh only when the sign already shows one — a hidden
+        // or never-fetched photo must not reappear
+        if (res.imageUrl && q.spec.image && !q.spec._customImage) q.spec.image = res.imageUrl;
+        q.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
         if (before !== `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`) changed++;
       }
     } catch (e) { failed++; }
@@ -730,13 +751,13 @@ async function refreshQueuePrices() {
   };
   await Promise.all(Array.from({ length: Math.min(4, targets.length) }, runOne));
   btn.textContent = orig;
-  btn.disabled = false;
+  _refreshingPrices = false;
   persistState();
   renderQueue();
   const okCount = targets.length - failed;
   let msg = `Refreshed ${okCount} sign${okCount === 1 ? "" : "s"} — ${changed} price change${changed === 1 ? "" : "s"}`;
-  if (manual) msg += `, ${manual} manual sign${manual === 1 ? "" : "s"} left untouched`;
-  if (failed) msg += `, ${failed} failed`;
+  if (manual) msg += `, ${manual} sign${manual === 1 ? "" : "s"} left untouched`;
+  if (failed) msg += `, ${failed} without price data (unchanged)`;
   showToast(msg + ".");
 }
 
@@ -788,8 +809,15 @@ function renderBatchList() {
     load.onclick = () => {
       const prev = Queue.items;
       Queue.replaceAll(b.items || []);
+      const gen = Queue._gen;
       $("#batchModal").classList.remove("show");
-      showToast(`Loaded batch “${name}” — replaced the queue.`, { undo: () => Queue.replaceAll(prev) });
+      showToast(`Loaded batch “${name}” — replaced the queue.`, {
+        undo: () => {
+          // the snapshot is only safe while the queue hasn't diverged
+          if (Queue._gen !== gen) return showToast("The queue changed since the batch loaded — undo unavailable.");
+          Queue.replaceAll(prev);
+        },
+      });
     };
     const del = el("button", "q-btn", "✕");
     del.title = "Delete batch";
@@ -805,7 +833,9 @@ function renderBatchList() {
   }
 }
 
+let _sheetSeq = 0;
 async function renderSheetPreviews() {
+  const seq = ++_sheetSeq;
   const host = $("#sheetPreviews");
   host.innerHTML = "";
   const packed = packQueue(Queue.packable(), { margin: Settings.get().margin });
@@ -819,6 +849,7 @@ async function renderSheetPreviews() {
     const page = packed.pages[i];
     const box = el("div", "sheet-thumb");
     const { svg, pw, ph } = await composeSheetSVG(page, Settings.get().cutGuides);
+    if (seq !== _sheetSeq) return packed; // a newer run owns the host now
     const scale = Math.min(84 / (pw * PPI), 106 / (ph * PPI));
     box.innerHTML = svg.replace(/^<svg /, `<svg style="width:${pw * PPI * scale}px;height:${ph * PPI * scale}px" `);
     box.appendChild(el("span", "pg", String(i + 1)));
@@ -832,6 +863,17 @@ async function renderSheetPreviews() {
 
 async function exportQueue(print) {
   if (!Queue.items.length) return;
+  // never print a broken sign (e.g. a bulk Was/Now still missing its
+  // NOW price would render "NOW $—") — block with a pointer instead
+  const bad = Queue.items.filter((q) => {
+    const t = typeById(q.typeId);
+    return t && validateSpec(t, q.spec);
+  });
+  if (bad.length) {
+    const first = validateSpec(typeById(bad[0].typeId), bad[0].spec);
+    showToast(`${bad.length} sign${bad.length === 1 ? " is" : "s are"} incomplete — “${queueItemTitle(bad[0])}”: ${first} Click it in the queue to fix.`, { ms: 9000 });
+    return;
+  }
   const btn = print ? $("#printAllBtn") : $("#exportAllBtn");
   const orig = btn.textContent;
   btn.disabled = true;
@@ -893,7 +935,7 @@ function initBulk() {
             price: si.onSale ? si.sale : (res.price || res.listPrice || ""),
             regPrice: si.onSale ? si.reg : "",
             startDate: App.batchStart, endDate: App.batchEnd,
-            lookedUpAt: new Date().toISOString(),
+            lookedUpAt: res.fetchedAt || new Date().toISOString(),
           };
           let addType = typeId;
           if (typeId === "regular" && si.onSale) addType = "sale";
