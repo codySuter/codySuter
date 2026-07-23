@@ -31,6 +31,8 @@
       <h2>Print Queue</h2>
       <span class="queue-count" id="queueCount">0</span>
       <div class="mini">
+        <button class="mini-btn" id="refreshPricesBtn" title="Re-check store prices for queued signs">↻ Prices</button>
+        <button class="mini-btn" id="batchesBtn" title="Save or load a named set of signs">Batches</button>
         <button class="mini-btn" id="clearQueueBtn">Clear</button>
       </div>
     </div>
@@ -61,10 +63,12 @@
             </select>
           </div>
           <div class="bulk-meta">
+            <label class="bulk-copies-label">Copies <input type="number" id="bulkCopies" class="f-input bulk-copies" min="1" max="99" value="1"></label>
             <span class="bulk-count" id="bulkCount"></span>
             <button class="btn btn-primary btn-sm" id="bulkAddBtn" style="margin-left:auto">Look Up &amp; Add All</button>
           </div>
           <div class="bulk-progress" id="bulkProgress"><i></i></div>
+          <div class="bulk-report" id="bulkReport"></div>
           <div class="f-help">Items on sale switch to a Sale sign automatically.</div>
         </div>
       </details>
@@ -111,15 +115,35 @@
   </div>
 </div>
 
+<!-- Saved batches -->
+<div class="modal-back" id="batchModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Saved batches</h3><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <label class="f-label">Save the current queue as a batch</label>
+      <div class="f-row">
+        <input class="f-input" id="batchName" placeholder="e.g. Spring Grill Sale">
+        <button class="btn btn-primary btn-sm" id="batchSaveBtn" style="flex:none">Save</button>
+      </div>
+      <div class="f-help" id="batchSaveHint"></div>
+      <div class="batch-list" id="batchList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toastHost"></div>
+
 <iframe id="printFrame" style="position:fixed;right:0;bottom:0;width:0;height:0;border:0" title="print"></iframe>
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/svg2pdf.umd.min.js"></script>
 <!-- STIHL module disabled for now: to re-enable, restore the data/*.js,
-     js/barcode.js, js/render-stihl.js, js/stihl.js tags and the
-     stihl_shelf entry in js/signtypes.js (see git history). -->
+     js/render-stihl.js, js/stihl.js tags and the stihl_shelf entry in
+     js/signtypes.js (see git history). barcode.js stays loaded — it also
+     draws the Code 128 SKU barcodes on Ace signs. -->
 <script src="js/util.js"></script>
 <script src="js/fonts.js"></script>
+<script src="js/barcode.js"></script>
 <script src="js/render-ace.js"></script>
 <script src="js/signtypes.js"></script>
 <script src="js/layout.js"></script>
