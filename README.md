@@ -2,9 +2,14 @@
 
 > **Also in this repo:**
 > [`loreforge/`](loreforge/) — Loreforge, a TTRPG worldbuilding desktop app ·
+> [`ace-sign-studio/`](ace-sign-studio/) — **Ace Sign Studio**, a Windows app for
+> every sign in the store, with live acehardware.com pricing
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/AceSignStudio.exe)) ·
 > [`ace-policy-studio/`](ace-policy-studio/) — **Ace Policy Studio**, a Windows app
 > for designing Snyder's Ace Hardware policy & procedure documents
-> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-policy-studio-windows/AcePolicyStudio.exe)).
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-policy-studio-windows/AcePolicyStudio.exe)) ·
+> [`ace-studio-brand/`](ace-studio-brand/) — the shared **Ace Studio** app-icon
+> style both apps (and future siblings) draw from.
 
 A private wiki + database for your D&D world — NPCs, monsters, locations, shops,
 magic items, session notes, maps, and player characters — all in one place,

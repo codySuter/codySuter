@@ -1,0 +1,80 @@
+name: Build Ace Sign Studio (Windows)
+
+# Cross-compiles Ace Sign Studio into a standalone Windows .exe — after
+# gofmt/vet, the Go test suite, and the Playwright E2E suite (which drives
+# the real binary against a mock acehardware.com) — and publishes it as
+# both a workflow artifact and a stable GitHub Release download.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "ace-sign-studio/**"
+      - ".github/workflows/build-sign-windows.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ace-sign-studio
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: ace-sign-studio/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Go tests
+        run: go test ./...
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: E2E suite (real binary + mock acehardware.com)
+        run: |
+          cd e2e
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          node run.mjs
+
+      - name: Upload E2E screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: ace-sign-studio/e2e/screenshots/
+          if-no-files-found: ignore
+
+      - name: Build Windows EXE
+        run: ./build.sh
+
+      - name: Upload EXE as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AceSignStudio-windows
+          path: dist/AceSignStudio.exe
+          if-no-files-found: error
+
+      - name: Publish EXE to a Release (stable download link)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ace-sign-studio-windows --yes --cleanup-tag || true
+          gh release create ace-sign-studio-windows ../dist/AceSignStudio.exe \
+            --title "Ace Sign Studio for Windows" \
+            --notes "Latest Windows build. Download **AceSignStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
+            --target "$GITHUB_SHA"

@@ -5,6 +5,12 @@ full UI in a real browser (gallery → editor → queue → sheet packing → PD
 reading every source file. Findings marked **fixed** were corrected on this branch and
 re-verified end-to-end.*
 
+> **Status update:** every open defect (#4–#7), every recommended feature (1–8), and
+> every engineering recommendation below has since been **implemented on this branch**
+> as Ace Sign Studio 2.1, verified by a new 44-check Playwright E2E suite
+> (`e2e/run.mjs`) plus a Go test suite, with CI publishing the exe to a GitHub
+> Release. The sections below are kept as the record of the original evaluation.
+
 ---
 
 ## Where it stands
