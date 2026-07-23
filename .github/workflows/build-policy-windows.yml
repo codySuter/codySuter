@@ -69,7 +69,27 @@ jobs:
             git push origin ":refs/tags/v$VERSION" || true
             git tag -f "v$VERSION" "$GITHUB_SHA"
             git push origin -f "v$VERSION"
+            # Pre-create the release: electron-builder uploads its files on
+            # parallel threads, and if the release doesn't exist yet both
+            # threads race to create it — GitHub can end up with TWO
+            # releases on one tag, splitting the assets. With the release
+            # already there, the threads just upload into it.
+            gh release create "v$VERSION" \
+              --title "$VERSION" \
+              --notes "Ace Policy Studio $VERSION. Installed apps update themselves on launch; for a fresh machine download **AcePolicyStudio-Setup.exe** below (SmartScreen: More info → Run anyway, once)." \
+              --target "$GITHUB_SHA" || true
             npx electron-builder --win --publish always
+            # Keep this release pinned as the repo's 'latest' (other apps
+            # also publish releases in this repo).
+            gh release edit "v$VERSION" --latest || true
+            # Sweep any incomplete duplicate v* releases (no latest.yml =
+            # not a real release of ours).
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[] | select((.tag_name|test("^v[0-9]")) and ((.assets|map(.name)|index("latest.yml")) == null)) | .id' |
+            while read -r rid; do
+              echo "Deleting incomplete duplicate release id=$rid"
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$rid" || true
+            done
             # Retire the legacy fixed-tag release so nobody downloads a stale build.
             gh release delete ace-policy-studio-windows --yes --cleanup-tag || true
           fi
