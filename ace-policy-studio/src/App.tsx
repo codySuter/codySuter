@@ -5,6 +5,7 @@ import { useStore } from './store';
 import { Editor } from './components/Editor';
 import { Library } from './components/Library';
 import { PrintView } from './components/PrintView';
+import { Support } from './components/Support';
 
 export default function App() {
   const route = useStore((s) => s.route);
@@ -19,6 +20,7 @@ export default function App() {
       const st = useStore.getState();
       if (cmd === 'new-doc') void st.createNewDoc();
       else if (cmd === 'library') void st.toLibrary();
+      else if (cmd === 'support') st.toSupport();
       else if (cmd === 'undo') st.undo();
       else if (cmd === 'redo') st.redo();
       else if ((cmd === 'export-pdf' || cmd === 'print') && st.route.name === 'editor' && st.current) {
@@ -45,6 +47,20 @@ export default function App() {
     });
   }, []);
 
+  // Renderer errors flow into the app log, so Support tickets carry them.
+  useEffect(() => {
+    const onError = (e: ErrorEvent) =>
+      api.logError?.(`error: ${e.message} @ ${e.filename}:${e.lineno}`);
+    const onRejection = (e: PromiseRejectionEvent) =>
+      api.logError?.(`unhandledrejection: ${String(e.reason)}`);
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
+  }, []);
+
   // Deep links (#/print/<id>) — how the hidden print window finds its doc.
   useEffect(() => {
     const onHash = () => {
@@ -66,6 +82,8 @@ export default function App() {
       return <Library />;
     case 'editor':
       return <Editor />;
+    case 'support':
+      return <Support />;
     case 'print':
       return <PrintView />;
   }

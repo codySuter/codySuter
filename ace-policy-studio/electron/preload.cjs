@@ -18,4 +18,6 @@ contextBridge.exposeInMainWorld('aps', {
     ipcRenderer.on('update-status', handler);
     return () => ipcRenderer.removeListener('update-status', handler);
   },
+  supportTicket: (ticket) => ipcRenderer.invoke('support:ticket', ticket),
+  logError: (text) => ipcRenderer.send('log:renderer', text),
 });

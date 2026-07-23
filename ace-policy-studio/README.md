@@ -60,6 +60,22 @@ controls on the left, a live page on the right, and Print / Export PDF one click
 
 ![A finished document](docs/document.png)
 
+## Support tickets
+
+The **Support** button (library header, editor toolbar, or `Help → Report a
+Problem…`) opens a short form — Bug / Issue / Feature idea, what happened,
+what you expected. Submitting it:
+
+1. writes a full diagnostics report (app + system info, document list, and
+   the recent app log) to the Desktop,
+2. copies the same report to the clipboard, and
+3. opens a pre-addressed email draft to **csuter@snydersace.net** with the
+   summary filled in — attach the Desktop file and hit Send.
+
+The app keeps a rolling log (`%APPDATA%\Ace Policy Studio\logs\main.log`) of
+updater activity, print/export results, and any errors, so tickets arrive
+with real troubleshooting data.
+
 ## Where documents live
 
 Documents are plain JSON files in
