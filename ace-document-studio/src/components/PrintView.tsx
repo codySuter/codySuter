@@ -17,7 +17,7 @@ export function PrintView() {
 
   useEffect(() => {
     if (!doc) return;
-    document.title = plainText(doc.title) || 'Policy document';
+    document.title = plainText(doc.title) || 'Document';
     let dead = false;
     void (async () => {
       await document.fonts.ready;

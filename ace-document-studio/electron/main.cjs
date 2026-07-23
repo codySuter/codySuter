@@ -1,4 +1,4 @@
-// Ace Policy Studio — Electron main process.
+// Ace Document Studio — Electron main process.
 // Documents are plain JSON files in userData/documents. PDF export and
 // printing render the document in a hidden window (the #/print/<id>
 // route) and use Chromium's print engine: Letter paper, 0.4in margins,
@@ -20,9 +20,26 @@ function docsDir() {
   return dir;
 }
 
+// One-time migration: the app used to be "Ace Policy Studio", and
+// userData follows productName — copy documents from the old folder so
+// the rename doesn't empty anyone's library. Never blocks launch.
+function migrateLegacyDocs() {
+  try {
+    const dir = docsDir();
+    if (fs.readdirSync(dir).some((f) => f.endsWith('.json'))) return;
+    const legacy = path.join(app.getPath('appData'), 'Ace Policy Studio', 'documents');
+    if (!fs.existsSync(legacy)) return;
+    for (const f of fs.readdirSync(legacy)) {
+      if (f.endsWith('.json')) fs.copyFileSync(path.join(legacy, f), path.join(dir, f));
+    }
+  } catch {
+    // A failed migration just means the library starts empty.
+  }
+}
+
 const safeId = (id) => String(id).replace(/[^a-zA-Z0-9-_]/g, '');
 const safeName = (name) =>
-  (String(name).replace(/[\\/:*?"<>|]/g, '-').trim() || 'Policy document').slice(0, 120);
+  (String(name).replace(/[\\/:*?"<>|]/g, '-').trim() || 'Document').slice(0, 120);
 
 ipcMain.handle('docs:list', async () => {
   const dir = docsDir();
@@ -176,13 +193,13 @@ const menuTemplate = [
     label: 'Help',
     submenu: [
       {
-        label: 'About Ace Policy Studio',
+        label: 'About Ace Document Studio',
         click: () =>
           dialog.showMessageBox(mainWindow, {
-            title: 'Ace Policy Studio',
-            message: `Ace Policy Studio ${app.getVersion()}`,
+            title: 'Ace Document Studio',
+            message: `Ace Document Studio ${app.getVersion()}`,
             detail:
-              "Design Snyder's Ace Hardware policy & procedure documents — drag-and-drop sections, brand fonts, one-page fit meter, print-ready PDF export.",
+              "Design Snyder's Ace Hardware policy, procedure & store documents — drag-and-drop sections, brand fonts, one-page fit meter, print-ready PDF export.",
           }),
       },
     ],
@@ -196,7 +213,7 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 660,
     backgroundColor: '#E9E9EC',
-    title: 'Ace Policy Studio',
+    title: 'Ace Document Studio',
     icon:
       process.platform === 'linux'
         ? path.join(__dirname, '..', 'build', 'icon.png')
@@ -211,6 +228,7 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
+  migrateLegacyDocs();
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
   createMainWindow();
   app.on('activate', () => {

@@ -116,7 +116,7 @@ export function Library() {
             className="text-[26px] font-extrabold tracking-[0.01em] text-[#15181D] uppercase"
             style={{ fontFamily: "'Barlow Semi Condensed', sans-serif" }}
           >
-            Policy &amp; Procedure Documents
+            Document Library
           </h1>
           <div className="mb-6 mt-1 h-[3px] w-[64px] rounded bg-[#C8102E]" />
           {docs.length === 0 ? (

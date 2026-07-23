@@ -291,7 +291,7 @@ export function Editor() {
     if (!doc) return;
     setStatus('Exporting PDF…');
     await saveNow();
-    const r = await api.exportPdf(doc.id, plainText(doc.title) || 'Policy document');
+    const r = await api.exportPdf(doc.id, plainText(doc.title) || 'Document');
     if (r.ok && r.path) setStatus(`Saved PDF → ${r.path}`);
     else if (r.canceled) setStatus('PDF export canceled.');
     else if (!r.ok) setStatus(`PDF export failed: ${r.error ?? 'unknown error'}`);

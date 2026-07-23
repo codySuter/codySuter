@@ -11,7 +11,7 @@ export function AppHeader({ left, right }: { left?: ReactNode; right?: ReactNode
           className="text-[13px] font-extrabold tracking-[0.09em]"
           style={{ fontFamily: "'Barlow Semi Condensed', sans-serif" }}
         >
-          ACE POLICY STUDIO
+          ACE DOCUMENT STUDIO
         </span>
       </div>
       <div className="ml-auto flex items-center gap-2">{right}</div>

@@ -1,18 +1,22 @@
-# Ace Policy Studio
+# Ace Document Studio
 
 A Windows desktop app for **Snyder's Ace Hardware (Media, PA)** that designs
-store **policy & procedure documents** — the same look, fonts, and layout as the
-store's existing Policy & Procedures Guide, with drag-and-drop sections, a
+store **policy, procedure & store documents** — the same look, fonts, and layout
+as the store's existing Policy & Procedures Guide, with drag-and-drop sections, a
 new-document wizard, a live one-page fit meter, and print-ready PDF export.
 Built to feel like a sibling of [Ace Sign Studio](https://github.com/codysuter/ace-sign-studio):
 controls on the left, a live page on the right, and Print / Export PDF one click away.
 
+> Formerly **Ace Policy Studio** — same app, broader name. On first launch the
+> renamed app automatically copies your existing documents over from the old
+> `Ace Policy Studio` data folder.
+
 | Download |
 |---|
-| [**AcePolicyStudio.exe**](https://github.com/codysuter/codysuter/releases/download/ace-policy-studio-windows/AcePolicyStudio.exe) — Windows 10/11, portable, no install |
+| [**AceDocumentStudio.exe**](https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows/AceDocumentStudio.exe) — Windows 10/11, portable, no install |
 
 > The link serves the latest build, published automatically by GitHub Actions
-> (see [`.github/workflows/build-policy-windows.yml`](../.github/workflows/build-policy-windows.yml)).
+> (see [`.github/workflows/build-document-studio-windows.yml`](../.github/workflows/build-document-studio-windows.yml)).
 > On first launch Windows SmartScreen may warn about an unrecognized app (it's
 > unsigned) — click **More info → Run anyway** (once).
 
@@ -57,8 +61,10 @@ controls on the left, a live page on the right, and Print / Export PDF one click
 ## Where documents live
 
 Documents are plain JSON files in
-`%APPDATA%\Ace Policy Studio\documents\` — easy to back up or copy between
-machines. PDFs export wherever you choose (defaults to Documents).
+`%APPDATA%\Ace Document Studio\documents\` — easy to back up or copy between
+machines. PDFs export wherever you choose (defaults to Documents). If you used
+the app back when it was Ace Policy Studio, your documents are copied over from
+the old folder automatically on first launch.
 
 ## Keyboard shortcuts
 
@@ -77,10 +83,10 @@ machines. PDFs export wherever you choose (defaults to Documents).
 ## Building from source
 
 ```bash
-cd ace-policy-studio
+cd ace-document-studio
 npm install
 npm run dev:app     # live-reload app (Vite + Electron)
-npm run dist:win    # portable AcePolicyStudio.exe → release/
+npm run dist:win    # portable AceDocumentStudio.exe → release/
 ```
 
 Other scripts: `npm run dev` (browser-only dev server), `npm run typecheck`,

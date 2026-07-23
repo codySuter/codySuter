@@ -90,7 +90,7 @@ export const useStore = create<StoreState>((set, get) => ({
   past: [],
   future: [],
   saveState: 'saved',
-  status: 'Welcome to Ace Policy Studio.',
+  status: 'Welcome to Ace Document Studio.',
   dragging: null,
   contentH: 0,
   zoom: 'fit',

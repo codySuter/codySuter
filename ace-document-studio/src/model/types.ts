@@ -1,4 +1,4 @@
-// Document model for Ace Policy Studio.
+// Document model for Ace Document Studio.
 // Blocks mirror the section styles used in the store's existing
 // Policy & Procedures documents (claude.ai design project).
 

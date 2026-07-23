@@ -27,7 +27,7 @@ export default function App() {
           st.setStatus(cmd === 'export-pdf' ? 'Exporting PDF…' : 'Opening print dialog…');
           await st.saveNow();
           if (cmd === 'export-pdf') {
-            const r = await api.exportPdf(doc.id, plainText(doc.title) || 'Policy document');
+            const r = await api.exportPdf(doc.id, plainText(doc.title) || 'Document');
             if (r.ok && r.path) st.setStatus(`Saved PDF → ${r.path}`);
             else if (r.canceled) st.setStatus('PDF export canceled.');
           } else {

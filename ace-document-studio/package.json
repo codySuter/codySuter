@@ -1,8 +1,8 @@
 {
-  "name": "ace-policy-studio",
-  "productName": "Ace Policy Studio",
-  "version": "1.1.0",
-  "description": "Design Snyder's Ace Hardware policy & procedure documents — drag-and-drop sections, brand fonts, one-page fit meter, print-ready PDF export.",
+  "name": "ace-document-studio",
+  "productName": "Ace Document Studio",
+  "version": "1.2.0",
+  "description": "Design Snyder's Ace Hardware policy, procedure & store documents — drag-and-drop sections, brand fonts, one-page fit meter, print-ready PDF export.",
   "author": "Cody Suter",
   "license": "MIT",
   "private": true,
@@ -47,8 +47,8 @@
     "wait-on": "^9.0.1"
   },
   "build": {
-    "appId": "com.snydersace.policystudio",
-    "productName": "Ace Policy Studio",
+    "appId": "com.snydersace.documentstudio",
+    "productName": "Ace Document Studio",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -62,7 +62,7 @@
         "portable"
       ],
       "icon": "build/icon.ico",
-      "artifactName": "AcePolicyStudio.exe"
+      "artifactName": "AceDocumentStudio.exe"
     }
   }
 }
