@@ -15,6 +15,18 @@ export interface SupportResult {
   error?: string;
 }
 
+export interface LibrarySettings {
+  docsDir: string;
+  defaultDir: string;
+  isCustom: boolean;
+}
+
+export interface FolderChange {
+  changed: boolean;
+  copied?: number;
+  settings?: LibrarySettings;
+}
+
 export interface StudioApi {
   isElectron: boolean;
   listDocs(): Promise<PolicyDoc[]>;
@@ -27,6 +39,10 @@ export interface StudioApi {
   onUpdateStatus?(handler: (text: string) => void): () => void;
   supportTicket(ticket: SupportTicket): Promise<SupportResult>;
   logError?(text: string): void;
+  getSettings?(): Promise<LibrarySettings>;
+  chooseLibraryFolder?(): Promise<FolderChange>;
+  useDefaultFolder?(): Promise<FolderChange>;
+  onDocsChanged?(cb: () => void): () => void;
 }
 
 declare global {

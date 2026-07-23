@@ -61,6 +61,23 @@ export default function App() {
     };
   }, []);
 
+  // Shared-folder sync: refresh when the window regains focus or the
+  // library folder changes on disk (the other computer saved something).
+  useEffect(() => {
+    let t: number | undefined;
+    const kick = () => {
+      window.clearTimeout(t);
+      t = window.setTimeout(() => void useStore.getState().refreshFromDisk(), 300);
+    };
+    const unsubscribe = api.onDocsChanged?.(kick);
+    window.addEventListener('focus', kick);
+    return () => {
+      unsubscribe?.();
+      window.removeEventListener('focus', kick);
+      window.clearTimeout(t);
+    };
+  }, []);
+
   // Deep links (#/print/<id>) — how the hidden print window finds its doc.
   useEffect(() => {
     const onHash = () => {

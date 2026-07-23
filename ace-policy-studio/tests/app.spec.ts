@@ -142,6 +142,34 @@ test('support tab creates an email ticket', async ({ page }) => {
   await expect(page.getByTestId('library-card').first()).toBeVisible();
 });
 
+test('window focus picks up library changes from disk', async ({ page }) => {
+  await boot(page);
+  // Simulate the other computer editing a document in the shared library.
+  await page.evaluate(() => {
+    const map = JSON.parse(localStorage.getItem('aps.docs.v1') ?? '{}');
+    const doc = Object.values(map).find(
+      (d) => (d as { title: string }).title === 'Grill Special Orders',
+    ) as { title: string; updatedAt: number };
+    doc.title = 'Grill Special Orders (rev 2)';
+    doc.updatedAt = Date.now() + 1000;
+    localStorage.setItem('aps.docs.v1', JSON.stringify(map));
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(page.getByText('Grill Special Orders (rev 2)').first()).toBeVisible({
+    timeout: 5_000,
+  });
+});
+
+test('library settings modal explains the shared folder', async ({ page }) => {
+  await boot(page);
+  await page.getByTestId('settings-btn').click();
+  const modal = page.getByTestId('settings-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText('Two computers, one library');
+  await modal.getByRole('button', { name: 'Close' }).click();
+  await expect(modal).not.toBeVisible();
+});
+
 test('move up/down reorders and renumbers sections', async ({ page }) => {
   await boot(page);
   await page.getByText('STIHL Special Order Inquiries').first().click();

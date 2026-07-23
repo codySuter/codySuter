@@ -82,6 +82,16 @@ Documents are plain JSON files in
 `%APPDATA%\Ace Policy Studio\documents\` — easy to back up or copy between
 machines. PDFs export wherever you choose (defaults to Documents).
 
+## Two computers, one library
+
+Two people (never at the same time) can share the document library: click
+the folder icon in the library header and **choose a shared folder** — a
+OneDrive/Google Drive folder or a network drive — on *both* computers.
+Switching merges your existing documents in (newest save wins, nothing is
+deleted). From then on each app picks up the other computer's changes
+whenever it launches, regains focus, or the folder changes on disk —
+including new documents, edits, and deletions.
+
 ## Keyboard shortcuts
 
 | Keys | Action |

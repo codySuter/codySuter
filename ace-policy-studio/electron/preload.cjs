@@ -20,4 +20,12 @@ contextBridge.exposeInMainWorld('aps', {
   },
   supportTicket: (ticket) => ipcRenderer.invoke('support:ticket', ticket),
   logError: (text) => ipcRenderer.send('log:renderer', text),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  chooseLibraryFolder: () => ipcRenderer.invoke('settings:choose-dir'),
+  useDefaultFolder: () => ipcRenderer.invoke('settings:use-default'),
+  onDocsChanged: (cb) => {
+    const handler = () => cb();
+    ipcRenderer.on('docs-changed', handler);
+    return () => ipcRenderer.removeListener('docs-changed', handler);
+  },
 });

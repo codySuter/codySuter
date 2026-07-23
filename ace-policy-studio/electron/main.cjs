@@ -16,11 +16,133 @@ const isDev = !!DEV_URL;
 let mainWindow = null;
 const printResolvers = new Map(); // webContents.id -> resolve()
 
+// ---- library location ----------------------------------------------------
+// The library defaults to userData/documents, but can point at a shared
+// folder (OneDrive / Google Drive / network share) so two computers work
+// on one document library. Newest-save-wins; deletes carry over because
+// both machines read the same files.
+const configFile = () => path.join(app.getPath('userData'), 'config.json');
+let config = { docsDir: null };
+
+function loadConfig() {
+  try {
+    config = { ...config, ...JSON.parse(fs.readFileSync(configFile(), 'utf8')) };
+  } catch {
+    // First run or unreadable config — defaults apply.
+  }
+}
+
+function saveConfig() {
+  try {
+    fs.writeFileSync(configFile(), JSON.stringify(config, null, 2), 'utf8');
+  } catch (err) {
+    log('[settings] config save failed', String((err && err.message) || err));
+  }
+}
+
+function defaultDocsDir() {
+  return path.join(app.getPath('userData'), 'documents');
+}
+
 function docsDir() {
-  const dir = path.join(app.getPath('userData'), 'documents');
+  const dir = config.docsDir || defaultDocsDir();
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
+
+// Watch the library folder so edits arriving from the other computer
+// (via the sync client) refresh the open app.
+let docsWatcher = null;
+let watchDebounce = null;
+function watchDocsDir() {
+  if (docsWatcher) {
+    try {
+      docsWatcher.close();
+    } catch {
+      // Old watcher may already be dead.
+    }
+    docsWatcher = null;
+  }
+  try {
+    docsWatcher = fs.watch(docsDir(), () => {
+      clearTimeout(watchDebounce);
+      watchDebounce = setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('docs-changed');
+        }
+      }, 800);
+    });
+  } catch (err) {
+    log('[sync] folder watch failed', String((err && err.message) || err));
+  }
+}
+
+// Copy docs between folders, newest updatedAt wins, never deletes.
+async function mergeCopyDocs(fromDir, toDir) {
+  let copied = 0;
+  const files = await fsp.readdir(fromDir).catch(() => []);
+  for (const f of files) {
+    if (!f.endsWith('.json')) continue;
+    try {
+      const src = JSON.parse(await fsp.readFile(path.join(fromDir, f), 'utf8'));
+      const destPath = path.join(toDir, f);
+      let write = true;
+      try {
+        const dest = JSON.parse(await fsp.readFile(destPath, 'utf8'));
+        if ((dest.updatedAt || 0) >= (src.updatedAt || 0)) write = false;
+      } catch {
+        // No destination copy yet — write it.
+      }
+      if (write) {
+        await fsp.writeFile(destPath, JSON.stringify(src, null, 2), 'utf8');
+        copied++;
+      }
+    } catch (err) {
+      log('[sync] merge skipped file', f, String((err && err.message) || err));
+    }
+  }
+  return copied;
+}
+
+const settingsPayload = () => ({
+  docsDir: docsDir(),
+  defaultDir: defaultDocsDir(),
+  isCustom: !!config.docsDir,
+});
+
+ipcMain.handle('settings:get', () => settingsPayload());
+
+ipcMain.handle('settings:choose-dir', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose the shared library folder',
+    buttonLabel: 'Use this folder',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (canceled || !filePaths[0]) return { changed: false };
+  const target = filePaths[0];
+  const prev = docsDir();
+  if (path.resolve(target) === path.resolve(prev)) return { changed: false };
+  fs.mkdirSync(target, { recursive: true });
+  const copied = await mergeCopyDocs(prev, target);
+  config.docsDir = target;
+  saveConfig();
+  watchDocsDir();
+  log('[sync] library folder set to', target, `(${copied} doc(s) merged in)`);
+  return { changed: true, copied, settings: settingsPayload() };
+});
+
+ipcMain.handle('settings:use-default', async () => {
+  if (!config.docsDir) return { changed: false };
+  const prev = docsDir();
+  const target = defaultDocsDir();
+  fs.mkdirSync(target, { recursive: true });
+  const copied = await mergeCopyDocs(prev, target);
+  config.docsDir = null;
+  saveConfig();
+  watchDocsDir();
+  log('[sync] library folder back to default', `(${copied} doc(s) merged in)`);
+  return { changed: true, copied, settings: settingsPayload() };
+});
 
 const safeId = (id) => String(id).replace(/[^a-zA-Z0-9-_]/g, '');
 const safeName = (name) =>
@@ -442,11 +564,14 @@ process.on('unhandledRejection', (reason) => {
 
 app.whenReady().then(() => {
   initLog(app);
+  loadConfig();
   log(
     '[app] start',
     `v${app.getVersion()}${app.isPackaged ? '' : ' (dev)'}`,
     `${os.type()} ${os.release()} ${os.arch()}`,
+    config.docsDir ? `library=${config.docsDir}` : 'library=default',
   );
+  watchDocsDir();
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
   createMainWindow();
   // Give the window a moment to paint before hitting the network.
