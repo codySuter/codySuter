@@ -115,25 +115,68 @@ function sanitizeFilename(s) {
   return String(s || "sign").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
-/* Fetch an image URL (via our proxy for remote ones) and return a data URI. */
+/* Fetch an image URL (via our proxy for remote ones) and return a data URI.
+   `reencode` normalizes the image through a canvas to a baseline format that
+   jsPDF's decoders accept — real product photos are often progressive or
+   CMYK JPEGs, WebP or AVIF, which browsers render (so the preview looks
+   fine) but jsPDF.addImage silently rejects (so they vanish from the PDF).
+   Passing "jpeg" (opaque, small) or "png" (keeps alpha) re-bakes them to
+   baseline so preview and PDF match. */
 const _dataURICache = new Map();
-async function toDataURI(url) {
+async function toDataURI(url, reencode) {
   if (!url) return null;
-  if (_dataURICache.has(url)) return _dataURICache.get(url);
+  const key = url + "|" + (reencode || "");
+  if (_dataURICache.has(key)) return _dataURICache.get(key);
   const p = (async () => {
     const src = /^https?:\/\//.test(url) ? `/api/img?u=${encodeURIComponent(url)}` : url;
     const resp = await fetch(src);
     if (!resp.ok) throw new Error(`image fetch failed (${resp.status})`);
     const blob = await resp.blob();
-    return await new Promise((res, rej) => {
+    const raw = await new Promise((res, rej) => {
       const r = new FileReader();
       r.onload = () => res(r.result);
       r.onerror = rej;
       r.readAsDataURL(blob);
     });
+    if (!reencode) return raw;
+    return await reencodeImage(raw, reencode);
   })();
-  _dataURICache.set(url, p);
-  try { return await p; } catch (e) { _dataURICache.delete(url); throw e; }
+  _dataURICache.set(key, p);
+  try { return await p; } catch (e) { _dataURICache.delete(key); throw e; }
+}
+
+/* Decode an image data URI and re-encode it via canvas to a baseline
+   JPEG (white-matted) or PNG (alpha preserved) that jsPDF can embed.
+   Guarded so a pathological image can never hang the app — on any timeout
+   or error it falls back to the original data URI (which still renders in
+   the preview even if the PDF can't embed it). */
+async function reencodeImage(dataURI, mode) {
+  const img = new Image();
+  const loaded = new Promise((res) => {
+    img.onload = () => res(true);
+    img.onerror = () => res(false);
+  });
+  img.src = dataURI;
+  const ok = await Promise.race([
+    loaded,
+    new Promise((res) => setTimeout(() => res(false), 8000)),
+  ]);
+  if (!ok || !(img.naturalWidth > 0)) return dataURI;
+  const w = img.naturalWidth, h = img.naturalHeight;
+  try {
+    const cv = document.createElement("canvas");
+    cv.width = w;
+    cv.height = h;
+    const ctx = cv.getContext("2d");
+    if (mode === "jpeg") {
+      ctx.fillStyle = "#ffffff"; // JPEG has no alpha — matte onto white
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.drawImage(img, 0, 0, w, h);
+    return mode === "png" ? cv.toDataURL("image/png") : cv.toDataURL("image/jpeg", 0.92);
+  } catch (e) {
+    return dataURI; // tainted/oversized canvas — fall back to the original
+  }
 }
 
 /* Natural size of a data-URI image. */

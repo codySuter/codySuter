@@ -207,7 +207,9 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   let imgURI = null, imgNat = { w: 1, h: 1 };
   if (spec.image && !o.noImage) {
     try {
-      imgURI = await toDataURI(spec.image);
+      // Re-encode to baseline JPEG so it survives into the PDF (jsPDF can't
+      // decode progressive/CMYK JPEG, WebP or AVIF that the browser renders).
+      imgURI = await toDataURI(spec.image, "jpeg");
       imgNat = await imageSize(imgURI);
     } catch (e) { imgURI = null; }
   }
@@ -643,7 +645,7 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
 
   let imgURI = null, imgNat = { w: 1, h: 1 };
   if (spec.image) {
-    try { imgURI = await toDataURI(spec.image); imgNat = await imageSize(imgURI); } catch (e) {}
+    try { imgURI = await toDataURI(spec.image, "jpeg"); imgNat = await imageSize(imgURI); } catch (e) {}
   }
   const contentTop = header.contentTop;
   const contentBottom = H - frame.margin - footer.reserved;
