@@ -5,10 +5,13 @@ name: Build Ace Document Studio (Windows)
 # (library seeding + a production printToPDF) — and publishes it as both a
 # workflow artifact and a stable GitHub Release download.
 
+# claude/wizardly-rubin-exsovd is the repo's current default branch, so
+# merged PRs actually publish a release; main stays for when the default
+# moves back.
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, claude/wizardly-rubin-exsovd]
     paths:
       - "ace-document-studio/**"
       - ".github/workflows/build-document-studio-windows.yml"
@@ -48,6 +51,11 @@ jobs:
       - name: Package portable EXE
         run: npx electron-builder --win portable
 
+      # The app's startup update check reads this file from the release.
+      - name: Stamp version file for the update check
+        shell: bash
+        run: node -p "require('./package.json').version" > release/version.txt
+
       - name: Upload EXE as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
@@ -69,7 +77,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete ace-document-studio-windows --yes --cleanup-tag || true
-          gh release create ace-document-studio-windows release/AceDocumentStudio.exe \
+          gh release create ace-document-studio-windows release/AceDocumentStudio.exe release/version.txt \
             --title "Ace Document Studio for Windows" \
             --notes "Latest Windows build. Download **AceDocumentStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
             --target "$GITHUB_SHA"

@@ -24,6 +24,7 @@ import {
   PenLine,
   Printer,
   Redo2,
+  Scissors,
   Table as TableIcon,
   Tag,
   TriangleAlert,
@@ -57,6 +58,7 @@ const PALETTE: { type: BlockType; icon: React.ReactNode }[] = [
   { type: 'columns', icon: <Columns2 size={15} /> },
   { type: 'signoff', icon: <PenLine size={15} /> },
   { type: 'image', icon: <ImageIcon size={15} /> },
+  { type: 'pageBreak', icon: <Scissors size={15} /> },
 ];
 
 const collision: CollisionDetection = (args) => {
@@ -96,27 +98,29 @@ function PaletteTile({ type, icon }: { type: BlockType; icon: React.ReactNode })
 
 function FitMeter() {
   const contentH = useStore((s) => s.contentH);
+  const hasBreaks = useStore((s) => !!s.current?.blocks.some((b) => b.type === 'pageBreak'));
   const pct = contentH / PRINTABLE_H_PX;
   const pages = Math.max(1, Math.ceil(pct));
   const fits = pages <= 1;
+  // Manual breaks make extra pages intentional — report, don't warn.
+  const tone = fits ? '#005238' : hasBreaks ? '#4A4F57' : '#C8102E';
   return (
     <div className="flex items-center gap-2" title="Live page-fit for letter paper at 0.4″ margins">
       <div className="h-[7px] w-[110px] overflow-hidden rounded-full bg-[#E1E3E6]">
         <div
           className="h-full rounded-full transition-all"
-          style={{
-            width: `${Math.min(100, pct * 100)}%`,
-            background: fits ? '#005238' : '#C8102E',
-          }}
+          style={{ width: `${Math.min(100, pct * 100)}%`, background: tone }}
         />
       </div>
       <span
         data-testid="fit-label"
-        className={fits ? 'text-[#005238]' : 'font-semibold text-[#C8102E]'}
+        className={fits ? 'text-[#005238]' : hasBreaks ? 'text-[#4A4F57]' : 'font-semibold text-[#C8102E]'}
       >
         {fits
           ? `Fits on one page · ${Math.round(pct * 100)}% full`
-          : `Runs onto page ${pages} — trim or tighten`}
+          : hasBreaks
+            ? `About ${pages} pages · manual page breaks`
+            : `Runs onto page ${pages} — trim or tighten`}
       </span>
     </div>
   );
@@ -225,6 +229,13 @@ function Inspector({ block }: { block: Block }) {
             checklists. Column headings are optional — leave one blank to hide it.
           </p>
         </div>
+      );
+    case 'pageBreak':
+      return (
+        <p className="text-[11.5px] text-[#6D6E71]">
+          Everything below this line prints on a new page. Multi-page PDFs get automatic
+          “Page x of y” footers.
+        </p>
       );
     case 'image':
       return (
@@ -509,6 +520,15 @@ export function Editor() {
                   />
                 </div>
               )}
+              <label className="mt-1.5 flex items-center gap-2 text-[12px] text-[#20242B]">
+                <input
+                  type="checkbox"
+                  data-testid="footer-toggle"
+                  checked={doc.footer.show}
+                  onChange={(e) => setDocField('footer', { ...doc.footer, show: e.target.checked })}
+                />
+                Metadata footer (effective date, version…)
+              </label>
             </Panel>
 
             <Panel title="Add blocks">

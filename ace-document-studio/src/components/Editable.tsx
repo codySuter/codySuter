@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { sanitizeHtml } from '../model/sanitize';
+import { useStore } from '../store';
 
 export interface EditableHandle {
   focus(): void;
@@ -155,6 +156,8 @@ export const Editable = forwardRef<EditableHandle, Props>(function Editable(
       onBlur={() => {
         const el = ref.current;
         if (el) onCommit(sanitizeHtml(el.innerHTML));
+        // Each focus-edit-blur session becomes its own undo step.
+        useStore.getState().breakHistory();
       }}
       onKeyDown={handleKeyDown}
       onPaste={(e) => {

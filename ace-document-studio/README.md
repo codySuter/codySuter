@@ -44,6 +44,12 @@ controls on the left, a live page on the right, and Print / Export PDF one click
   warning callout already in place. No forms first.
 - **One-page focus.** A live meter shows how full the page is; if content
   spills, a dashed "PAGE 2 STARTS" line appears right where the break lands.
+- **Multi-page when you mean it.** Drop a **Page break** block anywhere and
+  everything below it prints on a new page — the meter switches to a calm page
+  count, and exported multi-page PDFs get automatic "Page x of y" footers.
+- **Metadata footer.** One checkbox adds the strip real policies carry —
+  Effective date, Version, Supersedes, Approved by — editable right on the
+  page; empty fields stay off the printout.
 - **Block library**: section headers, paragraphs, badge rows, bullet lists,
   numbered step lists, checklists, dark callouts, tables, **two-column
   sections** (each column with its own heading, text, and lists — great for
@@ -54,7 +60,20 @@ controls on the left, a live page on the right, and Print / Export PDF one click
   full-bleed color — identical geometry to the original documents.
 - **Autosave, undo/redo, duplicate, a type-size slider** (90–140%: compact
   handbook pages through big customer postings), and per-document accent color
-  (Ace red, dark red, ink).
+  (Ace red, dark red, ink). Unsaved edits also flush to disk the moment the
+  window closes, so a quick exit never loses the last change.
+- **Search the library** as it grows — the box above the cards filters by
+  title, subtitle, and kicker as you type.
+- **Import, export & backups.** Every document can be exported as a file
+  (the ⬇ button on its card) and imported on another machine (**Import** in
+  the toolbar or File menu — single documents or whole backups). **Back up**
+  writes the entire library to one file, and the app also keeps rotating
+  automatic backups of everything on every quit.
+- **Support & feedback**: the ✉ Support button (or Help menu) files a bug
+  report or feature request to csuter@snydersace.net with version info
+  prefilled.
+- **Update check.** On launch the app quietly checks for a newer build and
+  points at Help → Check for Updates… when one is available.
 
 ![A finished document](docs/document.png)
 
@@ -65,6 +84,11 @@ Documents are plain JSON files in
 machines. PDFs export wherever you choose (defaults to Documents). If you used
 the app back when it was Ace Policy Studio, your documents are copied over from
 the old folder automatically on first launch.
+
+Automatic backups of the whole library are written to
+`%APPDATA%\Ace Document Studio\backups\` on every quit (the newest 15 are
+kept). To restore one — or move to a new PC — use **Import** and pick the
+backup file.
 
 ## Keyboard shortcuts
 

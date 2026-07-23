@@ -1,6 +1,6 @@
 import { uid } from './blocks';
-import type { Block, PolicyDoc } from './types';
-import { DEFAULT_KICKER } from './types';
+import type { Block, StudioDoc } from './types';
+import { DEFAULT_KICKER, emptyFooter } from './types';
 
 // The store's three existing Policy & Procedures documents, converted
 // 1:1 from the claude.ai design project so the library starts full.
@@ -30,8 +30,8 @@ function doc(
   title: string,
   subtitle: string,
   blocks: Block[],
-  chip: PolicyDoc['chip'] = null,
-): PolicyDoc {
+  chip: StudioDoc['chip'] = null,
+): StudioDoc {
   const now = Date.now();
   return {
     id,
@@ -41,13 +41,14 @@ function doc(
     chip,
     accent: '#C8102E',
     typeScale: 100,
+    footer: emptyFooter(),
     blocks,
     createdAt: now,
     updatedAt: now,
   };
 }
 
-export function starterDocs(): PolicyDoc[] {
+export function starterDocs(): StudioDoc[] {
   const grill = doc(
     'starter-grill',
     'Grill Special Orders',

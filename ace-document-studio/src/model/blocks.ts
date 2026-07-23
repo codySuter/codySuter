@@ -18,6 +18,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   signoff: 'Signature block',
   image: 'Image',
   columns: 'Two columns',
+  pageBreak: 'Page break',
 };
 
 export function newBlock(type: BlockType): Block {
@@ -88,6 +89,8 @@ export function newBlock(type: BlockType): Block {
       };
     case 'image':
       return { id, type, src: '', caption: '', widthPct: 60 };
+    case 'pageBreak':
+      return { id, type };
     case 'columns':
       return {
         id,

@@ -11,7 +11,7 @@ import {
 import { normalizeDoc } from './model/normalize';
 import { starterDocs } from './model/starter';
 import { newDocument } from './model/templates';
-import type { Block, BlockType, ColumnChildType, PolicyDoc } from './model/types';
+import type { Block, BlockType, ColumnChildType, StudioDoc } from './model/types';
 
 export type Route =
   | { name: 'boot' }
@@ -30,11 +30,11 @@ let lastHistKey: string | null = null;
 
 interface StoreState {
   route: Route;
-  docs: PolicyDoc[];
-  current: PolicyDoc | null;
+  docs: StudioDoc[];
+  current: StudioDoc | null;
   selectedId: string | null;
-  past: PolicyDoc[];
-  future: PolicyDoc[];
+  past: StudioDoc[];
+  future: StudioDoc[];
   saveState: SaveState;
   status: string;
   dragging: 'palette' | 'block' | null;
@@ -49,10 +49,11 @@ interface StoreState {
   deleteDoc(id: string): Promise<void>;
   duplicateDoc(id: string): Promise<void>;
 
-  mutate(fn: (doc: PolicyDoc) => void, histKey?: string): void;
+  mutate(fn: (doc: StudioDoc) => void, histKey?: string): void;
   saveNow(): Promise<void>;
   undo(): void;
   redo(): void;
+  breakHistory(): void;
 
   select(id: string | null): void;
   setDragging(d: 'palette' | 'block' | null): void;
@@ -60,7 +61,7 @@ interface StoreState {
   setZoom(z: Zoom): void;
   setStatus(s: string): void;
 
-  setDocField<K extends keyof PolicyDoc>(field: K, value: PolicyDoc[K], histKey?: string): void;
+  setDocField<K extends keyof StudioDoc>(field: K, value: StudioDoc[K], histKey?: string): void;
   updateBlock(id: string, patch: Partial<Block>, histKey?: string): void;
   insertBlock(type: BlockType, index?: number): void;
   removeBlock(id: string): void;
@@ -250,6 +251,12 @@ export const useStore = create<StoreState>((set, get) => ({
     saveTimer = setTimeout(() => void get().saveNow(), 700);
   },
 
+  // Ends the current history-coalescing run (called when a field blurs)
+  // so each editing session is its own undo step.
+  breakHistory() {
+    lastHistKey = null;
+  },
+
   select(id) {
     set({ selectedId: id });
   },
@@ -313,21 +320,27 @@ export const useStore = create<StoreState>((set, get) => ({
 
   moveBlockTo(activeId, overId) {
     get().mutate((doc) => {
-      const from = doc.blocks.findIndex((b) => b.id === activeId);
-      const to = doc.blocks.findIndex((b) => b.id === overId);
+      const arr = containerOf(doc, activeId);
+      if (!arr || !arr.some((b) => b.id === overId)) return;
+      const from = arr.findIndex((b) => b.id === activeId);
+      const to = arr.findIndex((b) => b.id === overId);
       if (from === -1 || to === -1 || from === to) return;
-      const [moved] = doc.blocks.splice(from, 1);
-      doc.blocks.splice(to, 0, moved);
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
     });
   },
 
+  // Works at the top level and inside a column: the block moves within
+  // whatever array contains it.
   moveBlockBy(id, delta) {
     get().mutate((doc) => {
-      const from = doc.blocks.findIndex((b) => b.id === id);
+      const arr = containerOf(doc, id);
+      if (!arr) return;
+      const from = arr.findIndex((b) => b.id === id);
       const to = from + delta;
-      if (from === -1 || to < 0 || to >= doc.blocks.length) return;
-      const [moved] = doc.blocks.splice(from, 1);
-      doc.blocks.splice(to, 0, moved);
+      if (from === -1 || to < 0 || to >= arr.length) return;
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
     });
   },
 

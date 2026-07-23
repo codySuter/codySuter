@@ -96,6 +96,13 @@ export interface ImageBlock {
   widthPct: number; // 20–100
 }
 
+// Forces everything after it onto a new printed page. Shows as a labeled
+// divider in the editor; prints as an invisible break.
+export interface PageBreakBlock {
+  id: string;
+  type: 'pageBreak';
+}
+
 export type Block =
   | SectionBlock
   | ParagraphBlock
@@ -107,7 +114,8 @@ export type Block =
   | TableBlock
   | SignoffBlock
   | ImageBlock
-  | ColumnsBlock;
+  | ColumnsBlock
+  | PageBreakBlock;
 
 // Block types allowed inside a column.
 export const COLUMN_CHILD_TYPES = ['paragraph', 'bullets', 'steps', 'checklist'] as const;
@@ -125,7 +133,32 @@ export type Audience = 'employee' | 'customer';
 export const TYPE_SCALE_MIN = 90;
 export const TYPE_SCALE_MAX = 140;
 
-export interface PolicyDoc {
+// Optional metadata footer at the bottom of the page — the fields real
+// policies carry. Empty fields are hidden when printed.
+export interface DocFooter {
+  show: boolean;
+  effective: string;
+  version: string;
+  supersedes: string;
+  approvedBy: string;
+}
+
+export const emptyFooter = (): DocFooter => ({
+  show: false,
+  effective: '',
+  version: '',
+  supersedes: '',
+  approvedBy: '',
+});
+
+export const FOOTER_FIELDS = [
+  ['effective', 'Effective'],
+  ['version', 'Version'],
+  ['supersedes', 'Supersedes'],
+  ['approvedBy', 'Approved by'],
+] as const;
+
+export interface StudioDoc {
   id: string;
   title: string;
   kicker: string;
@@ -135,6 +168,7 @@ export interface PolicyDoc {
   typeScale: number; // % type size: 100 = employee docs, ~116 = customer postings
   /** @deprecated pre-1.1 field; normalizeDoc converts it into `typeScale`. */
   audience?: Audience;
+  footer: DocFooter;
   blocks: Block[];
   createdAt: number;
   updatedAt: number;

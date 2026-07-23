@@ -123,6 +123,78 @@ test('fit meter reports one-page starter docs', async ({ page }) => {
   await expect(page.getByTestId('fit-label')).toContainText('Fits on one page');
 });
 
+test('library search filters the cards', async ({ page }) => {
+  await boot(page);
+  await page.getByTestId('library-search').fill('stihl');
+  await expect(page.getByTestId('library-card')).toHaveCount(1);
+  await expect(page.getByText('STIHL Special Order Inquiries').first()).toBeVisible();
+  await page.getByTestId('library-search').fill('no such document');
+  await expect(page.getByTestId('library-card')).toHaveCount(0);
+  await expect(page.getByText('No documents match')).toBeVisible();
+  await page.getByTestId('library-search').fill('');
+  await expect(page.getByTestId('library-card')).toHaveCount(3);
+});
+
+test('page break block shows a divider and calms the fit meter', async ({ page }) => {
+  await boot(page);
+  await page.getByText('Grill Special Orders').first().click();
+  const pageEl = page.getByTestId('page-edit');
+  await expect(pageEl).toBeVisible();
+
+  await page.getByTestId('palette-pageBreak').click();
+  await expect(pageEl.getByText('PAGE BREAK')).toBeVisible();
+  await expect(page.getByTestId('save-state')).toHaveText('All changes saved', {
+    timeout: 5_000,
+  });
+});
+
+test('metadata footer toggles on, edits inline, and persists', async ({ page }) => {
+  await boot(page);
+  await page.getByText('Special Orders for Pickup').first().click();
+  const pageEl = page.getByTestId('page-edit');
+  await expect(pageEl).toBeVisible();
+
+  await page.getByTestId('footer-toggle').check();
+  const footer = page.getByTestId('doc-footer');
+  await expect(footer).toBeVisible();
+  await expect(footer.getByText('Effective')).toBeVisible();
+
+  await footer.locator('.aps-editable').first().click();
+  await page.keyboard.type('01/15/2026');
+  await expect(page.getByTestId('save-state')).toHaveText('All changes saved', {
+    timeout: 5_000,
+  });
+
+  await page.reload();
+  await expect(page.getByTestId('library-card').first()).toBeVisible();
+  await page.getByText('Special Orders for Pickup').first().click();
+  await expect(page.getByTestId('doc-footer').getByText('01/15/2026')).toBeVisible();
+});
+
+test('support button offers bug report and feature request', async ({ page }) => {
+  await boot(page);
+  await page.getByTestId('support-btn').click();
+  await expect(page.getByText('Report a bug…')).toBeVisible();
+  await expect(page.getByText('Request a feature…')).toBeVisible();
+  await expect(page.getByText('csuter@snydersace.net')).toBeVisible();
+});
+
+test('nested column blocks move with the toolbar arrows', async ({ page }) => {
+  await boot(page);
+  await page.getByText('Special Orders for Pickup').first().click();
+  const pageEl = page.getByTestId('page-edit');
+  await expect(pageEl).toBeVisible();
+
+  await page.getByTestId('palette-columns').click();
+  await page.getByTestId('col-add-left-bullets').click();
+  const nested = pageEl.getByTestId('nested-block');
+  // Column starts with its seed paragraph, then the new bullets below it.
+  await expect(nested.first()).not.toContainText('First point');
+  await nested.filter({ hasText: 'First point' }).first().click();
+  await page.getByRole('button', { name: 'Move up' }).click();
+  await expect(nested.first()).toContainText('First point');
+});
+
 test('move up/down reorders and renumbers sections', async ({ page }) => {
   await boot(page);
   await page.getByText('STIHL Special Order Inquiries').first().click();

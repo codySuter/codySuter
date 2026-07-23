@@ -1,17 +1,27 @@
-import { Copy, Plus, Trash2 } from 'lucide-react';
+import { Copy, Download, Plus, Save, Trash2, Upload } from 'lucide-react';
+import { useState } from 'react';
+import { api } from '../api';
+import { runBackup, runImport } from '../App';
 import { plainText } from '../model/sanitize';
-import type { PolicyDoc } from '../model/types';
+import type { StudioDoc } from '../model/types';
 import { useStore } from '../store';
-import { AppHeader, Btn } from './ui';
+import { AppHeader, Btn, inputCls } from './ui';
 import { PageView } from './PageView';
 
 const THUMB_W = 226;
 const THUMB_SCALE = THUMB_W / 816;
 
-function Card({ doc }: { doc: PolicyDoc }) {
+function Card({ doc }: { doc: StudioDoc }) {
   const openDoc = useStore((s) => s.openDoc);
   const deleteDoc = useStore((s) => s.deleteDoc);
   const duplicateDoc = useStore((s) => s.duplicateDoc);
+  const setStatus = useStore((s) => s.setStatus);
+
+  const exportJson = async () => {
+    const r = await api.exportDocJson(doc);
+    if (r.ok) setStatus(r.path ? `Exported → ${r.path}` : 'Document file downloaded.');
+    else if (!r.canceled) setStatus(`Export failed: ${r.error ?? 'unknown error'}`);
+  };
 
   return (
     <div data-testid="library-card" className="group w-[226px]">
@@ -51,6 +61,25 @@ function Card({ doc }: { doc: PolicyDoc }) {
             className="rounded-[5px] border border-[#D8DBDE] bg-white p-1.5 text-[#4A4F57] shadow hover:text-[#15181D]"
           >
             <Copy size={13} />
+          </span>
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="Export document file"
+            title="Export as a file (share or back up)"
+            onClick={(e) => {
+              e.stopPropagation();
+              void exportJson();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.stopPropagation();
+                void exportJson();
+              }
+            }}
+            className="rounded-[5px] border border-[#D8DBDE] bg-white p-1.5 text-[#4A4F57] shadow hover:text-[#15181D]"
+          >
+            <Download size={13} />
           </span>
           <span
             role="button"
@@ -100,14 +129,30 @@ export function Library() {
   const docs = useStore((s) => s.docs);
   const createNewDoc = useStore((s) => s.createNewDoc);
   const status = useStore((s) => s.status);
+  const [query, setQuery] = useState('');
+
+  const q = query.trim().toLowerCase();
+  const visible = q
+    ? docs.filter((d) =>
+        plainText(`${d.title} ${d.subtitle} ${d.kicker}`).toLowerCase().includes(q),
+      )
+    : docs;
 
   return (
     <div className="flex h-full flex-col">
       <AppHeader
         right={
-          <Btn variant="topbar-primary" onClick={() => void createNewDoc()} data-testid="new-doc">
-            <Plus size={14} /> New Document
-          </Btn>
+          <>
+            <Btn variant="topbar" onClick={() => void runImport()} data-testid="import-btn">
+              <Upload size={14} /> Import
+            </Btn>
+            <Btn variant="topbar" onClick={() => void runBackup()} data-testid="backup-btn">
+              <Save size={14} /> Back up
+            </Btn>
+            <Btn variant="topbar-primary" onClick={() => void createNewDoc()} data-testid="new-doc">
+              <Plus size={14} /> New Document
+            </Btn>
+          </>
         }
       />
       <main className="min-h-0 flex-1 overflow-y-auto">
@@ -118,7 +163,23 @@ export function Library() {
           >
             Document Library
           </h1>
-          <div className="mb-6 mt-1 h-[3px] w-[64px] rounded bg-[#C8102E]" />
+          <div className="mb-5 mt-1 h-[3px] w-[64px] rounded bg-[#C8102E]" />
+          {docs.length > 0 && (
+            <div className="mb-5 flex items-center gap-3">
+              <input
+                data-testid="library-search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search documents…"
+                className={`${inputCls} max-w-[300px]`}
+              />
+              {q && (
+                <span className="text-[12px] text-[#6D6E71]">
+                  {visible.length} of {docs.length} match
+                </span>
+              )}
+            </div>
+          )}
           {docs.length === 0 ? (
             <div className="rounded-lg border-2 border-dashed border-[#C9CED4] bg-white/60 p-14 text-center">
               <p className="mb-4 text-[14px] text-[#4A4F57]">
@@ -128,9 +189,13 @@ export function Library() {
                 <Plus size={14} /> New Document
               </Btn>
             </div>
+          ) : visible.length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed border-[#C9CED4] bg-white/60 p-10 text-center text-[13px] text-[#4A4F57]">
+              No documents match “{query.trim()}”.
+            </div>
           ) : (
             <div className="flex flex-wrap gap-7">
-              {docs.map((d) => (
+              {visible.map((d) => (
                 <Card key={d.id} doc={d} />
               ))}
             </div>

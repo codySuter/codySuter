@@ -47,6 +47,10 @@ export interface DocStyles {
   signLine: CSSProperties;
   colHeading: CSSProperties;
   imageCaption: CSSProperties;
+  footerWrap: CSSProperties;
+  footerItem: CSSProperties;
+  footerLabel: CSSProperties;
+  footerValue: CSSProperties;
 }
 
 // typeScale is a percentage: 100 = employee docs, ~116 reads well for
@@ -270,6 +274,29 @@ export function makeStyles(accent: string, typeScale: number): DocStyles {
       color: KICKER_GRAY,
       textAlign: 'center',
       marginTop: 4,
+    },
+    // Metadata footer: hairline rule, then small uppercase label / value
+    // pairs across the width — effective date, version, supersedes, approver.
+    footerWrap: {
+      display: 'flex',
+      gap: 24,
+      borderTop: `1.5px solid ${INK}`,
+      paddingTop: 6,
+    },
+    footerItem: { minWidth: 0, flex: '1 1 0%' },
+    footerLabel: {
+      fontFamily: FONT_DISPLAY,
+      fontWeight: 700,
+      fontSize: fs(9),
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+      color: '#6D6E71',
+    },
+    footerValue: {
+      fontSize: fs(10.5),
+      fontWeight: 600,
+      color: BODY_TEXT,
+      marginTop: 1,
     },
   };
 }

@@ -19,12 +19,12 @@ import type {
   ChecklistBlock,
   ColumnsBlock,
   ImageBlock,
-  PolicyDoc,
+  StudioDoc,
   SignoffBlock,
   StepsBlock,
   TableBlock,
 } from '../model/types';
-import { COLUMN_CHILD_TYPES, PAGE_MARGIN_PX, PRINTABLE_H_PX } from '../model/types';
+import { COLUMN_CHILD_TYPES, FOOTER_FIELDS, PAGE_MARGIN_PX, PRINTABLE_H_PX } from '../model/types';
 import { useStore } from '../store';
 import { Editable, type EditableHandle } from './Editable';
 
@@ -45,7 +45,7 @@ function EditableList({
   readOnly,
 }: {
   block: ListBlock;
-  doc: PolicyDoc;
+  doc: StudioDoc;
   st: DocStyles;
   readOnly: boolean;
 }) {
@@ -234,6 +234,7 @@ function NestedBlock({ block, children }: { block: Block; children: ReactNode })
   const select = useStore((s) => s.select);
   const removeBlock = useStore((s) => s.removeBlock);
   const duplicateBlock = useStore((s) => s.duplicateBlock);
+  const moveBlockBy = useStore((s) => s.moveBlockBy);
   const sel = selectedId === block.id;
   return (
     <div
@@ -248,6 +249,12 @@ function NestedBlock({ block, children }: { block: Block; children: ReactNode })
     >
       {sel && (
         <div className="aps-toolbar aps-chrome">
+          <button type="button" aria-label="Move up" title="Move up" onClick={() => moveBlockBy(block.id, -1)}>
+            <ArrowUp size={13} />
+          </button>
+          <button type="button" aria-label="Move down" title="Move down" onClick={() => moveBlockBy(block.id, 1)}>
+            <ArrowDown size={13} />
+          </button>
           <button type="button" aria-label="Duplicate block" title="Duplicate" onClick={() => duplicateBlock(block.id)}>
             <Copy size={13} />
           </button>
@@ -281,7 +288,7 @@ function ColumnsView({
   readOnly,
 }: {
   block: ColumnsBlock;
-  doc: PolicyDoc;
+  doc: StudioDoc;
   st: DocStyles;
   readOnly: boolean;
 }) {
@@ -484,7 +491,7 @@ function BlockContent({
   readOnly,
 }: {
   block: Block;
-  doc: PolicyDoc;
+  doc: StudioDoc;
   st: DocStyles;
   number: number;
   readOnly: boolean;
@@ -594,7 +601,74 @@ function BlockContent({
       return <ImageView block={block} st={st} readOnly={readOnly} />;
     case 'columns':
       return <ColumnsView block={block} doc={doc} st={st} readOnly={readOnly} />;
+    case 'pageBreak':
+      // Prints as an invisible break; shows as a labeled divider in the editor.
+      return readOnly ? (
+        <div style={{ breakAfter: 'page', height: 0 }} />
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#8A9099' }}>
+          <div style={{ flex: 1, borderTop: '2px dashed #C4C9CE' }} />
+          <span
+            style={{
+              fontFamily: "'Barlow Semi Condensed', sans-serif",
+              fontWeight: 700,
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              border: '1px dashed #C4C9CE',
+              borderRadius: 4,
+              padding: '2px 8px',
+            }}
+          >
+            PAGE BREAK
+          </span>
+          <div style={{ flex: 1, borderTop: '2px dashed #C4C9CE' }} />
+        </div>
+      );
   }
+}
+
+// ---------------------------------------------------------------- footer
+
+function FooterArea({
+  doc,
+  st,
+  readOnly,
+}: {
+  doc: StudioDoc;
+  st: DocStyles;
+  readOnly: boolean;
+}) {
+  const setDocField = useStore((s) => s.setDocField);
+  if (!doc.footer?.show) return null;
+  const filled = FOOTER_FIELDS.filter(([key]) => doc.footer[key].trim() !== '');
+  if (readOnly && filled.length === 0) return null;
+  const fields = readOnly ? filled : FOOTER_FIELDS;
+  return (
+    <div className="aps-keep" data-testid="doc-footer" style={{ ...st.footerWrap, marginTop: 16 }}>
+      {fields.map(([key, label]) => (
+        <div key={key} style={st.footerItem}>
+          <div style={st.footerLabel}>{label}</div>
+          {readOnly ? (
+            <Html html={doc.footer[key]} style={st.footerValue} />
+          ) : (
+            <Editable
+              html={doc.footer[key]}
+              singleLine
+              style={st.footerValue}
+              placeholder={key === 'effective' ? 'MM/DD/YYYY' : '—'}
+              onCommit={(h) =>
+                setDocField(
+                  'footer',
+                  { ...(useStore.getState().current?.footer ?? doc.footer), [key]: h },
+                  `ft:${key}`,
+                )
+              }
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ------------------------------------------------------- edit-mode chrome
@@ -707,7 +781,7 @@ function HeaderArea({
   st,
   readOnly,
 }: {
-  doc: PolicyDoc;
+  doc: StudioDoc;
   st: DocStyles;
   readOnly: boolean;
 }) {
@@ -772,7 +846,7 @@ function HeaderArea({
 
 // ---------------------------------------------------------------- page
 
-export function PageView({ doc, mode }: { doc: PolicyDoc; mode: PageMode }) {
+export function PageView({ doc, mode }: { doc: StudioDoc; mode: PageMode }) {
   const st = makeStyles(doc.accent, doc.typeScale ?? 100);
   const readOnly = mode !== 'edit';
   const dragging = useStore((s) => s.dragging);
@@ -793,6 +867,9 @@ export function PageView({ doc, mode }: { doc: PolicyDoc; mode: PageMode }) {
 
   let n = 0;
   const numbers = doc.blocks.map((b) => (b.type === 'section' ? ++n : 0));
+  // Manual breaks change where real pages start, so the automatic
+  // overflow lines would mislead — the fit meter explains instead.
+  const manualBreaks = doc.blocks.some((b) => b.type === 'pageBreak');
 
   const pageStyle: CSSProperties =
     mode === 'print'
@@ -859,9 +936,11 @@ export function PageView({ doc, mode }: { doc: PolicyDoc; mode: PageMode }) {
             )}
           </SortableContext>
         )}
+        <FooterArea doc={doc} st={st} readOnly={readOnly} />
       </div>
 
       {mode === 'edit' &&
+        !manualBreaks &&
         Array.from({ length: extraPages }).map((_, i) => {
           const top = PAGE_MARGIN_PX + (i + 1) * PRINTABLE_H_PX;
           return (

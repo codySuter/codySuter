@@ -1,6 +1,6 @@
 import { uid } from './blocks';
-import type { Block, PolicyDoc } from './types';
-import { DEFAULT_KICKER } from './types';
+import type { Block, StudioDoc } from './types';
+import { DEFAULT_KICKER, emptyFooter } from './types';
 
 // "New Document" goes straight into the editor with this ready-to-edit
 // outline — the store's standard employee-policy shape. No wizard.
@@ -54,7 +54,7 @@ function defaultOutline(): Block[] {
   ];
 }
 
-export function newDocument(): PolicyDoc {
+export function newDocument(): StudioDoc {
   const now = Date.now();
   return {
     id: uid(),
@@ -64,6 +64,7 @@ export function newDocument(): PolicyDoc {
     chip: null,
     accent: '#C8102E',
     typeScale: 100,
+    footer: emptyFooter(),
     blocks: defaultOutline(),
     createdAt: now,
     updatedAt: now,

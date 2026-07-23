@@ -6,6 +6,12 @@ const OUT = process.env.SCREENS_DIR || 'test-results/screens';
 test.skip(!process.env.SCREENS, 'screenshots only on demand');
 
 test('capture app screens', async ({ page }) => {
+  // The print view opens the dialog and navigates back when it closes;
+  // for a static capture, neuter both.
+  await page.addInitScript(() => {
+    window.print = () => {};
+    window.history.back = () => {};
+  });
   await page.goto('/');
   await page.getByTestId('library-card').first().waitFor();
   await page.waitForTimeout(500);
