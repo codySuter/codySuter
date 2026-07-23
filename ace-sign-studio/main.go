@@ -29,7 +29,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "2.1.1"
+var appVersion = "2.2.0"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -66,6 +66,7 @@ func main() {
 	mux.HandleFunc("/api/state", handleState)
 	mux.HandleFunc("/api/update/check", handleUpdateCheck)
 	mux.HandleFunc("/api/update/apply", handleUpdateApply)
+	mux.HandleFunc("/api/support", handleSupport)
 	mux.HandleFunc("/__ping", handlePing)
 
 	cleanupOldUpdate() // remove a prior exe left by a self-update
