@@ -80,7 +80,81 @@ var (
 
 	imgCacheMu  sync.Mutex
 	imgCacheDir string
+
+	diskCacheOnce sync.Once
 )
+
+/* ---------- disk-persisted lookup cache ----------
+   The in-memory cache dies with the process, so every launch re-paid
+   browser startup + page loads for SKUs printed every week. Entries are
+   persisted beside state.json: fresh (<1h) entries serve directly; stale
+   ones (<7d) serve only when a live lookup fails, clearly flagged. */
+
+const diskCacheMaxAge = 7 * 24 * time.Hour
+
+type diskCacheEntry struct {
+	Res LookupResult `json:"res"`
+	At  time.Time    `json:"at"`
+}
+
+func lookupCachePath() (string, error) {
+	dir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "lookup-cache.json"), nil
+}
+
+// loadDiskCache merges persisted entries into memory, once per process.
+// Callers must hold lookupMu.
+func loadDiskCache() {
+	diskCacheOnce.Do(func() {
+		p, err := lookupCachePath()
+		if err != nil {
+			return
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return
+		}
+		var m map[string]diskCacheEntry
+		if json.Unmarshal(data, &m) != nil {
+			return
+		}
+		now := time.Now()
+		for k, e := range m {
+			if now.Sub(e.At) < diskCacheMaxAge {
+				if _, ok := lookupCache[k]; !ok {
+					lookupCache[k] = cacheEntry{res: e.Res, at: e.At}
+				}
+			}
+		}
+	})
+}
+
+// saveDiskCache writes the cache atomically, pruning entries older than
+// 7 days. Callers must hold lookupMu.
+func saveDiskCache() {
+	p, err := lookupCachePath()
+	if err != nil {
+		return
+	}
+	m := map[string]diskCacheEntry{}
+	now := time.Now()
+	for k, e := range lookupCache {
+		if now.Sub(e.at) < diskCacheMaxAge {
+			m[k] = diskCacheEntry{Res: e.res, At: e.at}
+		}
+	}
+	data, err := json.Marshal(m)
+	if err != nil {
+		return
+	}
+	tmp := p + ".tmp"
+	if os.WriteFile(tmp, data, 0o644) == nil {
+		_ = os.Rename(tmp, p)
+	}
+}
 
 // getSession returns a shared HTTP client whose cookie jar has been warmed on
 // a real product page, which is what authorizes the storefront API calls.
@@ -371,16 +445,27 @@ func fetchProductPage(pageURL string, diag *[]string) (string, string, bool) {
 var skuRe = regexp.MustCompile(`^\d{4,9}$`)
 
 // lookupProduct resolves a SKU, pasted URL, or search phrase into sign-ready
-// product data with the store-specific price.
+// product data with the store-specific price. Fresh cache hits (<1h) serve
+// directly; a stale entry (<7d) is kept as a fallback for failed live
+// lookups so a flaky acehardware.com never blanks a sign.
 func lookupProduct(query, store string, refresh bool) LookupResult {
 	key := store + "|" + query
+	var stale *cacheEntry
 	if !refresh {
 		lookupMu.Lock()
-		if e, ok := lookupCache[key]; ok && time.Since(e.at) < cacheTTL {
-			lookupMu.Unlock()
-			cached := e.res
-			cached.Diagnostics = append([]string{"Served from 1-hour cache"}, cached.Diagnostics...)
-			return cached
+		loadDiskCache()
+		if e, ok := lookupCache[key]; ok {
+			age := time.Since(e.at)
+			if age < cacheTTL {
+				lookupMu.Unlock()
+				cached := e.res
+				cached.Diagnostics = append([]string{"Served from 1-hour cache"}, cached.Diagnostics...)
+				return cached
+			}
+			if age < diskCacheMaxAge {
+				ec := e
+				stale = &ec
+			}
 		}
 		lookupMu.Unlock()
 	}
@@ -388,8 +473,19 @@ func lookupProduct(query, store string, refresh bool) LookupResult {
 	res := doLookup(query, store)
 	if res.OK {
 		lookupMu.Lock()
+		loadDiskCache()
 		lookupCache[key] = cacheEntry{res: res, at: time.Now()}
+		saveDiskCache()
 		lookupMu.Unlock()
+		return res
+	}
+	if stale != nil {
+		cached := stale.res
+		age := time.Since(stale.at).Round(time.Minute)
+		cached.Diagnostics = append([]string{
+			fmt.Sprintf("Live lookup failed — using cached data from %s ago (price may be stale)", age),
+		}, cached.Diagnostics...)
+		return cached
 	}
 	return res
 }
