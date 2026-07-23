@@ -48,6 +48,7 @@ interface StoreState {
   toLibrary(): Promise<void>;
   toSupport(): void;
   leaveSupport(): void;
+  refreshFromDisk(): Promise<void>;
   openDoc(id: string): Promise<void>;
   loadPrint(id: string): Promise<void>;
   createNewDoc(): Promise<void>;
@@ -131,6 +132,37 @@ export const useStore = create<StoreState>((set, get) => ({
       status: `${docs.length} document${docs.length === 1 ? '' : 's'} in your library.`,
     });
     window.location.hash = '#/library';
+  },
+
+  // Pick up changes written by the other computer (shared library
+  // folder) — called on window focus and when the folder watcher fires.
+  async refreshFromDisk() {
+    const route = get().route;
+    if (route.name !== 'library' && route.name !== 'editor') return;
+    const docs = (await api.listDocs()).map(normalizeDoc);
+    const st = get();
+    const cur = st.current;
+    if (st.route.name === 'editor' && cur) {
+      const disk = docs.find((d) => d.id === cur.id);
+      if (!disk) {
+        set({ docs, status: 'This document was removed on the other computer.' });
+        await get().toLibrary();
+        return;
+      }
+      if (disk.updatedAt > cur.updatedAt && st.saveState === 'saved') {
+        lastHistKey = null;
+        set({
+          docs,
+          current: structuredClone(disk),
+          past: [],
+          future: [],
+          selectedId: null,
+          status: 'Refreshed with changes from the shared library folder.',
+        });
+        return;
+      }
+    }
+    set({ docs });
   },
 
   toSupport() {
