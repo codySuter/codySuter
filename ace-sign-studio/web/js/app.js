@@ -34,6 +34,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("#exportAllBtn").onclick = () => exportQueue(false);
   $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
   initBulk();
+  window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
   $$(".modal-back").forEach((mb) => {
     mb.addEventListener("click", (e) => { if (e.target === mb) mb.classList.remove("show"); });
   });

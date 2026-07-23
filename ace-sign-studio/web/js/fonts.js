@@ -35,13 +35,19 @@ function ensureFontsLoaded() {
   return _fontsReady;
 }
 
+/* Fonts embedded into exported/printed PDFs. Ace signs only use Roboto;
+   the Barlow families are STIHL-only — add them back here when the STIHL
+   module is re-enabled. Registering all 13 TTFs ballooned every PDF to
+   ~5.7 MB; Roboto-only keeps exports lean. */
+const PDF_FONTS = ["RobotoRegular", "RobotoMedium", "RobotoBold", "RobotoBlack"];
+
 /* jsPDF registration (lazy, once). */
 let _pdfFontsReady = null;
 function ensurePdfFonts(doc) {
   if (!_pdfFontsReady) {
     _pdfFontsReady = (async () => {
       const entries = await Promise.all(
-        Object.entries(FONT_FILES).map(async ([family, path]) => {
+        Object.entries(FONT_FILES).filter(([family]) => PDF_FONTS.includes(family)).map(async ([family, path]) => {
           const buf = await (await fetch(path)).arrayBuffer();
           let bin = "";
           const bytes = new Uint8Array(buf);
