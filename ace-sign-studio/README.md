@@ -44,6 +44,20 @@ One app for every sign in the store. Replaces and unifies the three older tools:
   sheet. Layout preview shows each sheet before you print.
 - **Print All / Save PDF**: one vector PDF (brand Roboto + STIHL Barlow
   embedded), sent straight to the print dialog or saved.
+- **Self-update**: on launch the app checks a version manifest on GitHub;
+  when a newer build exists it shows an "Update & Restart" banner that
+  downloads the new exe, verifies its SHA-256, swaps it in (rename-swap,
+  the standard single-binary idiom) and relaunches. Stays a portable
+  single file — no installer. Falls back to a manual download link if the
+  folder isn't writable. Set `ACE_DEBUG_LOG=<path>` for a launch/update log.
+- **Support & feedback**: a ✉ Support button files a bug report or feature
+  request to csuter@snydersace.net. Bug reports auto-attach diagnostics
+  (app version, OS, store #, current sign/queue, the last lookup log, and
+  recent errors) to speed up troubleshooting. Every report is also saved
+  to `%APPDATA%\AceSignStudio\support`. Delivery: SMTP if configured
+  (ACE_SMTP_HOST/USER/PASS/FROM[/PORT]), otherwise it opens a prefilled
+  email in the user's mail client; a Copy report button is the manual
+  fallback.
 - Queue, settings and STIHL overrides persist to
   `%APPDATA%\AceSignStudio\state.json` (Windows) so nothing is lost
   between launches.

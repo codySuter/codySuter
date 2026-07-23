@@ -18,8 +18,16 @@
   <div class="spacer"></div>
   <div class="store-line" id="storeLineTop">Snyder's Ace Hardware · Media, PA</div>
   <button class="icon-btn" id="homeBtn" title="All sign types">⌂ Home</button>
+  <button class="icon-btn" id="supportBtn" title="Report a bug or request a feature">✉ Support</button>
   <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
 </header>
+
+<div class="update-bar" id="updateBar">
+  <span class="upd-dot"></span>
+  <div id="updateText"></div>
+  <button class="upd-btn" id="updateBtn">Update &amp; Restart</button>
+  <button class="upd-dismiss" id="updateDismiss" title="Later">✕</button>
+</div>
 
 <div class="shell">
   <nav class="nav" id="nav"></nav>
@@ -103,6 +111,36 @@
   </div>
 </div>
 
+<!-- Support / feedback -->
+<div class="modal-back" id="supportModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Support &amp; feedback</h3><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="seg" id="supportKind">
+        <button class="seg-btn active" data-kind="bug">🐞 Report a bug</button>
+        <button class="seg-btn" data-kind="feature">💡 Suggest a feature</button>
+      </div>
+      <label class="f-label" id="supportSummaryLabel">What went wrong? (short summary)</label>
+      <input class="f-input" id="supportSummary" placeholder="e.g. Product photo missing from printed sign">
+      <label class="f-label" id="supportMsgLabel">Details</label>
+      <textarea class="f-textarea" id="supportMessage" style="min-height:110px" placeholder="What did you do, what did you expect, and what happened instead?"></textarea>
+      <label class="f-label">Your name (optional)</label>
+      <input class="f-input" id="supportName" placeholder="So we know who to follow up with">
+      <label class="f-check" id="supportDiagRow"><input type="checkbox" id="supportDiag" checked> Include diagnostics (app version, current sign/queue, recent lookup log &amp; errors)</label>
+      <details class="bulk-box" style="margin-top:8px">
+        <summary>Preview diagnostics</summary>
+        <div class="bulk-inner"><pre class="diag-list" id="supportDiagPreview" style="max-height:180px;overflow:auto"></pre></div>
+      </details>
+      <div class="msg" id="supportMsgPanel"></div>
+      <div class="actions" style="position:static;background:none">
+        <button class="btn btn-primary" id="supportSend">Send to support</button>
+        <button class="btn btn-secondary" id="supportCopy">Copy report</button>
+      </div>
+      <div class="f-help">Goes to csuter@snydersace.net. A copy is always saved on this PC. If your mail app opens, just hit send.</div>
+    </div>
+  </div>
+</div>
+
 <!-- Lookup diagnostics -->
 <div class="modal-back" id="diagModal">
   <div class="modal">
@@ -126,6 +164,7 @@
 <script src="js/pdf.js"></script>
 <script src="js/lookup.js"></script>
 <script src="js/queue.js"></script>
+<script src="js/support.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
