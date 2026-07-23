@@ -1,20 +1,5 @@
 import type { PolicyDoc } from './model/types';
 
-export interface SupportTicket {
-  category: 'Bug' | 'Issue' | 'Feature idea';
-  message: string;
-  expected: string;
-  reporter: string;
-}
-
-export interface SupportResult {
-  ok: boolean;
-  opened?: boolean;
-  reportPath?: string;
-  email: string;
-  error?: string;
-}
-
 export interface StudioApi {
   isElectron: boolean;
   listDocs(): Promise<PolicyDoc[]>;
@@ -24,9 +9,6 @@ export interface StudioApi {
   printDoc(id: string): Promise<{ ok: boolean; error?: string }>;
   printReady(): void;
   onMenu(handler: (cmd: string) => void): () => void;
-  onUpdateStatus?(handler: (text: string) => void): () => void;
-  supportTicket(ticket: SupportTicket): Promise<SupportResult>;
-  logError?(text: string): void;
 }
 
 declare global {
@@ -79,33 +61,6 @@ const browserApi: StudioApi = {
   },
   onMenu() {
     return () => {};
-  },
-  async supportTicket(ticket) {
-    const email = 'csuter@snydersace.net';
-    const subject = `[Ace Policy Studio] ${ticket.category}: ${ticket.message.slice(0, 60)}`;
-    const body = [
-      `Category: ${ticket.category}`,
-      ticket.reporter ? `Reported by: ${ticket.reporter}` : '',
-      '',
-      'What happened:',
-      ticket.message,
-      ...(ticket.expected ? ['', 'What was expected:', ticket.expected] : []),
-      '',
-      '(Diagnostics and logs are attached automatically only from the installed Windows app.)',
-    ]
-      .filter(Boolean)
-      .join('\n');
-    try {
-      window.open(
-        `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-      );
-    } catch {
-      // No mail handler in this browser — the confirmation screen covers it.
-    }
-    return { ok: true, opened: true, email };
-  },
-  logError(text) {
-    console.error('[aps]', text);
   },
 };
 

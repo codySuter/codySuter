@@ -123,25 +123,6 @@ test('fit meter reports one-page starter docs', async ({ page }) => {
   await expect(page.getByTestId('fit-label')).toContainText('Fits on one page');
 });
 
-test('support tab creates an email ticket', async ({ page }) => {
-  await boot(page);
-  await page.getByTestId('support-btn').click();
-  await expect(page.getByText('Something broken? Want a feature?')).toBeVisible();
-
-  const submit = page.getByTestId('support-submit');
-  await expect(submit).toBeDisabled();
-  await page.getByRole('button', { name: 'Feature idea' }).click();
-  await page.getByTestId('support-message').fill('It would be great to batch-print every policy at once.');
-  await expect(submit).toBeEnabled();
-  await submit.click();
-
-  await expect(page.getByTestId('support-done')).toBeVisible();
-  await expect(page.getByTestId('support-done')).toContainText('csuter@snydersace.net');
-
-  await page.getByRole('button', { name: 'Done' }).click();
-  await expect(page.getByTestId('library-card').first()).toBeVisible();
-});
-
 test('move up/down reorders and renumbers sections', async ({ page }) => {
   await boot(page);
   await page.getByText('STIHL Special Order Inquiries').first().click();

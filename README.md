@@ -4,7 +4,7 @@
 > [`loreforge/`](loreforge/) — Loreforge, a TTRPG worldbuilding desktop app ·
 > [`ace-policy-studio/`](ace-policy-studio/) — **Ace Policy Studio**, a Windows app
 > for designing Snyder's Ace Hardware policy & procedure documents
-> ([download the installer](https://github.com/codysuter/codysuter/releases/latest/download/AcePolicyStudio-Setup.exe) — auto-updates itself).
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-policy-studio-windows/AcePolicyStudio.exe)).
 
 A private wiki + database for your D&D world — NPCs, monsters, locations, shops,
 magic items, session notes, maps, and player characters — all in one place,

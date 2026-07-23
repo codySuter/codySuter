@@ -17,7 +17,6 @@ export type Route =
   | { name: 'boot' }
   | { name: 'library' }
   | { name: 'editor'; id: string }
-  | { name: 'support' }
   | { name: 'print'; id: string };
 
 export type SaveState = 'saved' | 'saving' | 'dirty';
@@ -42,12 +41,8 @@ interface StoreState {
   contentH: number;
   zoom: Zoom;
 
-  supportReturn: Route | null;
-
   init(): Promise<void>;
   toLibrary(): Promise<void>;
-  toSupport(): void;
-  leaveSupport(): void;
   openDoc(id: string): Promise<void>;
   loadPrint(id: string): Promise<void>;
   createNewDoc(): Promise<void>;
@@ -99,7 +94,6 @@ export const useStore = create<StoreState>((set, get) => ({
   dragging: null,
   contentH: 0,
   zoom: 'fit',
-  supportReturn: null,
 
   async init() {
     const m = window.location.hash.match(/^#\/print\/(.+)$/);
@@ -131,28 +125,6 @@ export const useStore = create<StoreState>((set, get) => ({
       status: `${docs.length} document${docs.length === 1 ? '' : 's'} in your library.`,
     });
     window.location.hash = '#/library';
-  },
-
-  toSupport() {
-    const route = get().route;
-    if (route.name === 'support') return;
-    set({
-      supportReturn: route.name === 'editor' ? route : { name: 'library' },
-      route: { name: 'support' },
-      status: 'Support — tell us what broke or what you wish it did.',
-    });
-    window.location.hash = '#/support';
-  },
-
-  leaveSupport() {
-    const back = get().supportReturn ?? { name: 'library' };
-    if (back.name === 'editor' && get().current?.id === back.id) {
-      set({ route: back, supportReturn: null });
-      window.location.hash = `#/editor/${back.id}`;
-    } else {
-      set({ supportReturn: null });
-      void get().toLibrary();
-    }
   },
 
   async openDoc(id) {

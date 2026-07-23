@@ -18,7 +18,6 @@ import {
   FileDown,
   Heading1,
   Image as ImageIcon,
-  LifeBuoy,
   List,
   ListChecks,
   ListOrdered,
@@ -443,15 +442,6 @@ export function Editor() {
                 <option value="1.25">125%</option>
                 <option value="1.5">150%</option>
               </select>
-              <button
-                type="button"
-                aria-label="Support"
-                title="Support — report a bug or request a feature"
-                onClick={() => useStore.getState().toSupport()}
-                className="cursor-pointer rounded p-1.5 text-white/85 hover:bg-white/10"
-              >
-                <LifeBuoy size={15} />
-              </button>
               <Btn variant="topbar" onClick={() => void doPrint()} data-testid="print-btn">
                 <Printer size={14} /> Print
               </Btn>

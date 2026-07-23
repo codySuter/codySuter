@@ -45,40 +45,14 @@ jobs:
       - name: Electron smoke test (seeding + printToPDF)
         run: node scripts/electron-smoke.mjs
 
-      # Publishes a versioned release (tag v<version>) with the one-click
-      # installer + latest.yml so installed apps auto-update on launch.
-      # If the version tag already exists, the build still runs as a check
-      # but nothing is published — bump "version" in package.json to ship.
-      - name: Package & publish installer (auto-update feed)
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          # A release only counts if it's COMPLETE — latest.yml is the
-          # auto-update feed; a crashed publish can leave a partial release
-          # behind, and skipping because of one would ship a broken feed.
-          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'latest.yml'; then
-            echo "::notice::Release v$VERSION already published — packaging without publishing. Bump ace-policy-studio/package.json version to ship an update."
-            npx electron-builder --win --publish never
-          else
-            # Remove any partial release/tag from a failed publish, then
-            # tag this commit — GitHub refuses to create a *published*
-            # release on a tag that doesn't exist.
-            gh release delete "v$VERSION" --yes --cleanup-tag || true
-            git push origin ":refs/tags/v$VERSION" || true
-            git tag -f "v$VERSION" "$GITHUB_SHA"
-            git push origin -f "v$VERSION"
-            npx electron-builder --win --publish always
-            # Retire the legacy fixed-tag release so nobody downloads a stale build.
-            gh release delete ace-policy-studio-windows --yes --cleanup-tag || true
-          fi
+      - name: Package portable EXE
+        run: npx electron-builder --win portable
 
-      - name: Upload installer as a workflow artifact
+      - name: Upload EXE as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: AcePolicyStudio-windows
-          path: ace-policy-studio/release/AcePolicyStudio-Setup.exe
+          path: ace-policy-studio/release/AcePolicyStudio.exe
           if-no-files-found: error
 
       - name: Upload test evidence
@@ -88,3 +62,14 @@ jobs:
           name: test-evidence
           path: ace-policy-studio/test-results/
           if-no-files-found: ignore
+
+      - name: Publish EXE to a Release (stable download link)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ace-policy-studio-windows --yes --cleanup-tag || true
+          gh release create ace-policy-studio-windows release/AcePolicyStudio.exe \
+            --title "Ace Policy Studio for Windows" \
+            --notes "Latest Windows build. Download **AcePolicyStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
+            --target "$GITHUB_SHA"

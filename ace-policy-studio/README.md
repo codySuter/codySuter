@@ -9,18 +9,12 @@ controls on the left, a live page on the right, and Print / Export PDF one click
 
 | Download |
 |---|
-| [**AcePolicyStudio-Setup.exe**](https://github.com/codysuter/codysuter/releases/latest/download/AcePolicyStudio-Setup.exe) — Windows 10/11 one-click installer |
+| [**AcePolicyStudio.exe**](https://github.com/codysuter/codysuter/releases/download/ace-policy-studio-windows/AcePolicyStudio.exe) — Windows 10/11, portable, no install |
 
-> Install once — **the app updates itself from then on**: it checks GitHub at
-> launch, downloads new versions in the background (small delta downloads),
-> and offers *Restart & Update* — or installs on quit. `Help → Check for
-> Updates…` runs a manual check. Releases are published automatically by
-> GitHub Actions
-> ([`build-policy-windows.yml`](../.github/workflows/build-policy-windows.yml));
-> ship a new version by bumping `version` in `package.json`.
-> On first install Windows SmartScreen may warn about an unrecognized app
-> (it's unsigned) — click **More info → Run anyway** (once). Auto-updates
-> don't re-trigger the warning. Documents are never touched by updates.
+> The link serves the latest build, published automatically by GitHub Actions
+> (see [`.github/workflows/build-policy-windows.yml`](../.github/workflows/build-policy-windows.yml)).
+> On first launch Windows SmartScreen may warn about an unrecognized app (it's
+> unsigned) — click **More info → Run anyway** (once).
 
 ![The editor](docs/editor.png)
 
@@ -60,22 +54,6 @@ controls on the left, a live page on the right, and Print / Export PDF one click
 
 ![A finished document](docs/document.png)
 
-## Support tickets
-
-The **Support** button (library header, editor toolbar, or `Help → Report a
-Problem…`) opens a short form — Bug / Issue / Feature idea, what happened,
-what you expected. Submitting it:
-
-1. writes a full diagnostics report (app + system info, document list, and
-   the recent app log) to the Desktop,
-2. copies the same report to the clipboard, and
-3. opens a pre-addressed email draft to **csuter@snydersace.net** with the
-   summary filled in — attach the Desktop file and hit Send.
-
-The app keeps a rolling log (`%APPDATA%\Ace Policy Studio\logs\main.log`) of
-updater activity, print/export results, and any errors, so tickets arrive
-with real troubleshooting data.
-
 ## Where documents live
 
 Documents are plain JSON files in
@@ -102,7 +80,7 @@ machines. PDFs export wherever you choose (defaults to Documents).
 cd ace-policy-studio
 npm install
 npm run dev:app     # live-reload app (Vite + Electron)
-npm run dist:win    # AcePolicyStudio-Setup.exe (one-click installer) → release/
+npm run dist:win    # portable AcePolicyStudio.exe → release/
 ```
 
 Other scripts: `npm run dev` (browser-only dev server), `npm run typecheck`,
