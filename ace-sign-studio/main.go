@@ -30,7 +30,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "2.3.1"
+var appVersion = "2.4.0"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -60,7 +60,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", noCache(http.FileServer(http.FS(sub))))
+	mux.Handle("/", staticCache(http.FileServer(http.FS(sub))))
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/lookup", handleLookup)
 	mux.HandleFunc("/api/img", handleImageProxy)
@@ -126,9 +126,45 @@ func touchHeartbeat(next http.Handler) http.Handler {
 	})
 }
 
-func noCache(next http.Handler) http.Handler {
+// staticCache lets the browser reuse the bulky parts of the UI — fonts,
+// vendor libraries, images, CSS and JS — across window opens, while
+// index.html itself is never cached.
+//
+// Everything used to be no-store, which also disables Chrome's compiled-code
+// cache, so ~590 KB of minified JS was re-parsed and the TTFs re-decoded on
+// every launch. These assets are revalidated rather than given a freshness
+// window: the ETag is scoped to appVersion, so a matching request costs one
+// 304 over loopback and the browser reuses both the bytes and the compiled
+// code, while a self-update invalidates every asset at once.
+//
+// Deliberately not max-age: a self-update finishes with location.reload(),
+// and Chrome does not revalidate subresources on a normal reload. Any
+// freshness window could therefore pair a newly updated backend with the
+// previous build's cached JS.
+func staticCache(next http.Handler) http.Handler {
+	cacheable := func(p string) bool {
+		for _, prefix := range []string{"/fonts/", "/vendor/", "/img/", "/css/", "/js/"} {
+			if strings.HasPrefix(p, prefix) {
+				return true
+			}
+		}
+		return false
+	}
+	etag := `"v` + appVersion + `"`
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
+		if !cacheable(r.URL.Path) {
+			w.Header().Set("Cache-Control", "no-store")
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", "no-cache")
+		for _, candidate := range strings.Split(r.Header.Get("If-None-Match"), ",") {
+			if strings.TrimSpace(candidate) == etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -183,7 +219,7 @@ func handlePing(w http.ResponseWriter, _ *http.Request) {
 }
 
 // watchdog shuts the process down once the UI has been closed. The frontend
-// pings every 2s (from a worker) and every other request also refreshes the
+// pings every 20s (from a worker) and every other request also refreshes the
 // heartbeat — but Chrome throttles timers in minimized/hidden windows to as
 // little as one tick per minute, so the silence threshold must sit well
 // above 60s or the app kills itself while its window is merely minimized
@@ -197,6 +233,7 @@ func watchdog() {
 		heartbeatMu.Unlock()
 		if pinged && time.Since(last) > 90*time.Second {
 			log.Println("UI window closed — exiting")
+			flushDiskCache()  // persist any lookups still pending a write
 			shutdownBrowser() // close the headless lookup browser too
 			os.Exit(0)
 		}

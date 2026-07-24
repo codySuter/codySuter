@@ -1,4 +1,4 @@
-# Ace Sign Studio 2.3
+# Ace Sign Studio 2.4
 
 One app for every sign in the store
 ([download the Windows .exe](https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/AceSignStudio.exe)).
@@ -7,7 +7,7 @@ Replaces and unifies the three older tools:
 | Legacy tool | What it did | Where it lives now |
 |---|---|---|
 | **Cody's Outdoor Signage Tool v19** (`.exe`, Python/Flask) | SKU → live price/photo → 8.5×11 laminate signs, 9 sign types, 4-up/6-up/bulk | All 9 sign types + bulk add, any size, one queue |
-| **SignShop** (`.exe`, Go) | STIHL 5×3 shelf signs w/ specs & barcode, saw-chain finder posters | STIHL Shelf Sign type + Tools section (posters embedded as-is) |
+| **SignShop** (`.exe`, Go) | STIHL 5×3 shelf signs w/ specs & barcode, saw-chain finder posters | Dropped in 2.4 — see the STIHL note below |
 | **Ace Sign Studio 1.0** (`.app`, Swift) | Counter/shelf/full-page price cards, queue, sheet packing | The size system, queue, sheet optimizer & lookup diagnostics |
 
 ## What it does
@@ -19,19 +19,25 @@ Replaces and unifies the three older tools:
 - **Per-field toggles** on every sign: hide the photo, price, reg price,
   SKU, name, detail line, or the Ace logo — the layout reflows around
   whatever is hidden.
-- **STIHL module (shelf sign, datasets, chain-finder posters) is
-  currently disabled** — files are retained under `web/data`, `web/tools`
-  and `js/*stihl*`; re-enable per the comment in `web/index.html`.
+- **The STIHL module has been removed** (2.4.0). The shelf sign, its
+  datasets and the chain-finder posters were disabled from 2.3 and are now
+  deleted; recover them from git history if they are ever needed again.
 - **Live store pricing**: type a SKU and the name, store-specific price,
   sale price and product photo fill in automatically. acehardware.com is
   behind bot protection that blocks plain HTTP clients (empty page + 401
   on the price API), so lookups drive a **headless instance of the user's
   own Edge/Chrome** — a real browser clears the challenge and authorizes
   the in-page storefront price fetch (`purchaseLocation` 12180 = Snyder's),
-  the same approach the original Mac app used with a WKWebView. Falls back
-  to a direct HTTP request when a browser can't be launched. Items on sale
-  auto-switch to a Sale sign; every lookup keeps a step-by-step diagnostics
-  trail (set `ACE_LOOKUP_MODE=http` to force the direct path).
+  the same approach the original Mac app used with a WKWebView. One tab is
+  kept parked on the site with its challenge cleared, and item numbers are
+  answered straight from the storefront API on that tab — no page load per
+  SKU — which is what makes bulk add and ↻ Prices quick. Search phrases,
+  pasted URLs and anything the warm session can't answer fall back to a
+  full page load, and then to a direct HTTP request when a browser can't be
+  launched. The browser shuts down after 10 minutes idle and relaunches on
+  demand. Items on sale auto-switch to a Sale sign; every lookup keeps a
+  step-by-step diagnostics trail (set `ACE_LOOKUP_MODE=http` to force the
+  direct path).
 - **Nine physical sizes**: Full Page (11×8.5 / 8.5×11), **Pallet Sign
   Holder** (11×8.5 / 8.5×11 with the legacy 22pt dashed laminate cut
   guide — cut, laminate, and it fits back into an 8.5×11 holder),
@@ -61,8 +67,8 @@ Replaces and unifies the three older tools:
   guillotine cut, 0.375″ margin (Brother MFC-L9160CDN safe), shared cut
   edges, tick guides in the page margins, full-page signs get their own
   sheet. Layout preview shows each sheet before you print.
-- **Print All / Save PDF**: one vector PDF (brand Roboto + STIHL Barlow
-  embedded), sent straight to the print dialog or saved.
+- **Print All / Save PDF**: one vector PDF (brand Roboto embedded), sent
+  straight to the print dialog or saved.
 - **Self-update**: on launch the app checks a version manifest on GitHub;
   when a newer build exists it shows an "Update & Restart" banner that
   downloads the new exe, verifies its SHA-256, swaps it in (rename-swap,
@@ -80,7 +86,7 @@ Replaces and unifies the three older tools:
   (ACE_SMTP_HOST/USER/PASS/FROM[/PORT]), otherwise it opens a prefilled
   email in the user's mail client; a Copy report button is the manual
   fallback.
-- Queue, settings and STIHL overrides persist to
+- Queue, settings and saved batches persist to
   `%APPDATA%\AceSignStudio\state.json` (Windows) so nothing is lost
   between launches.
 
@@ -121,14 +127,11 @@ app icon comes from the shared family style in
 
 ```
 main.go, lookup.go     Go server: embedded UI, acehardware.com lookup,
-                       image proxy/cache, state persistence, app window
+browserlookup.go       image proxy/cache, state persistence, app window
 web/index.html         Shell: nav, gallery, editors, queue rail
 web/js/render-ace.js   Ace sign renderers (brand price point formats)
-web/js/render-stihl.js STIHL 5×3 sign (vector port of SignShop design)
 web/js/layout.js       Sheet packer (shelf rows, rotation, cut guides)
-web/js/pdf.js          SVG → vector PDF (jsPDF + svg2pdf, embedded TTFs)
+web/js/pdf.js          SVG → vector PDF (jsPDF + svg2pdf, loaded on demand)
 web/js/signtypes.js    Sign type registry (fields, sizes, samples)
-web/data/              STIHL datasets carried over from SignShop
-web/tools/             Saw Chain Finder posters (as-is)
-web/fonts/             Roboto (Ace brand) + Barlow (STIHL) TTF/WOFF2
+web/fonts/             Roboto (Ace brand) TTF
 ```

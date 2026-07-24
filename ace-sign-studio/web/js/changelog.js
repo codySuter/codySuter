@@ -9,6 +9,19 @@
 
 const CHANGELOG = [
   {
+    version: "2.4.0",
+    date: "July 2026",
+    notes: [
+      "Much faster SKU lookups. The app used to load a full acehardware.com page for every item number; it now keeps one signed-in session open and asks for just the price. Looking up a SKU is about a second instead of five, and “↻ Prices” on a 20-sign queue finishes in seconds rather than minutes.",
+      "Bulk add and the queue no longer bog down. Adding a long list of SKUs, changing copies, or reordering rows stays smooth on a big queue.",
+      "The app starts quicker: it opens straight to the gallery, and the parts only needed for printing load quietly in the background.",
+      "Printing a big queue no longer looks frozen — the “Sheet 3 of 8…” progress now actually updates while the PDF builds.",
+      "Typing a SKU and pressing Enter no longer looks the same item up twice.",
+      "Photos you drag in are resized before they are saved, so a big phone photo can't bloat your queue or lose it on restart.",
+      "The STIHL shelf signs and saw-chain finder, switched off since 2.3, have been removed. The download is about 2.5 MB smaller.",
+    ],
+  },
+  {
     version: "2.3.1",
     date: "July 2026",
     notes: [

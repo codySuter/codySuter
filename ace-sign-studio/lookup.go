@@ -13,6 +13,7 @@ package main
 // from inside the app instead of guessing.
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
@@ -33,6 +34,10 @@ import (
 const (
 	defaultStoreCode = "12180" // Snyder's Ace Hardware
 	userAgent        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+	// Total time the direct-HTTP chain may spend before a lookup gives up and
+	// falls back to cached data. Generous for a site that is answering,
+	// short enough that a bulk run against a hanging one still finishes.
+	httpFallbackBudget = 12 * time.Second
 )
 
 // baseSite is overridable via ACE_BASE_URL for testing against a mock server.
@@ -133,28 +138,110 @@ func loadDiskCache() {
 	})
 }
 
-// saveDiskCache writes the cache atomically, pruning entries older than
+/* ---------- single-flight ----------
+   Two requests for the same SKU used to run two full lookups: the UI can
+   fire one from the editor while a bulk run asks for the same number, and
+   each browser lookup is serialized, so the duplicate doubled the wait for
+   both. Identical concurrent lookups now share one result. */
+
+type inflight struct {
+	mu   sync.Mutex
+	runs map[string]*inflightCall
+}
+
+type inflightCall struct {
+	done chan struct{}
+	res  LookupResult
+}
+
+var shared = &inflight{runs: map[string]*inflightCall{}}
+
+func (f *inflight) do(key string, fn func() LookupResult) LookupResult {
+	f.mu.Lock()
+	if c, ok := f.runs[key]; ok {
+		f.mu.Unlock()
+		<-c.done
+		return c.res
+	}
+	c := &inflightCall{done: make(chan struct{})}
+	f.runs[key] = c
+	f.mu.Unlock()
+
+	defer func() {
+		f.mu.Lock()
+		delete(f.runs, key)
+		f.mu.Unlock()
+		close(c.done)
+	}()
+	c.res = fn()
+	return c.res
+}
+
+/* ---------- debounced cache persistence ----------
+   The whole cache file was rewritten after every successful lookup, so a
+   100-SKU bulk add did 100 full marshal+write cycles (and did them while
+   holding lookupMu). Coalescing to one write shortly after the burst keeps
+   the same durability in practice — the file is also flushed at exit. */
+
+var cacheSaveTimer *time.Timer
+
+func scheduleCacheSave() {
+	lookupMu.Lock()
+	defer lookupMu.Unlock()
+	if cacheSaveTimer != nil {
+		cacheSaveTimer.Stop()
+	}
+	cacheSaveTimer = time.AfterFunc(2*time.Second, flushDiskCache)
+}
+
+// flushDiskCache serializes the cache under the lock but writes outside it,
+// so a slow disk never blocks a lookup. cacheWriteMu keeps two flushes (the
+// timer firing as the app exits, say) from interleaving on the shared temp
+// file and renaming a half-written one into place.
+var cacheWriteMu sync.Mutex
+
+func flushDiskCache() {
+	lookupMu.Lock()
+	if cacheSaveTimer != nil {
+		cacheSaveTimer.Stop()
+		cacheSaveTimer = nil
+	}
+	data, path := marshalDiskCache()
+	lookupMu.Unlock()
+	if data == nil {
+		return
+	}
+	cacheWriteMu.Lock()
+	defer cacheWriteMu.Unlock()
+	tmp := path + ".tmp"
+	if os.WriteFile(tmp, data, 0o644) == nil {
+		_ = os.Rename(tmp, path)
+	}
+}
+
+// marshalDiskCache renders the cache to JSON, pruning entries older than
 // 7 days. Callers must hold lookupMu.
-func saveDiskCache() {
+func marshalDiskCache() ([]byte, string) {
 	p, err := lookupCachePath()
 	if err != nil {
-		return
+		return nil, ""
 	}
 	m := map[string]diskCacheEntry{}
 	now := time.Now()
 	for k, e := range lookupCache {
 		if now.Sub(e.at) < diskCacheMaxAge {
-			m[k] = diskCacheEntry{Res: e.res, At: e.at}
+			// The diagnostics trail only describes the lookup that produced
+			// the entry; persisting it roughly doubled each entry's size.
+			r := e.res
+			r.Diagnostics = nil
+			m[k] = diskCacheEntry{Res: r, At: e.at}
 		}
 	}
 	data, err := json.Marshal(m)
 	if err != nil {
-		return
+		return nil, ""
 	}
-	tmp := p + ".tmp"
-	if os.WriteFile(tmp, data, 0o644) == nil {
-		_ = os.Rename(tmp, p)
-	}
+	return data, p
 }
 
 // getSession returns a shared HTTP client whose cookie jar has been warmed on
@@ -176,7 +263,14 @@ func getSession(forceRefresh bool) *http.Client {
 }
 
 func siteGet(c *http.Client, rawURL string, accept string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", rawURL, nil)
+	return siteGetCtx(context.Background(), c, rawURL, accept)
+}
+
+// siteGetCtx is siteGet under a caller-supplied deadline, so the HTTP
+// fallback chain as a whole can be bounded rather than each request
+// independently waiting out the client timeout.
+func siteGetCtx(ctx context.Context, c *http.Client, rawURL string, accept string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", rawURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -212,11 +306,15 @@ func setBrowserHeaders(req *http.Request, accept string) {
 // fetchStorePrice queries the Mozu storefront API for the store-specific
 // price. Returns price, salePrice ("" when absent) plus whatever product
 // content the API exposes (name/image) as bonus fields.
-func fetchStorePrice(sku, store string, diag *[]string) (price, sale, apiName, apiImage string) {
+func fetchStorePrice(ctx context.Context, sku, store string, diag *[]string) (price, sale, apiName, apiImage string) {
 	for attempt := 0; attempt < 2; attempt++ {
+		if ctx.Err() != nil {
+			*diag = append(*diag, "Store API lookup ran out of time")
+			return
+		}
 		c := getSession(attempt > 0)
 		u := storefrontAPI + url.PathEscape(sku) + "?purchaseLocation=" + url.QueryEscape(store)
-		resp, err := siteGet(c, u, "application/json")
+		resp, err := siteGetCtx(ctx, c, u, "application/json")
 		if err != nil {
 			*diag = append(*diag, "Store API request failed: "+err.Error())
 			continue
@@ -425,9 +523,9 @@ func offerPrice(v any) string {
 	return ""
 }
 
-func fetchProductPage(pageURL string, diag *[]string) (string, string, bool) {
+func fetchProductPage(ctx context.Context, pageURL string, diag *[]string) (string, string, bool) {
 	c := getSession(false)
-	resp, err := siteGet(c, pageURL, "")
+	resp, err := siteGetCtx(ctx, c, pageURL, "")
 	if err != nil {
 		*diag = append(*diag, "Product page request failed: "+err.Error())
 		return "", "", false
@@ -471,14 +569,14 @@ func lookupProduct(query, store string, refresh bool) LookupResult {
 		lookupMu.Unlock()
 	}
 
-	res := doLookup(query, store)
+	res := shared.do(key, func() LookupResult { return doLookup(query, store) })
 	if res.OK {
 		res.FetchedAt = time.Now().UTC().Format(time.RFC3339)
 		lookupMu.Lock()
 		loadDiskCache()
 		lookupCache[key] = cacheEntry{res: res, at: time.Now()}
-		saveDiskCache()
 		lookupMu.Unlock()
+		scheduleCacheSave()
 		return res
 	}
 	if stale != nil {
@@ -540,9 +638,16 @@ func doLookup(query, store string) LookupResult {
 	}
 
 	// Fallback path: raw HTTP (works when the site isn't challenging us, and
-	// in headless/no-browser environments).
+	// in headless/no-browser environments). The whole chain shares one
+	// deadline: it can issue a page fetch, a search and two price attempts,
+	// and against a site that accepts connections but never answers, each
+	// waiting out its own 20s client timeout meant a single SKU could hang
+	// for over a minute before the cached copy was offered.
+	httpCtx, cancelHTTP := context.WithTimeout(context.Background(), httpFallbackBudget)
+	defer cancelHTTP()
+
 	if isSearch {
-		found, d := searchForProduct(q)
+		found, d := searchForProduct(httpCtx, q)
 		diag = append(diag, d...)
 		if found == "" {
 			res.Error = "Nothing matched \"" + q + "\" on acehardware.com."
@@ -551,7 +656,7 @@ func doLookup(query, store string) LookupResult {
 		}
 		pageURL = found
 	}
-	html, finalURL, ok := fetchProductPage(pageURL, &diag)
+	html, finalURL, ok := fetchProductPage(httpCtx, pageURL, &diag)
 	var page *pageProduct
 	if ok {
 		page = parseJSONLD(html)
@@ -587,7 +692,7 @@ func doLookup(query, store string) LookupResult {
 		return res
 	}
 
-	price, sale, apiName, apiImage := fetchStorePrice(sku, store, &diag)
+	price, sale, apiName, apiImage := fetchStorePrice(httpCtx, sku, store, &diag)
 	assembleResult(&res, sku, finalURL, page, price, sale, apiName, apiImage, &diag)
 	if !res.OK {
 		res.Error = "No product data found for \"" + query + "\"."
@@ -639,11 +744,11 @@ func lookupForceHTTP() bool {
 }
 
 // searchForProduct runs a site search and returns the first product page URL.
-func searchForProduct(q string) (string, []string) {
+func searchForProduct(ctx context.Context, q string) (string, []string) {
 	diag := []string{}
 	c := getSession(false)
 	u := baseSite + "/search?query=" + url.QueryEscape(q)
-	resp, err := siteGet(c, u, "")
+	resp, err := siteGetCtx(ctx, c, u, "")
 	if err != nil {
 		return "", append(diag, "Search request failed: "+err.Error())
 	}
@@ -698,6 +803,62 @@ func allowedImageHost(host string) bool {
 	return false
 }
 
+// imageClient fetches product photos. Deliberately separate from the
+// lookup session: the CDN hosts don't need acehardware.com's warmed
+// cookies, and sharing the session meant the first thumbnail after a queue
+// restore waited on that session's warm-up request.
+//
+// The host allowlist is re-applied to every redirect hop. Checking only the
+// initial URL would leave /api/img a redirect-following fetcher: any AWS
+// customer can obtain a *.cloudfront.net name, and a 302 from one could
+// otherwise have its response proxied back into the page.
+var imageClient = &http.Client{
+	Timeout: 20 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("too many redirects")
+		}
+		if !allowedImageHost(strings.ToLower(req.URL.Hostname())) {
+			return fmt.Errorf("image redirect to disallowed host: %s", req.URL.Hostname())
+		}
+		return nil
+	},
+}
+
+// Concurrent renders (a queue rail plus its sheet previews) ask for the
+// same photo at once; without this the first paint of a restored queue
+// fetched every image several times over.
+var (
+	imgFlightMu sync.Mutex
+	imgFlight   = map[string]chan struct{}{}
+)
+
+// pruneImageCache drops cached photos not read for 30 days. The cache lives
+// in the OS temp dir and had no eviction at all, so it grew for the life of
+// the install. Runs once per process, off the request path.
+//
+// Deleting inside a shared temp dir deserves care: on Unix os.TempDir() is
+// world-writable, so a local user could pre-create our cache directory as a
+// symlink to somewhere else and have this walk their target instead. (Not
+// reachable on Windows, where %TEMP% is per-user, but the guard is cheap.)
+// Entry names come from ReadDir, so they are single path components and
+// can't traverse; the directory itself is the only thing worth checking.
+func pruneImageCache(dir string) {
+	if st, err := os.Lstat(dir); err != nil || st.Mode()&os.ModeSymlink != 0 {
+		return
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-30 * 24 * time.Hour)
+	for _, e := range entries {
+		if info, err := e.Info(); err == nil && !info.IsDir() && info.ModTime().Before(cutoff) {
+			_ = os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
+}
+
 // fetchImageCached downloads an image once per session, restricted to
 // acehardware.com and its image CDNs.
 func fetchImageCached(raw string) ([]byte, string, error) {
@@ -717,19 +878,46 @@ func fetchImageCached(raw string) ([]byte, string, error) {
 	if imgCacheDir == "" {
 		imgCacheDir = filepath.Join(os.TempDir(), "ace-sign-studio-img")
 		_ = os.MkdirAll(imgCacheDir, 0o755)
+		go pruneImageCache(imgCacheDir)
 	}
 	dir := imgCacheDir
 	imgCacheMu.Unlock()
 
 	sum := sha1.Sum([]byte(raw))
 	base := filepath.Join(dir, hex.EncodeToString(sum[:]))
-	if data, err := os.ReadFile(base); err == nil {
+	readCached := func() ([]byte, string, bool) {
+		data, err := os.ReadFile(base)
+		if err != nil {
+			return nil, "", false
+		}
 		ctype, _ := os.ReadFile(base + ".ct")
-		return data, string(ctype), nil
+		return data, string(ctype), true
+	}
+	if data, ctype, ok := readCached(); ok {
+		return data, ctype, nil
 	}
 
-	c := getSession(false)
-	resp, err := siteGet(c, raw, "")
+	// Coalesce concurrent misses for the same photo onto one download.
+	imgFlightMu.Lock()
+	if wait, busy := imgFlight[base]; busy {
+		imgFlightMu.Unlock()
+		<-wait
+		if data, ctype, ok := readCached(); ok {
+			return data, ctype, nil
+		}
+	} else {
+		done := make(chan struct{})
+		imgFlight[base] = done
+		imgFlightMu.Unlock()
+		defer func() {
+			imgFlightMu.Lock()
+			delete(imgFlight, base)
+			imgFlightMu.Unlock()
+			close(done)
+		}()
+	}
+
+	resp, err := siteGet(imageClient, raw, "")
 	if err != nil {
 		return nil, "", err
 	}

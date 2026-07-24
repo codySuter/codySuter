@@ -225,6 +225,7 @@ func relaunchAndExit() {
 		cmd.Env = append(os.Environ(), "ACE_UPDATED=1")
 		_ = cmd.Start()
 	}
+	flushDiskCache()
 	shutdownBrowser()
 	os.Exit(0)
 }

@@ -19,15 +19,22 @@ const App = {
 /* ---------------- boot ---------------- */
 window.addEventListener("DOMContentLoaded", async () => {
   startHeartbeat();
-  await restoreState();
+  // Paint the shell before waiting on state: only the queue rail depends on
+  // it, and state.json can be sizeable once custom photos are in play.
   buildNav();
-  renderQueue();
   showGallery();
+  await restoreState();
+  renderQueue();
   ensureFontsLoaded().then(() => {
     buildNavThumbs();
     buildGalleryThumbs();
   });
-  prefetchPdfFonts().catch(() => {}); // warm the PDF font cache for later exports
+  // Warm the PDF font cache and libraries once the startup burst is over —
+  // neither is needed until the user prints or exports.
+  whenIdle(() => {
+    prefetchPdfFonts().catch(() => {});
+    ensurePdfLibs().catch(() => {});
+  });
   loadTemplateProduct();
   checkForUpdate();
   $("#settingsBtn").onclick = openSettings;
@@ -66,14 +73,28 @@ function reportPing(ok) {
 }
 
 function startHeartbeat() {
-  const PING_MS = 2000;
+  // The watchdog exits after 90s of total silence, so a 20s beat leaves room
+  // for several missed pings while costing a thirtieth of the old 2s loop
+  // (~2,900 round trips a day instead of ~43,000). A failed ping retries
+  // quickly so the "lost connection" banner still appears within seconds.
+  const PING_MS = 20000;
+  const RETRY_MS = 2000;
   const pingURL = location.origin + "/__ping";
   const pingNow = () => fetch(pingURL, { cache: "no-store" }).then(() => reportPing(true)).catch(() => reportPing(false));
   try {
-    const src = `setInterval(() => {
-      fetch(${JSON.stringify(pingURL)}, { cache: "no-store" })
-        .then(() => postMessage(true)).catch(() => postMessage(false));
-    }, ${PING_MS});`;
+    // Self-rescheduling rather than setInterval so a failure can retry
+    // sooner; every path must re-arm or the app loses its liveness signal.
+    const src = `const PING_MS = ${PING_MS}, RETRY_MS = ${RETRY_MS};
+      let timer = null;
+      const schedule = (ms) => { clearTimeout(timer); timer = setTimeout(beat, ms); };
+      function beat() {
+        try {
+          fetch(${JSON.stringify(pingURL)}, { cache: "no-store" })
+            .then(() => { postMessage(true); schedule(PING_MS); })
+            .catch(() => { postMessage(false); schedule(RETRY_MS); });
+        } catch (e) { postMessage(false); schedule(RETRY_MS); }
+      }
+      beat();`;
     const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
     w.onmessage = (e) => reportPing(!!e.data);
     w.onerror = () => { try { w.terminate(); } catch (_) {} setInterval(pingNow, PING_MS); };
@@ -196,13 +217,21 @@ async function buildNavThumbs() {
 
 /* Load the gallery template product (default SKU 81995): cached copy first,
    then a live lookup so previews show the real store photo and price. */
+/* The gallery previews only need a plausible product; re-checking its price
+   at every launch bought nothing but a headless-browser spawn during the
+   startup burst. A cached template is trusted for a day. */
+const TEMPLATE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 async function loadTemplateProduct() {
   const sku = (Settings.get().templateSku || "81995").trim();
   let cached = null;
   try { cached = JSON.parse(localStorage.getItem("acesignstudio.template.v1") || "null"); } catch (e) {}
-  if (cached && cached.sku === sku && cached.image) {
+  const cachedOK = cached && cached.sku === sku && cached.image;
+  if (cachedOK) {
     applyTemplateProduct(cached);
     refreshTypeThumbs();
+    const age = Date.now() - (Date.parse(cached.cachedAt) || 0);
+    if (age >= 0 && age < TEMPLATE_MAX_AGE_MS) return; // still fresh — no lookup
   }
   try {
     const res = await fetch(`/api/lookup?q=${encodeURIComponent(sku)}&store=${encodeURIComponent(Settings.get().storeCode || "12180")}`).then((r) => r.json());
@@ -217,10 +246,17 @@ async function loadTemplateProduct() {
         price: res.price || res.listPrice || TEMPLATE_FALLBACK.price,
         salePrice: res.salePrice || "",
         image,
+        cachedAt: new Date().toISOString(),
       };
+      // Re-rendering all 28 thumbnails is only worth it if something the
+      // previews actually show has changed.
+      const same = cachedOK && cached.name === t.name && cached.price === t.price &&
+        cached.salePrice === t.salePrice && cached.image === t.image;
       try { localStorage.setItem("acesignstudio.template.v1", JSON.stringify(t)); } catch (e) {}
-      applyTemplateProduct(t);
-      refreshTypeThumbs();
+      if (!same) {
+        applyTemplateProduct(t);
+        refreshTypeThumbs();
+      }
     }
   } catch (e) { /* offline — fallback/cached template stays */ }
 }
@@ -467,9 +503,7 @@ function buildEditorFields(t) {
       file.onchange = () => {
         const fl = file.files && file.files[0];
         if (!fl) return;
-        const r = new FileReader();
-        r.onload = () => { App.spec.image = r.result; App.spec._customImage = true; refreshImageDrop(); schedulePreview(); };
-        r.readAsDataURL(fl);
+        acceptCustomPhoto(fl);
         file.value = "";
       };
       drop.addEventListener("dragover", (e) => { e.preventDefault(); });
@@ -477,9 +511,7 @@ function buildEditorFields(t) {
         e.preventDefault();
         const fl = e.dataTransfer.files && e.dataTransfer.files[0];
         if (!fl || !/^image\//.test(fl.type)) return;
-        const r = new FileReader();
-        r.onload = () => { App.spec.image = r.result; App.spec._customImage = true; refreshImageDrop(); schedulePreview(); };
-        r.readAsDataURL(fl);
+        acceptCustomPhoto(fl);
       });
       host.appendChild(drop);
       setTimeout(refreshImageDrop, 0);
@@ -583,6 +615,23 @@ function setField(key, value) {
   const inp = $(`#editorFields [data-field="${key}"]`);
   if (inp) inp.value = value;
 }
+/* Take a user-supplied photo into the editor spec. A phone photo is often
+   3-5 MB, and spec.image is persisted verbatim into state.json AND into
+   every saved batch snapshot — so it is bounded here, at the one point it
+   enters the app, rather than everywhere it is later copied. 1600px is far
+   beyond what a full-page sign photo needs at print resolution. */
+const CUSTOM_PHOTO_MAX_EDGE = 1600;
+function acceptCustomPhoto(fileObj) {
+  const r = new FileReader();
+  r.onload = async () => {
+    App.spec.image = await downscaleDataURL(r.result, CUSTOM_PHOTO_MAX_EDGE, 0.85);
+    App.spec._customImage = true;
+    refreshImageDrop();
+    schedulePreview();
+  };
+  r.readAsDataURL(fileObj);
+}
+
 function refreshImageDrop() {
   const prev = $("#imgPrev"), note = $("#imgNote"), clear = $("#imgClear");
   if (!prev) return;
@@ -654,11 +703,54 @@ function priceAgeDays(spec) {
   return Math.floor((Date.now() - t) / 86400000);
 }
 
-async function renderQueue() {
+/* Coalesce the *expensive* half of a queue render. The rows themselves are
+   cheap text/button DOM and stay synchronous, so the count badge and row
+   order are correct the instant a mutation happens. Thumbnails and sheet
+   previews are full sign renders plus a re-pack — during a 100-SKU bulk add
+   that was thousands of redundant renders, since every add re-rendered
+   everything already in the rail. Batching them to one pass per frame
+   collapses a burst into a single pass. */
+let _visualsPending = false;
+function scheduleQueueVisuals() {
+  if (_visualsPending) return;
+  _visualsPending = true;
+  requestAnimationFrame(() => {
+    _visualsPending = false;
+    renderQueueVisuals();
+  });
+}
+
+let _queueSeq = 0;
+function renderQueueVisuals() {
+  const seq = ++_queueSeq;
+  if (!Queue.items.length) { // emptied before this pass ran — nothing to draw
+    $("#sheetPreviews").innerHTML = "";
+    $("#queueStats").textContent = "";
+    return;
+  }
+  renderSheetPreviews();
+  ensureFontsLoaded().then(async () => {
+    for (const q of Queue.items) {
+      if (seq !== _queueSeq) return; // a newer render owns the rail now
+      const holder = $(`.q-thumb[data-uid="${q.uid}"]`);
+      if (!holder || holder.firstChild) continue;
+      try {
+        const size = sizeById(q.sizeId);
+        const svg = await renderQueueItemSVG(q);
+        if (seq !== _queueSeq) return;
+        const scale = Math.min(62 / (size.w * PPI), 42 / (size.h * PPI));
+        holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
+      } catch (e) {}
+    }
+  });
+}
+
+function renderQueue() {
   const host = $("#queueItems");
   const count = $("#queueCount");
   count.textContent = String(Queue.totalSigns());
   if (!Queue.items.length) {
+    _queueSeq++; // cancel any in-flight thumbnail pass for the old contents
     host.innerHTML = `<div class="queue-empty">Queue is empty.<br>Build a sign and hit <b>＋ Add to Queue</b> — mix any types and sizes, then print them all at once.</div>`;
     $("#sheetPreviews").innerHTML = "";
     $("#queueStats").textContent = "";
@@ -726,20 +818,7 @@ async function renderQueue() {
     host.appendChild(item);
   });
   updateQueueButtons();
-  renderSheetPreviews();
-  // thumbnails (async, after list is in place)
-  ensureFontsLoaded().then(async () => {
-    for (const q of Queue.items) {
-      const holder = $(`.q-thumb[data-uid="${q.uid}"]`);
-      if (!holder || holder.firstChild) continue;
-      try {
-        const size = sizeById(q.sizeId);
-        const svg = await renderQueueItemSVG(q);
-        const scale = Math.min(62 / (size.w * PPI), 42 / (size.h * PPI));
-        holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
-      } catch (e) {}
-    }
-  });
+  scheduleQueueVisuals(); // thumbnails + sheet previews, batched to one pass
 }
 
 function updateQueueButtons() {
@@ -834,6 +913,7 @@ async function refreshQueuePrices() {
         // or never-fetched photo must not reappear
         if (res.imageUrl && q.spec.image && !q.spec._customImage) q.spec.image = res.imageUrl;
         q.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
+        Queue._bumpRev(q); // spec mutated in place — drop its cached SVG
         if (before !== `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`) changed++;
       }
     } catch (e) { failed++; }

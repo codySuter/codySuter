@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="2.3.1"
+VERSION="2.4.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Fixes the 'Failed to fetch' errors and the misaligned dollar sign on price signs; adds Check for updates + version history in Settings."
+NOTES="Much faster SKU lookups and price refreshes, a smoother queue and quicker startup, and a smaller download."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
