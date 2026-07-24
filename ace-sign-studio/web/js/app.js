@@ -26,6 +26,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     buildNavThumbs();
     buildGalleryThumbs();
   });
+  prefetchPdfFonts().catch(() => {}); // warm the PDF font cache for later exports
   loadTemplateProduct();
   checkForUpdate();
   $("#settingsBtn").onclick = openSettings;
@@ -43,8 +44,39 @@ window.addEventListener("DOMContentLoaded", async () => {
   $$(".modal-close").forEach((b) => (b.onclick = () => b.closest(".modal-back").classList.remove("show")));
 });
 
+/* Heartbeat: tells the backend the window is still open. Chrome throttles
+   main-thread timers in minimized/hidden windows to as little as once per
+   minute — long enough that the backend's watchdog would conclude the window
+   was closed and exit, leaving every later click failing with "Failed to
+   fetch". Worker timers are exempt from that throttling, so the ping loop
+   runs in a tiny inline worker (main-thread interval only as a fallback).
+   Repeated ping failures surface a "relaunch the app" banner instead of
+   letting the user discover the dead backend through cryptic errors. */
+let _connFails = 0;
+function reportPing(ok) {
+  _connFails = ok ? 0 : _connFails + 1;
+  const bar = $("#connBar");
+  if (!bar) return;
+  if (ok) bar.classList.remove("show");
+  else if (_connFails >= 3) bar.classList.add("show");
+}
+
 function startHeartbeat() {
-  setInterval(() => { fetch("/__ping").catch(() => {}); }, 2000);
+  const PING_MS = 2000;
+  const pingURL = location.origin + "/__ping";
+  const pingNow = () => fetch(pingURL, { cache: "no-store" }).then(() => reportPing(true)).catch(() => reportPing(false));
+  try {
+    const src = `setInterval(() => {
+      fetch(${JSON.stringify(pingURL)}, { cache: "no-store" })
+        .then(() => postMessage(true)).catch(() => postMessage(false));
+    }, ${PING_MS});`;
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+    w.onmessage = (e) => reportPing(!!e.data);
+    w.onerror = () => { try { w.terminate(); } catch (_) {} setInterval(pingNow, PING_MS); };
+  } catch (e) {
+    setInterval(pingNow, PING_MS);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) pingNow(); });
 }
 
 /* ---------------- self-update ---------------- */
@@ -282,7 +314,7 @@ function showEditor(typeId) {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
       printPdfDoc(doc);
       showMsg("editorMsg", "ok", "Sent to the print dialog.");
-    } catch (e) { showMsg("editorMsg", "err", "Print failed: " + e.message); }
+    } catch (e) { showMsg("editorMsg", "err", "Print failed: " + friendlyError(e) + "."); }
   };
   $("#pdfOneBtn").onclick = async () => {
     const err = validateSpec(t, App.spec);
@@ -292,7 +324,7 @@ function showEditor(typeId) {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
       downloadPdfDoc(doc, sanitizeFilename(queueItemTitle({ typeId: t.id, spec: App.spec })) + ".pdf");
       showMsg("editorMsg", "ok", "PDF saved.");
-    } catch (e) { showMsg("editorMsg", "err", "PDF failed: " + e.message); }
+    } catch (e) { showMsg("editorMsg", "err", "PDF failed: " + friendlyError(e) + "."); }
   };
   schedulePreview();
 }
@@ -658,7 +690,7 @@ async function exportQueue(print) {
       downloadPdfDoc(doc, `ace-signs-${stamp}.pdf`);
     }
   } catch (e) {
-    alert("Export failed: " + e.message);
+    alert("Export failed: " + friendlyError(e) + ".");
     console.error(e);
   } finally {
     btn.textContent = orig;

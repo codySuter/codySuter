@@ -37,8 +37,15 @@ var (
 	browserMu      sync.Mutex
 	browserCtx     context.Context
 	browserCancels []func()
-	browserBad     bool // set once we know no browser can be launched
+	// Launch failures are remembered (with their reason) but not forever: a
+	// transient failure — Edge busy updating, antivirus scan, a slow start
+	// that timed out — must not silently degrade every later lookup to the
+	// direct-HTTP fallback for the whole session.
+	browserFailMsg string
+	browserFailAt  time.Time
 )
+
+const browserRetryAfter = 2 * time.Minute
 
 // browserExecPath returns the path to a Chromium-based browser to drive, or
 // "" if none is found. ACE_BROWSER_PATH overrides (used in tests).
@@ -70,16 +77,15 @@ func browserExecPath() string {
 func ensureBrowser() (context.Context, error) {
 	browserMu.Lock()
 	defer browserMu.Unlock()
-	if browserBad {
-		return nil, fmt.Errorf("no compatible browser found")
-	}
 	if browserCtx != nil {
 		return browserCtx, nil
 	}
+	if browserFailMsg != "" && time.Since(browserFailAt) < browserRetryAfter {
+		return nil, fmt.Errorf("%s (retrying in a couple of minutes)", browserFailMsg)
+	}
 	exec := browserExecPath()
 	if exec == "" {
-		browserBad = true
-		return nil, fmt.Errorf("no Edge/Chrome found to drive lookups")
+		return nil, browserFailure("no Edge/Chrome found to drive lookups")
 	}
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(exec),
@@ -106,18 +112,25 @@ func ensureBrowser() (context.Context, error) {
 		if err != nil {
 			cancelCtx()
 			cancelAlloc()
-			browserBad = true
-			return nil, fmt.Errorf("could not start browser: %w", err)
+			return nil, browserFailure(fmt.Sprintf("could not start browser: %v", err))
 		}
 	case <-time.After(25 * time.Second):
 		cancelCtx()
 		cancelAlloc()
-		browserBad = true
-		return nil, fmt.Errorf("browser start timed out")
+		return nil, browserFailure("browser start timed out")
 	}
 	browserCtx = ctx
 	browserCancels = []func(){cancelCtx, cancelAlloc}
+	browserFailMsg = ""
 	return browserCtx, nil
+}
+
+// browserFailure records a launch failure (starting the retry cooldown) and
+// returns it as the error, keeping the original reason for diagnostics.
+func browserFailure(msg string) error {
+	browserFailMsg = msg
+	browserFailAt = time.Now()
+	return fmt.Errorf("%s", msg)
 }
 
 type browserFetch struct {

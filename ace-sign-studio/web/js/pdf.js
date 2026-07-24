@@ -64,7 +64,8 @@ async function pagesToPdf(pages, showGuides, onProgress) {
 async function signToPdf(q) {
   await ensureFontsLoaded();
   const { jsPDF } = window.jspdf;
-  const w = q.size.w, h = q.size.h;
+  const size = sizeById(q.sizeId);
+  const w = size.w, h = size.h;
   const doc = new jsPDF({ unit: "in", format: [w, h], orientation: w > h ? "landscape" : "portrait" });
   await ensurePdfFonts(doc);
   const svg = await renderQueueItemSVG(q);

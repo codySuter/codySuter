@@ -6,7 +6,7 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="2.2.0"
+VERSION="2.2.1"
 DL_BASE="https://github.com/codysuter/codysuter/raw/main/dist"
 LDFLAGS="-s -w -X main.appVersion=$VERSION"
 mkdir -p ../dist

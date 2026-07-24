@@ -29,6 +29,14 @@
   <button class="upd-dismiss" id="updateDismiss" title="Later">✕</button>
 </div>
 
+<!-- Shown when the backend process stops answering (crash, forced exit):
+     without it every button just fails with a cryptic "Failed to fetch". -->
+<div class="update-bar" id="connBar">
+  <span class="upd-dot"></span>
+  <div><b>Lost connection to Ace Sign Studio.</b> The app's background process isn't responding —
+    close this window and start AceSignStudio.exe again. Your queue is saved and will come back.</div>
+</div>
+
 <div class="shell">
   <nav class="nav" id="nav"></nav>
 
