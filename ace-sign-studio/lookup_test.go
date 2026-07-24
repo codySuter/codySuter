@@ -419,3 +419,45 @@ func TestFlushedCacheOmitsDiagnostics(t *testing.T) {
 		}
 	}
 }
+
+// The image proxy's host allowlist must survive redirects. Checking only
+// the initial URL would leave /api/img a redirect-following fetcher: any
+// AWS customer can obtain a *.cloudfront.net name, so a 302 from one could
+// otherwise have its response proxied back into the page.
+func TestImageProxyRejectsRedirectOffAllowlist(t *testing.T) {
+	secret := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("INTERNAL-SERVICE-RESPONSE"))
+	}))
+	defer secret.Close()
+
+	var redirector *httptest.Server
+	redirector = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/hop.jpg" {
+			http.Redirect(w, r, secret.URL+"/", http.StatusFound)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write([]byte("\x89PNG-real-image"))
+	}))
+	defer redirector.Close()
+
+	// Treat the redirector as the allowlisted site (the ACE_BASE_URL seam).
+	oldBase := baseSite
+	baseSite = redirector.URL
+	defer func() { baseSite = oldBase }()
+
+	// A direct fetch of an allowlisted image still works...
+	if data, _, err := fetchImageCached(redirector.URL + "/ok.jpg"); err != nil || !strings.Contains(string(data), "PNG") {
+		t.Fatalf("allowlisted image fetch broke: %v", err)
+	}
+	// ...but one that redirects off the allowlist must fail, and must not
+	// return the off-host body.
+	data, _, err := fetchImageCached(redirector.URL + "/hop.jpg")
+	if err == nil {
+		t.Fatalf("redirect off the allowlist was followed, got %d bytes: %q", len(data), string(data))
+	}
+	if strings.Contains(string(data), "INTERNAL-SERVICE-RESPONSE") {
+		t.Error("off-allowlist response body was proxied back")
+	}
+}

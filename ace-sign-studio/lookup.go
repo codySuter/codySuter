@@ -195,15 +195,24 @@ func scheduleCacheSave() {
 }
 
 // flushDiskCache serializes the cache under the lock but writes outside it,
-// so a slow disk never blocks a lookup.
+// so a slow disk never blocks a lookup. cacheWriteMu keeps two flushes (the
+// timer firing as the app exits, say) from interleaving on the shared temp
+// file and renaming a half-written one into place.
+var cacheWriteMu sync.Mutex
+
 func flushDiskCache() {
 	lookupMu.Lock()
-	cacheSaveTimer = nil
+	if cacheSaveTimer != nil {
+		cacheSaveTimer.Stop()
+		cacheSaveTimer = nil
+	}
 	data, path := marshalDiskCache()
 	lookupMu.Unlock()
 	if data == nil {
 		return
 	}
+	cacheWriteMu.Lock()
+	defer cacheWriteMu.Unlock()
 	tmp := path + ".tmp"
 	if os.WriteFile(tmp, data, 0o644) == nil {
 		_ = os.Rename(tmp, path)
@@ -798,7 +807,23 @@ func allowedImageHost(host string) bool {
 // lookup session: the CDN hosts don't need acehardware.com's warmed
 // cookies, and sharing the session meant the first thumbnail after a queue
 // restore waited on that session's warm-up request.
-var imageClient = &http.Client{Timeout: 20 * time.Second}
+//
+// The host allowlist is re-applied to every redirect hop. Checking only the
+// initial URL would leave /api/img a redirect-following fetcher: any AWS
+// customer can obtain a *.cloudfront.net name, and a 302 from one could
+// otherwise have its response proxied back into the page.
+var imageClient = &http.Client{
+	Timeout: 20 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("too many redirects")
+		}
+		if !allowedImageHost(strings.ToLower(req.URL.Hostname())) {
+			return fmt.Errorf("image redirect to disallowed host: %s", req.URL.Hostname())
+		}
+		return nil
+	},
+}
 
 // Concurrent renders (a queue rail plus its sheet previews) ask for the
 // same photo at once; without this the first paint of a restored queue
@@ -811,14 +836,24 @@ var (
 // pruneImageCache drops cached photos not read for 30 days. The cache lives
 // in the OS temp dir and had no eviction at all, so it grew for the life of
 // the install. Runs once per process, off the request path.
+//
+// Deleting inside a shared temp dir deserves care: on Unix os.TempDir() is
+// world-writable, so a local user could pre-create our cache directory as a
+// symlink to somewhere else and have this walk their target instead. (Not
+// reachable on Windows, where %TEMP% is per-user, but the guard is cheap.)
+// Entry names come from ReadDir, so they are single path components and
+// can't traverse; the directory itself is the only thing worth checking.
 func pruneImageCache(dir string) {
+	if st, err := os.Lstat(dir); err != nil || st.Mode()&os.ModeSymlink != 0 {
+		return
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
 	cutoff := time.Now().Add(-30 * 24 * time.Hour)
 	for _, e := range entries {
-		if info, err := e.Info(); err == nil && info.ModTime().Before(cutoff) {
+		if info, err := e.Info(); err == nil && !info.IsDir() && info.ModTime().Before(cutoff) {
 			_ = os.Remove(filepath.Join(dir, e.Name()))
 		}
 	}
