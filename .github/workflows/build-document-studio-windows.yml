@@ -73,8 +73,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Assetless create publishes immediately (no stuck-draft failure
+          # mode); assets are uploaded to the live release. See the note in
+          # build-sign-windows.yml.
           gh release delete ace-document-studio-windows --yes --cleanup-tag || true
-          gh release create ace-document-studio-windows release/AceDocumentStudio.exe release/version.txt \
+          gh api repos/${GITHUB_REPOSITORY}/releases --paginate \
+            --jq '.[] | select(.draft and .tag_name == "ace-document-studio-windows") | .id' |
+            while read -r id; do gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/$id"; done
+          gh release create ace-document-studio-windows \
             --title "Ace Document Studio for Windows" \
             --notes "Latest Windows build. Download **AceDocumentStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
             --target "$GITHUB_SHA"
+          gh release upload ace-document-studio-windows release/AceDocumentStudio.exe release/version.txt
