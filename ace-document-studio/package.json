@@ -15,7 +15,7 @@
     "build": "vite build",
     "preview": "vite preview --port 4173 --strictPort",
     "test": "playwright test",
-    "icon": "node scripts/make-icon.mjs",
+    "icon": "node ../ace-studio-brand/icons.mjs document",
     "dist:win": "vite build && electron-builder --win portable"
   },
   "dependencies": {

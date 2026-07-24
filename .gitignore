@@ -35,3 +35,9 @@ yarn-error.log*
 /supabase/.branches
 /supabase/.temp
 /supabase/.env
+
+# ace-sign-studio (built exes live in GitHub Releases, not git)
+/dist/
+ace-sign-studio/e2e/node_modules/
+ace-sign-studio/e2e/screenshots/
+ace-sign-studio/e2e/package-lock.json

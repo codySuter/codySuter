@@ -6,8 +6,10 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="2.2.0"
-DL_BASE="https://github.com/codysuter/codysuter/raw/main/dist"
+VERSION="2.3.0"
+# Updates are served from the stable GitHub Release (CI uploads the exe +
+# this manifest there on every green build) — the exe is not in git.
+DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
 LDFLAGS="-s -w -X main.appVersion=$VERSION"
 mkdir -p ../dist
 

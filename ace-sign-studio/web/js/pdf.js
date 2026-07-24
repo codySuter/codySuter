@@ -38,7 +38,7 @@ async function composeSheetSVG(page, showGuides) {
 async function pagesToPdf(pages, showGuides, onProgress) {
   await ensureFontsLoaded();
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: "in", format: "letter", orientation: pages.length && pages[0].landscape ? "landscape" : "portrait" });
+  const doc = new jsPDF({ unit: "in", format: "letter", orientation: pages.length && pages[0].landscape ? "landscape" : "portrait", compress: true });
   await ensurePdfFonts(doc);
   doc.deletePage(1);
   const host = document.createElement("div");
@@ -60,12 +60,14 @@ async function pagesToPdf(pages, showGuides, onProgress) {
   return doc;
 }
 
-/* Single sign → its own PDF at true size. */
+/* Single sign → its own PDF at true size. Accepts either a queue-packable
+   item ({size}) or an editor item ({sizeId}). */
 async function signToPdf(q) {
   await ensureFontsLoaded();
   const { jsPDF } = window.jspdf;
-  const w = q.size.w, h = q.size.h;
-  const doc = new jsPDF({ unit: "in", format: [w, h], orientation: w > h ? "landscape" : "portrait" });
+  const size = q.size || sizeById(q.sizeId);
+  const w = size.w, h = size.h;
+  const doc = new jsPDF({ unit: "in", format: [w, h], orientation: w > h ? "landscape" : "portrait", compress: true });
   await ensurePdfFonts(doc);
   const svg = await renderQueueItemSVG(q);
   const host = document.createElement("div");

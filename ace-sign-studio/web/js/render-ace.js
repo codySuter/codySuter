@@ -164,28 +164,45 @@ function nameBlock(cx, top, name, maxW, targetSize, minSize) {
   return { markup, h: fit.lines.length * (size + lineGap) };
 }
 
-function skuFooter(W, H, frame, sku, detail, storeLine) {
+function skuFooter(W, H, frame, sku, detail, storeLine, barcode) {
   const m = frame.margin;
   const cx = W / 2;
   let markup = "";
-  let used = 0;
   const skuSize = Math.max(8.5, Math.min(15, H * 0.023));
-  let y = H - m - Math.max(6, H * 0.014);
+  const bottomPad = Math.max(6, H * 0.014);
+  let y = H - m - bottomPad;
   if (storeLine) {
     const s = skuSize * 0.72;
     markup += svgText(cx, y, storeLine, "RobotoMedium", s, GRAY5);
-    y -= s * 1.45; used += s * 1.45;
+    y -= s * 1.45;
   }
   if (sku) {
-    markup += svgText(cx, y, `SKU: ${sku}`, "RobotoMedium", skuSize, GRAY11);
-    used += skuSize * 1.5;
+    let drewBars = false;
+    // only a real 4–9 digit item number becomes a barcode — a pasted URL
+    // or search phrase in the SKU field must not print as scannable noise
+    if (barcode && /^\d{4,9}$/.test(String(sku)) && typeof code128Rects === "function") {
+      const bcH = Math.max(15, Math.min(30, H * 0.045));
+      const bw = Math.min(W * 0.5, Math.max(112, W * 0.24));
+      const dsize = skuSize * 0.95;
+      const barsTop = y - dsize * 1.05 - bcH;
+      const bc = code128Rects(sku, cx - bw / 2, barsTop, bw, bcH, INK);
+      if (bc) {
+        markup += svgText(cx, y, String(sku), "RobotoMedium", dsize, GRAY11, { letterSpacing: (dsize * 0.22).toFixed(2) });
+        markup += bc.rects;
+        y = barsTop - skuSize * 0.5;
+        drewBars = true;
+      }
+    }
+    if (!drewBars) {
+      markup += svgText(cx, y, `SKU: ${sku}`, "RobotoMedium", skuSize, GRAY11);
+      y -= skuSize * 1.5;
+    }
   }
   if (detail) {
-    y -= skuSize * 1.5;
     markup += svgText(cx, y, detail, "RobotoMedium", skuSize * 0.92, GRAY11);
-    used += skuSize * 1.4;
+    y -= skuSize * 1.4;
   }
-  return { markup, reserved: used + Math.max(6, H * 0.014) };
+  return { markup, reserved: (H - m) - y };
 }
 
 /* ---------- generic product-sign template ----------
@@ -200,7 +217,7 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const dates = formatSaleDates(spec.startDate, spec.endDate);
   const small = Math.min(Win, Hin) <= 5.6;
   const header = signHeader(W, H, frame, logoURI, dates, small, noLogo);
-  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine);
+  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode);
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
 
@@ -638,7 +655,7 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
   const logoURI = noLogo ? null : await getLogoURI();
   const dates = formatSaleDates(spec.startDate, spec.endDate);
   const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6, noLogo);
-  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine);
+  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode);
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
   let markup = frame.markup + header.markup + footer.markup;

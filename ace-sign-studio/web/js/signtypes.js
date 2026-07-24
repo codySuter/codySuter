@@ -41,6 +41,7 @@ const F = {
   upTo:   { key: "upTo", kind: "check", label: "Show “UP TO” above the percent" },
   category: { key: "category", kind: "text", label: "Category name (e.g. HAND TOOLS)" },
   message:  { key: "message", kind: "textarea", label: "Message" },
+  barcode:  { key: "barcode", kind: "check", label: "Print a scannable SKU barcode (Code 128)" },
 };
 
 const SIGN_TYPES = [
@@ -160,6 +161,11 @@ const SIGN_TYPES = [
 ];
 
 const typeById = (id) => SIGN_TYPES.find((t) => t.id === id) || null;
+
+/* Every sign type that shows a SKU can also print it as a barcode. */
+for (const t of SIGN_TYPES) {
+  if (t.fields.some((f) => f.kind === "sku")) t.fields.push(F.barcode);
+}
 
 /* ---------- gallery template product ----------
    Gallery/nav thumbnails render with a real product so previews show an
