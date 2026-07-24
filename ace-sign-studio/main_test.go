@@ -137,3 +137,67 @@ func TestStatePathUsesConfigDir(t *testing.T) {
 		t.Errorf("statePath dir = %q, want %q", filepath.Dir(p), dir)
 	}
 }
+
+// Static assets (fonts, vendor JS, images, CSS, JS) may be cached across
+// window opens; index.html and the API never may. Blanket no-store also
+// defeated Chrome's compiled-code cache, so every launch re-parsed the
+// vendor bundles and re-decoded the TTFs.
+func TestStaticCachePolicy(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	h := staticCache(inner)
+
+	for _, p := range []string{"/fonts/Roboto-Bold.ttf", "/vendor/jspdf.umd.min.js", "/img/ace_logo_transparent.png", "/css/app.css", "/js/app.js"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if cc := rec.Header().Get("Cache-Control"); cc == "no-store" || cc == "" {
+			t.Errorf("%s Cache-Control = %q, want a cacheable policy", p, cc)
+		}
+		if rec.Header().Get("ETag") == "" {
+			t.Errorf("%s has no ETag to revalidate against", p)
+		}
+	}
+
+	for _, p := range []string{"/", "/index.html"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if rec.Header().Get("Cache-Control") != "no-store" {
+			t.Errorf("%s Cache-Control = %q, want no-store", p, rec.Header().Get("Cache-Control"))
+		}
+	}
+}
+
+// A matching ETag short-circuits to 304 so a reload re-uses the decoded
+// asset instead of re-fetching ~2 MB of fonts and vendor code.
+func TestStaticCacheRevalidates(t *testing.T) {
+	served := 0
+	h := staticCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served++
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/fonts/Roboto-Bold.ttf", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	etag := rec.Header().Get("ETag")
+
+	req2 := httptest.NewRequest(http.MethodGet, "/fonts/Roboto-Bold.ttf", nil)
+	req2.Header.Set("If-None-Match", etag)
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusNotModified {
+		t.Errorf("revalidation = %d, want 304", rec2.Code)
+	}
+	if served != 1 {
+		t.Errorf("handler ran %d times, want 1 (second was a 304)", served)
+	}
+
+	// A new app version must invalidate everything at once.
+	req3 := httptest.NewRequest(http.MethodGet, "/fonts/Roboto-Bold.ttf", nil)
+	req3.Header.Set("If-None-Match", `"v0.0.0-old"`)
+	rec3 := httptest.NewRecorder()
+	h.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusOK {
+		t.Errorf("stale ETag = %d, want a fresh 200", rec3.Code)
+	}
+}

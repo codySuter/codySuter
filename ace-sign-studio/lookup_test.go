@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -181,6 +182,9 @@ func TestDiskCacheRoundTrip(t *testing.T) {
 	if !res.OK {
 		t.Fatalf("seed lookup failed: %+v", res)
 	}
+	// Writes are debounced (and flushed on exit); force one here rather than
+	// waiting out the timer.
+	flushDiskCache()
 	p, _ := lookupCachePath()
 	if _, err := os.Stat(p); err != nil {
 		t.Fatalf("lookup-cache.json not written: %v", err)
@@ -326,5 +330,92 @@ func TestConfigDirOverride(t *testing.T) {
 	}
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 		t.Error("override dir not created")
+	}
+}
+
+// A duplicate lookup arriving while the first is still running must not
+// start a second one: the UI can fire the same SKU from the editor and a
+// bulk run at once, and browser lookups are serialized, so the duplicate
+// used to double the wait for both.
+func TestConcurrentIdenticalLookupsShareOneFetch(t *testing.T) {
+	var hits int32
+	release := make(chan struct{})
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/commerce/") {
+			atomic.AddInt32(&hits, 1)
+			<-release // hold the first caller so the second overlaps it
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"price":   map[string]any{"price": 4.5},
+				"content": map[string]any{"productName": "Shared Widget"},
+			})
+			return
+		}
+		fmt.Fprintf(w, `<html><head><title>Shared Widget</title>`+
+			`<script type="application/ld+json">{"@context":"https://schema.org","@type":"Product",`+
+			`"name":"Shared Widget","sku":"5550001","image":%q}</script></head><body></body></html>`,
+			srv.URL+"/img/5550001.png")
+	}))
+	defer srv.Close()
+
+	oldBase, oldWarm, oldAPI := baseSite, warmupProductURL, storefrontAPI
+	baseSite, warmupProductURL = srv.URL, srv.URL+"/product/8315087"
+	storefrontAPI = srv.URL + "/api/commerce/catalog/storefront/products/"
+	defer func() { baseSite, warmupProductURL, storefrontAPI = oldBase, oldWarm, oldAPI }()
+	t.Setenv("ACE_LOOKUP_MODE", "http")
+	t.Setenv("ACE_CONFIG_DIR", t.TempDir())
+	resetLookupState()
+
+	var wg sync.WaitGroup
+	results := make([]LookupResult, 2)
+	for i := range results {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			results[i] = lookupProduct("5550001", "12180", false)
+		}(i)
+	}
+	time.Sleep(150 * time.Millisecond) // let both reach the in-flight check
+	close(release)
+	wg.Wait()
+
+	for i, r := range results {
+		if !r.OK || r.Name != "Shared Widget" {
+			t.Fatalf("caller %d got %+v", i, r)
+		}
+	}
+	if n := atomic.LoadInt32(&hits); n != 1 {
+		t.Errorf("store API called %d times, want 1 (single-flight)", n)
+	}
+}
+
+// The lookup cache is written behind a debounce; a flush must still produce
+// a file the next process can load, and must not carry the diagnostics
+// trail of the lookup that happened to populate it.
+func TestFlushedCacheOmitsDiagnostics(t *testing.T) {
+	mockAce(t, testProducts)
+	if res := lookupProduct("3000003", "12180", false); !res.OK {
+		t.Fatalf("seed lookup failed: %+v", res)
+	}
+	flushDiskCache()
+	p, _ := lookupCachePath()
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("cache not written: %v", err)
+	}
+	var m map[string]diskCacheEntry
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("cache unreadable: %v", err)
+	}
+	if len(m) == 0 {
+		t.Fatal("cache file has no entries")
+	}
+	for k, e := range m {
+		if len(e.Res.Diagnostics) != 0 {
+			t.Errorf("entry %q persisted its diagnostics trail", k)
+		}
+		if e.Res.Price != "129.00" {
+			t.Errorf("entry %q lost its price: %+v", k, e.Res)
+		}
 	}
 }

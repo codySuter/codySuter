@@ -60,7 +60,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", noCache(http.FileServer(http.FS(sub))))
+	mux.Handle("/", staticCache(http.FileServer(http.FS(sub))))
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/lookup", handleLookup)
 	mux.HandleFunc("/api/img", handleImageProxy)
@@ -126,9 +126,38 @@ func touchHeartbeat(next http.Handler) http.Handler {
 	})
 }
 
-func noCache(next http.Handler) http.Handler {
+// staticCache lets the browser keep the immutable parts of the UI — fonts,
+// vendor libraries, images, CSS and JS — across window opens, while
+// index.html itself is never cached.
+//
+// Everything used to be no-store, which also disables Chrome's compiled-code
+// cache, so ~590 KB of minified JS was re-parsed and the TTFs re-decoded on
+// every launch. The assets only change when the app does, and a self-update
+// replaces the whole exe (and restarts into a fresh page load), so a
+// version-scoped validator is enough to keep them honest: the ETag below
+// changes with appVersion, so a new build invalidates everything at once.
+func staticCache(next http.Handler) http.Handler {
+	cacheable := func(p string) bool {
+		for _, prefix := range []string{"/fonts/", "/vendor/", "/img/", "/css/", "/js/"} {
+			if strings.HasPrefix(p, prefix) {
+				return true
+			}
+		}
+		return false
+	}
+	etag := `"v` + appVersion + `"`
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
+		if !cacheable(r.URL.Path) {
+			w.Header().Set("Cache-Control", "no-store")
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", "max-age=86400")
+		if match := r.Header.Get("If-None-Match"); match != "" && strings.Contains(match, etag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -197,6 +226,7 @@ func watchdog() {
 		heartbeatMu.Unlock()
 		if pinged && time.Since(last) > 90*time.Second {
 			log.Println("UI window closed — exiting")
+			flushDiskCache()  // persist any lookups still pending a write
 			shutdownBrowser() // close the headless lookup browser too
 			os.Exit(0)
 		}
