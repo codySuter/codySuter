@@ -1031,7 +1031,62 @@ async function renderSheetPreviews() {
   return packed;
 }
 
-async function exportQueue(print) {
+/* Price age past which a queued sign is worth re-checking before it goes on
+   a shelf — same threshold as the amber badge on the queue row. */
+const STALE_PRICE_DAYS = 3;
+
+/* Queued signs whose price is stale or was never checked. Limited to the
+   types "↻ Prices" can refresh; everything else is hand-entered and has no
+   SKU to look up. */
+function stalePricedItems() {
+  return Queue.items.filter((q) => {
+    if (!PRICE_REFRESH_TYPES[q.typeId] || !String(q.spec.sku || "").trim()) return false;
+    const age = priceAgeDays(q.spec);
+    return age == null || age > STALE_PRICE_DAYS;
+  });
+}
+
+/* Last stop before an out-of-date price reaches a shelf. The queue persists
+   for weeks and batches get reloaded months later, so "load last spring's
+   sale, hit Print All" is one distracted click — and a wrong shelf price is
+   the most expensive mistake this app can make. Offers the fix (refresh
+   first) rather than just blocking. */
+function promptStalePrices(stale, print) {
+  const modal = $("#stalePriceModal");
+  const never = stale.filter((q) => priceAgeDays(q.spec) == null).length;
+  const ages = stale.map((q) => priceAgeDays(q.spec)).filter((d) => d != null);
+  const oldest = ages.length ? Math.max(...ages) : null;
+
+  const bits = [`<b>${stale.length} sign${stale.length === 1 ? "" : "s"}</b> in this queue `
+    + `${stale.length === 1 ? "has a price" : "have prices"} that ${stale.length === 1 ? "hasn't" : "haven't"} been checked recently`];
+  if (oldest != null) bits.push(`the oldest is <b>${oldest} days</b> old`);
+  if (never) bits.push(`${never} ${never === 1 ? "has" : "have"} never been checked`);
+  $("#staleIntro").innerHTML = bits.join(" — ") + ".";
+
+  const list = $("#staleList");
+  list.innerHTML = "";
+  for (const q of stale.slice(0, 12)) {
+    const row = el("div", "stale-row");
+    row.appendChild(el("span", "sr-name", queueItemTitle(q)));
+    const age = priceAgeDays(q.spec);
+    row.appendChild(el("span", "q-stale sr-age", age == null ? "never checked" : `${age}d old`));
+    list.appendChild(row);
+  }
+  if (stale.length > 12) list.appendChild(el("div", "stale-row", `…and ${stale.length - 12} more`));
+
+  $("#staleRefreshBtn").onclick = async () => {
+    modal.classList.remove("show");
+    await refreshQueuePrices();
+    exportQueue(print, { skipStaleCheck: true });
+  };
+  $("#staleProceedBtn").onclick = () => {
+    modal.classList.remove("show");
+    exportQueue(print, { skipStaleCheck: true });
+  };
+  modal.classList.add("show");
+}
+
+async function exportQueue(print, opts) {
   if (!Queue.items.length) return;
   // never print a broken sign (e.g. a bulk Was/Now still missing its
   // NOW price would render "NOW $—") — block with a pointer instead
@@ -1043,6 +1098,13 @@ async function exportQueue(print) {
     const first = validateSpec(typeById(bad[0].typeId), bad[0].spec);
     showToast(`${bad.length} sign${bad.length === 1 ? " is" : "s are"} incomplete — “${queueItemTitle(bad[0])}”: ${first} Click it in the queue to fix.`, { ms: 9000 });
     return;
+  }
+  if (!(opts && opts.skipStaleCheck)) {
+    const stale = stalePricedItems();
+    if (stale.length) {
+      promptStalePrices(stale, print);
+      return;
+    }
   }
   const btn = print ? $("#printAllBtn") : $("#exportAllBtn");
   const orig = btn.textContent;

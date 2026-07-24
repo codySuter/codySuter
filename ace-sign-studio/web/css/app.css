@@ -398,6 +398,15 @@ label.f-label:first-child{margin-top:0}
 .bulk-fails .btn{margin-top:7px}
 .bulk-warn{background:var(--warning-bg);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:500;margin-top:8px;line-height:1.4}
 
+/* Stale-price check shown before a queue goes to the printer */
+.stale-intro{background:var(--warning-bg);color:var(--warning);border-radius:8px;padding:9px 11px;
+  font-size:12.5px;font-weight:500;line-height:1.45;margin-bottom:10px}
+.stale-list{max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:4px}
+.stale-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:1px solid #F0F0F1;font-size:12.5px}
+.stale-row:first-child{border-top:none}
+.stale-row .sr-name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stale-row .sr-age{margin-left:auto;flex:none}
+
 /* segmented control (support modal) */
 .seg{display:flex;gap:0;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:4px}
 .seg-btn{flex:1;background:#fff;border:none;padding:9px 10px;font-size:13px;font-weight:700;color:var(--text-2);cursor:pointer}

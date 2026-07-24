@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="2.4.1"
+VERSION="2.5.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Fixes SKU lookups being far slower than intended in 2.4.0 — looking up an item is now about a fifth of a second."
+NOTES="Warns before printing prices that have not been checked recently, and hardens the built-in updater."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"

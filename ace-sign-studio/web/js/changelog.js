@@ -9,6 +9,14 @@
 
 const CHANGELOG = [
   {
+    version: "2.5.0",
+    date: "July 2026",
+    notes: [
+      "Ace Sign Studio now checks before you print. If any queued sign has a price that hasn't been looked up in the last few days — or was never looked up at all — it says so and offers to refresh them first. A queue can sit for weeks and a saved batch can be months old, so this is the guard against reloading last season's sale and sending old prices straight to the shelf. You can still choose “Print anyway”.",
+      "The built-in updater is stricter about what it will install. It now only accepts an update published in this app's own release, so a bad or unexpected download can't be installed over it.",
+    ],
+  },
+  {
     version: "2.4.1",
     date: "July 2026",
     notes: [
