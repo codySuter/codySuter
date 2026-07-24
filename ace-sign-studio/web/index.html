@@ -170,6 +170,21 @@
   </div>
 </div>
 
+<!-- Stale price check before printing a queue -->
+<div class="modal-back" id="stalePriceModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Check these prices first?</h3><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div id="staleIntro" class="stale-intro"></div>
+      <div class="stale-list" id="staleList"></div>
+      <div class="actions" style="position:static;background:none">
+        <button class="btn btn-primary" id="staleRefreshBtn">Refresh prices, then print</button>
+        <button class="btn btn-secondary" id="staleProceedBtn">Print anyway</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Saved batches -->
 <div class="modal-back" id="batchModal">
   <div class="modal">

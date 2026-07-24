@@ -336,6 +336,60 @@ async function run() {
     const d2 = await dl2;
     ok("editor PDF button downloads", statSync(await d2.path()).size > 2000);
 
+    // ================= stale price guard =================
+    // A queue outlives the prices in it: batches get reloaded weeks later and
+    // "load last spring's sale, hit Print All" is one click. Age a queued
+    // sign and make sure printing stops to ask.
+    console.log("→ Stale price guard");
+    const agedTitle = await page.evaluate(() => {
+      const q = Queue.items.find((x) => PRICE_REFRESH_TYPES[x.typeId] && String(x.spec.sku || "").trim());
+      if (!q) return null;
+      q.spec.lookedUpAt = new Date(Date.now() - 30 * 86400000).toISOString();
+      renderQueue();
+      return queueItemTitle(q);
+    });
+    ok("a refreshable queued sign exists to age", agedTitle != null);
+    await page.click("#exportAllBtn");
+    await page.waitForSelector("#stalePriceModal.show", { timeout: 10000 });
+    ok("printing stops to flag a 30-day-old price", true);
+    ok("the stale sign is named with its age", (await page.textContent("#staleList")).includes("30d old"));
+    ok("the fix is offered, not just a block", !!(await page.$("#staleRefreshBtn")));
+    const dl3 = page.waitForEvent("download", { timeout: 60000 });
+    await page.click("#staleProceedBtn");
+    ok("“Print anyway” still exports", statSync(await (await dl3).path()).size > 2000);
+    await waitToastGone();
+
+    // the primary action: refresh the prices, then print in one go
+    await page.evaluate(() => {
+      const q = Queue.items.find((x) => PRICE_REFRESH_TYPES[x.typeId] && String(x.spec.sku || "").trim());
+      q.spec.lookedUpAt = new Date(Date.now() - 30 * 86400000).toISOString();
+      renderQueue();
+    });
+    await page.click("#exportAllBtn");
+    await page.waitForSelector("#stalePriceModal.show", { timeout: 10000 });
+    const dl4 = page.waitForEvent("download", { timeout: 90000 });
+    await page.click("#staleRefreshBtn");
+    ok("“Refresh prices, then print” refreshes and exports", statSync(await (await dl4).path()).size > 2000);
+    ok(
+      "the refreshed sign is no longer stale",
+      await page.evaluate(() =>
+        Queue.items.every((q) => {
+          if (!PRICE_REFRESH_TYPES[q.typeId] || !String(q.spec.sku || "").trim()) return true;
+          const d = priceAgeDays(q.spec);
+          return d != null && d <= STALE_PRICE_DAYS;
+        })
+      )
+    );
+    await waitToastGone();
+
+    // a fresh queue must not be nagged
+    await page.evaluate(() => {
+      Queue.items.forEach((q) => { if (q.spec.sku) q.spec.lookedUpAt = new Date().toISOString(); });
+    });
+    const dl5 = page.waitForEvent("download", { timeout: 60000 });
+    await page.click("#exportAllBtn");
+    ok("a freshly-priced queue prints with no prompt", statSync(await (await dl5).path()).size > 2000);
+
     // ================= persistence round-trip =================
     console.log("→ Persistence (server-side state)");
     await page.waitForTimeout(700); // allow the debounced persist to flush
