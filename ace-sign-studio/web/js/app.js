@@ -85,6 +85,12 @@ async function checkForUpdate() {
   try {
     st = await fetch("/api/update/check").then((r) => r.json());
   } catch (e) { return; }
+  renderUpdateBar(st);
+}
+
+/* Show/hide the top "Update available" banner for a /api/update/check
+   result. Shared by the launch check and Settings → Check for updates. */
+function renderUpdateBar(st) {
   const bar = $("#updateBar");
   if (!st || !st.available) { if (bar) bar.classList.remove("show"); return; }
   bar.querySelector("#updateText").innerHTML =
@@ -757,6 +763,7 @@ function openSettings() {
   $("#setCutGuides").checked = !!s.cutGuides;
   $("#setMargin").value = String(s.margin);
   $("#setTemplateSku").value = s.templateSku || "81995";
+  initSettingsUpdates();
   $("#settingsModal").classList.add("show");
   $("#settingsSave").onclick = () => {
     const prevTemplate = Settings.get().templateSku || "81995";
@@ -776,4 +783,48 @@ function openSettings() {
     }
     renderQueue();
   };
+}
+
+/* Settings → Updates: on-demand update check + the version history. */
+function initSettingsUpdates() {
+  const status = $("#settingsUpdateStatus");
+  const btn = $("#settingsUpdateBtn");
+  if (!status || !btn) return;
+  status.textContent = window.__appVersion ? `You have v${window.__appVersion}.` : "";
+  btn.disabled = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    status.textContent = "Checking…";
+    try {
+      const st = await fetch("/api/update/check", { cache: "no-store" }).then((r) => r.json());
+      if (st.available) {
+        status.textContent = `v${st.latest} is available — close Settings and use the “${st.canApply ? "Update & Restart" : "Download"}” banner at the top.`;
+      } else if (st.error) {
+        status.textContent = `Couldn't check for updates: ${st.error}. Are you online?`;
+      } else {
+        status.textContent = `You're up to date — v${st.current} is the latest.`;
+      }
+      if (!st.error) renderUpdateBar(st); // also hides a stale banner on "up to date"
+    } catch (e) {
+      status.textContent = "Couldn't check for updates: " + friendlyError(e) + ".";
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  // Version history (rebuilt each open: the current-version tag depends on
+  // __appVersion, which arrives async at boot).
+  const list = $("#changelogList");
+  if (!list || typeof CHANGELOG === "undefined") return;
+  list.innerHTML = "";
+  for (const entry of CHANGELOG) {
+    const head = el("div", "cl-head");
+    head.appendChild(el("span", "cl-version", "v" + entry.version));
+    if (entry.version === window.__appVersion) head.appendChild(el("span", "cl-current", "installed"));
+    if (entry.date) head.appendChild(el("span", "cl-date", entry.date));
+    list.appendChild(head);
+    const ul = el("ul", "cl-notes");
+    for (const n of entry.notes) ul.appendChild(el("li", null, n));
+    list.appendChild(ul);
+  }
 }

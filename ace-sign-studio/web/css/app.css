@@ -301,6 +301,16 @@ label.f-label:first-child{margin-top:0}
 }
 .bulk-inner textarea:focus{border-color:var(--ace-red)}
 .bulk-meta{display:flex;align-items:center;gap:8px;margin:7px 0}
+
+/* Version history (Settings → Updates) */
+.changelog{max-height:260px;overflow:auto;font-size:12px;padding-top:6px}
+.cl-head{display:flex;align-items:baseline;gap:8px;margin:10px 0 3px}
+.cl-head:first-child{margin-top:0}
+.cl-version{font-weight:900;font-size:13px;color:var(--text)}
+.cl-current{font-size:10px;font-weight:800;color:#fff;background:var(--ace-red);border-radius:999px;padding:2px 8px;text-transform:uppercase;letter-spacing:.04em}
+.cl-date{font-size:11px;color:var(--text-3)}
+.cl-notes{margin:0 0 4px;padding-left:18px;color:var(--text-2)}
+.cl-notes li{margin:3px 0;line-height:1.45}
 .bulk-count{font-size:11px;font-weight:700;color:var(--text-2)}
 .bulk-progress{height:5px;border-radius:3px;background:var(--gray-1);overflow:hidden;display:none;margin-top:7px}
 .bulk-progress.show{display:block}

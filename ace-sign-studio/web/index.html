@@ -112,6 +112,15 @@
       <label class="f-label">Gallery template SKU</label>
       <input class="f-input" id="setTemplateSku">
       <div class="f-help">The product whose photo &amp; price fill the sign previews in the gallery (default 81995 — Ace Premium Wild Bird Food 20 lb). Looked up live at launch and cached.</div>
+      <label class="f-label">Updates</label>
+      <div class="f-row" style="align-items:center">
+        <button class="btn btn-secondary" id="settingsUpdateBtn" style="flex:0 0 auto">Check for updates</button>
+        <span class="f-help" id="settingsUpdateStatus" style="margin:0;flex:1"></span>
+      </div>
+      <details class="bulk-box" style="margin-top:8px">
+        <summary>What's new — version history</summary>
+        <div class="bulk-inner"><div class="changelog" id="changelogList"></div></div>
+      </details>
       <div class="actions" style="position:static;background:none">
         <button class="btn btn-primary" id="settingsSave">Save</button>
       </div>
@@ -165,6 +174,7 @@
      js/barcode.js, js/render-stihl.js, js/stihl.js tags and the
      stihl_shelf entry in js/signtypes.js (see git history). -->
 <script src="js/util.js"></script>
+<script src="js/changelog.js"></script>
 <script src="js/fonts.js"></script>
 <script src="js/render-ace.js"></script>
 <script src="js/signtypes.js"></script>

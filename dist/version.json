@@ -1,6 +1,6 @@
 {
   "version": "2.2.1",
   "url": "https://github.com/codysuter/codysuter/raw/main/dist/AceSignStudio.exe",
-  "sha256": "ec16e56a9998fcec9275ad689848c428dfb49369fb829f9cdf1e9b83d3fe442a",
-  "notes": "Latest Ace Sign Studio build."
+  "sha256": "0496392b0289e9766702c045cf43bf58c6e9bf1c6181966910a945cc9572c6d7",
+  "notes": "Fixes the 'Failed to fetch' errors and the misaligned dollar sign on price signs; adds Check for updates + version history in Settings."
 }
