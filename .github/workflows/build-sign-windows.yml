@@ -7,6 +7,10 @@ name: Build Ace Sign Studio (Windows)
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "ace-sign-studio/**"
+      - ".github/workflows/build-sign-windows.yml"
   push:
     branches: [main]
     paths:
@@ -68,19 +72,23 @@ jobs:
         run: ./build.sh
 
       - name: Upload EXE as a workflow artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: AceSignStudio-windows
-          path: dist/AceSignStudio.exe
+          path: |
+            dist/AceSignStudio.exe
+            dist/version.json
           if-no-files-found: error
 
-      - name: Publish EXE to a Release (stable download link)
+      - name: Publish EXE + update manifest to a Release (stable download link)
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete ace-sign-studio-windows --yes --cleanup-tag || true
-          gh release create ace-sign-studio-windows ../dist/AceSignStudio.exe \
+          gh release create ace-sign-studio-windows ../dist/AceSignStudio.exe ../dist/version.json \
             --title "Ace Sign Studio for Windows" \
-            --notes "Latest Windows build. Download **AceSignStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
+            --notes "Latest Windows build. Download **AceSignStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**. Installed copies self-update from this release via version.json." \
             --target "$GITHUB_SHA"

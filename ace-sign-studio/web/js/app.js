@@ -28,6 +28,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     buildGalleryThumbs();
   });
   loadTemplateProduct();
+  checkForUpdate();
   $("#settingsBtn").onclick = openSettings;
   $("#homeBtn").onclick = showGallery;
   $("#clearQueueBtn").onclick = clearQueueWithUndo;
@@ -38,6 +39,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
   initBulk();
   window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
+  initSupport();
+  fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => { window.__appVersion = h.version; }).catch(() => {});
   $$(".modal-back").forEach((mb) => {
     mb.addEventListener("click", (e) => { if (e.target === mb) mb.classList.remove("show"); });
   });
@@ -46,6 +49,55 @@ window.addEventListener("DOMContentLoaded", async () => {
 
 function startHeartbeat() {
   setInterval(() => { fetch("/__ping").catch(() => {}); }, 2000);
+}
+
+/* ---------------- self-update ---------------- */
+async function checkForUpdate() {
+  let st;
+  try {
+    st = await fetch("/api/update/check").then((r) => r.json());
+  } catch (e) { return; }
+  const bar = $("#updateBar");
+  if (!st || !st.available) { if (bar) bar.classList.remove("show"); return; }
+  bar.querySelector("#updateText").innerHTML =
+    `<b>Update available</b> — v${esc(st.latest)} is ready (you have v${esc(st.current)}).` +
+    (st.notes ? ` <span class="upd-notes">${esc(st.notes)}</span>` : "");
+  const btn = bar.querySelector("#updateBtn");
+  if (!st.canApply) {
+    btn.textContent = "Download";
+    btn.onclick = () => window.open("https://github.com/codysuter/codysuter/raw/main/dist/AceSignStudio.exe", "_blank");
+  } else {
+    btn.textContent = "Update & Restart";
+    btn.onclick = () => applyUpdate(btn, bar);
+  }
+  bar.querySelector("#updateDismiss").onclick = () => bar.classList.remove("show");
+  bar.classList.add("show");
+}
+
+async function applyUpdate(btn, bar) {
+  btn.disabled = true;
+  btn.textContent = "Downloading…";
+  bar.querySelector("#updateDismiss").style.display = "none";
+  try {
+    const res = await fetch("/api/update/apply", { method: "POST" }).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error || "update failed");
+    bar.querySelector("#updateText").innerHTML = `<b>Updating to v${esc(res.version)}…</b> The app will reopen in a moment. You can close this window.`;
+    btn.style.display = "none";
+    // The backend relaunches and exits; poll until the new instance answers.
+    let tries = 0;
+    const poll = setInterval(async () => {
+      tries++;
+      try {
+        const h = await fetch("/api/health", { cache: "no-store" }).then((r) => r.json());
+        if (h && h.version === res.version) { clearInterval(poll); location.reload(); }
+      } catch (e) { /* server restarting */ }
+      if (tries > 40) clearInterval(poll);
+    }, 1000);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "Retry";
+    bar.querySelector("#updateText").innerHTML = `<b>Update failed:</b> ${esc(e.message)}. You can download it manually instead.`;
+  }
 }
 
 /* ---------------- nav ---------------- */
