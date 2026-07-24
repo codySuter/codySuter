@@ -5,9 +5,10 @@
 > [`ace-sign-studio/`](ace-sign-studio/) — **Ace Sign Studio**, a Windows app for
 > every sign in the store, with live acehardware.com pricing
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/AceSignStudio.exe)) ·
-> [`ace-policy-studio/`](ace-policy-studio/) — **Ace Policy Studio**, a Windows app
-> for designing Snyder's Ace Hardware policy & procedure documents
-> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-policy-studio-windows/AcePolicyStudio.exe)) ·
+> [`ace-document-studio/`](ace-document-studio/) — **Ace Document Studio**
+> (formerly Ace Policy Studio), a Windows app for designing Snyder's Ace
+> Hardware policy, procedure & store documents
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows/AceDocumentStudio.exe)) ·
 > [`ace-studio-brand/`](ace-studio-brand/) — the shared **Ace Studio** app-icon
 > style both apps (and future siblings) draw from.
 

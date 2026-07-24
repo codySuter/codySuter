@@ -1,7 +1,7 @@
 # Ace Studio — shared app icon system
 
 One icon language for every app in the Ace Studio family (Ace Sign Studio,
-Ace Policy Studio, and whatever comes next): instantly recognizable as a
+Ace Document Studio, and whatever comes next): instantly recognizable as a
 sibling, instantly tellable apart.
 
 ## The recipe
@@ -21,7 +21,7 @@ Every icon is the **same red tile** holding a **different white subject card**:
 | App | Card | Content |
 |---|---|---|
 | **Ace Sign Studio** | Landscape (a shelf sign) | Black `SALE` chip + big red `$9⁹⁹` price |
-| **Ace Policy Studio** | Portrait (a document) | Red header bar, title rule, checklist rows |
+| **Ace Document Studio** | Portrait (a document) | Red header bar, title rule, checklist rows |
 | *Future app* | Pick the app's canvas shape | One or two bold marks in brand inks, readable at 32 px |
 
 Rules of thumb for a new sibling: keep the tile byte-identical (it comes from
@@ -33,7 +33,7 @@ count), and make sure the 16 px render still reads as "white card on red tile".
 ```sh
 node ace-studio-brand/icons.mjs            # all apps
 node ace-studio-brand/icons.mjs sign       # just Ace Sign Studio
-node ace-studio-brand/icons.mjs policy     # just Ace Policy Studio
+node ace-studio-brand/icons.mjs document     # just Ace Document Studio
 ```
 
 Renders the HTML templates in headless Chromium at every size and writes
@@ -43,7 +43,7 @@ straight into each app's icon locations:
   after regenerating, refresh the exe resources with
   `go-winres make --in winres/winres.json` from `ace-sign-studio/`
   ([go-winres](https://github.com/tc-hib/go-winres)).
-- `ace-policy-studio/build/icon.png` (512) + `build/icon.ico`
+- `ace-document-studio/build/icon.png` (512) + `build/icon.ico`
   (16–256, PNG-compressed entries) — electron-builder picks these up as-is.
 - `ace-studio-brand/previews/*.png` (512) — for eyeballing the family
   side by side.

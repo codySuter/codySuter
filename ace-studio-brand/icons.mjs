@@ -2,7 +2,7 @@
  * Ace Studio family icon generator — one red gradient tile, a different
  * white subject card per app (see README.md for the design spec).
  *
- * Usage: node ace-studio-brand/icons.mjs [sign|policy ...]
+ * Usage: node ace-studio-brand/icons.mjs [sign|document ...]
  * Writes straight into each app's icon locations + previews/ here.
  */
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
@@ -21,13 +21,13 @@ for (const candidate of [
   "playwright-core",
   "@playwright/test",
   path.join(REPO, "ace-sign-studio/e2e/node_modules/playwright/index.mjs"),
-  path.join(REPO, "ace-policy-studio/node_modules/@playwright/test/index.mjs"),
-  path.join(REPO, "ace-policy-studio/node_modules/playwright-core/index.mjs"),
+  path.join(REPO, "ace-document-studio/node_modules/@playwright/test/index.mjs"),
+  path.join(REPO, "ace-document-studio/node_modules/playwright-core/index.mjs"),
 ]) {
   try { ({ chromium } = await import(candidate)); break; } catch {}
 }
 if (!chromium) {
-  console.error("No playwright found — run `npm install` in ace-sign-studio/e2e or ace-policy-studio first.");
+  console.error("No playwright found — run `npm install` in ace-sign-studio/e2e or ace-document-studio first.");
   process.exit(1);
 }
 
@@ -67,8 +67,8 @@ const APPS = {
       { file: "ace-sign-studio/web/img/appicon_256.png", size: 256 },
     ],
   },
-  policy: {
-    name: "Ace Policy Studio",
+  document: {
+    name: "Ace Document Studio",
     html: `<!doctype html><html><head><style>${TILE_CSS}
       .sheet{position:relative;width:56%;height:74%;background:#fff;border-radius:6%;overflow:hidden}
       .bar{position:absolute;top:0;left:0;right:0;height:9%;background:#D40029}
@@ -85,8 +85,8 @@ const APPS = {
         <div class="b r3"></div><div class="l l3"></div>
       </div></div></body></html>`,
     out: [
-      { file: "ace-policy-studio/build/icon.png", size: 512 },
-      { file: "ace-policy-studio/build/icon.ico", ico: [16, 24, 32, 48, 64, 128, 256] },
+      { file: "ace-document-studio/build/icon.png", size: 512 },
+      { file: "ace-document-studio/build/icon.ico", ico: [16, 24, 32, 48, 64, 128, 256] },
     ],
   },
 };
