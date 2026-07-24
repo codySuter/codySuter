@@ -9,6 +9,14 @@
 
 const CHANGELOG = [
   {
+    version: "2.4.1",
+    date: "July 2026",
+    notes: [
+      "Fixed SKU lookups being much slower in 2.4.0 than they were meant to be — slower, in fact, than 2.3.1. The faster lookup method 2.4.0 introduced was silently failing and waiting 15 seconds before falling back to the old slow way, on every single lookup. Looking up an item now takes about a fifth of a second, and “↻ Prices” on a 20-sign queue finishes in a couple of seconds instead of several minutes.",
+      "If that faster method ever stops working again, the app now notices after a few tries and goes straight to the reliable method instead of pausing on every lookup.",
+    ],
+  },
+  {
     version: "2.4.0",
     date: "July 2026",
     notes: [

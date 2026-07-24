@@ -50,6 +50,12 @@ var (
 	warmTabCtx    context.Context
 	warmTabCancel func()
 	warmTabAt     time.Time
+	// Consecutive warm-tab failures, and when the path was given up on. A
+	// broken fast path must cost its timeout a bounded number of times, not
+	// once per lookup forever — that turns a latent bug into a regression
+	// slower than having no fast path at all.
+	warmTabFails    int
+	warmTabPausedAt time.Time
 	// Bumped on every launch so an idle watcher from a previous browser
 	// instance retires instead of policing its successor.
 	browserGen int
@@ -70,6 +76,17 @@ const (
 	// transparently on the next lookup for about a second — the same cost
 	// already paid on the first lookup of a session.
 	browserIdleTimeout = 10 * time.Minute
+	// Bound on building the warm tab (navigate + challenge).
+	warmTabSetupTimeout = 25 * time.Second
+	// A warm fetch is one same-origin request on an already-open page. If it
+	// has not answered in this long something is wrong, and waiting longer
+	// only delays the fallback that will actually work.
+	warmFetchTimeout = 8 * time.Second
+	// After this many consecutive failures the warm path is skipped entirely
+	// for warmTabPauseFor, so a broken fast path degrades to "no faster than
+	// before" instead of "slower than before".
+	warmTabMaxFails = 3
+	warmTabPauseFor = 5 * time.Minute
 )
 
 // noteLookup records lookup activity for the idle-shutdown watcher.
@@ -229,6 +246,16 @@ func pageSettled(ctx context.Context, budget time.Duration) error {
 
 // ensureWarmTab returns a tab parked on the site with its challenge already
 // cleared, creating or refreshing it as needed. Callers must hold browserMu.
+//
+// The tab's target MUST be created by a Run on ctx itself, never on a
+// context.WithTimeout child of it. chromedp binds the target's message-pump
+// goroutine to the context of the first Run that materializes the target, so
+// cancelling that child (as a defer does on return) leaves a tab whose
+// executor is dead while c.Target stays non-nil: every later Evaluate is
+// written into a pump nobody is reading and waits out its own deadline. That
+// is what made 2.4.0 slower than the version it replaced — each lookup burned
+// the full warm-tab timeout and then navigated anyway. The warm-up is bounded
+// by a watchdog goroutine instead, which cancels nothing on the happy path.
 func ensureWarmTab(base context.Context, diag *[]string) (context.Context, error) {
 	if warmTabCtx != nil && time.Since(warmTabAt) < warmTabMaxAge {
 		return warmTabCtx, nil
@@ -238,18 +265,28 @@ func ensureWarmTab(base context.Context, diag *[]string) (context.Context, error
 		warmTabCtx, warmTabCancel = nil, nil
 	}
 	ctx, cancel := chromedp.NewContext(base)
-	runCtx, cancelRun := context.WithTimeout(ctx, 30*time.Second)
-	defer cancelRun()
-	if err := chromedp.Run(runCtx,
-		chromedp.Navigate(warmupProductURL),
-		chromedp.WaitReady("body", chromedp.ByQuery),
-	); err != nil {
+	done := make(chan error, 1)
+	go func() {
+		done <- chromedp.Run(ctx,
+			chromedp.Navigate(warmupProductURL),
+			chromedp.WaitReady("body", chromedp.ByQuery),
+		)
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			cancel()
+			return nil, err
+		}
+	case <-time.After(warmTabSetupTimeout):
 		cancel()
-		return nil, err
+		return nil, fmt.Errorf("warm-up navigation timed out")
 	}
 	// A challenge that never settles still leaves a usable session more
-	// often than not, so a timeout here is not fatal.
-	if err := pageSettled(runCtx, 6*time.Second); err != nil {
+	// often than not, so a timeout here is not fatal. Safe to use a timeout
+	// child now: the target already exists, so this Run reuses it rather
+	// than binding a new pump.
+	if err := pageSettled(ctx, 6*time.Second); err != nil {
 		*diag = append(*diag, "Warm-up page did not fully settle — continuing anyway")
 	}
 	warmTabCtx, warmTabCancel, warmTabAt = ctx, cancel, time.Now()
@@ -265,6 +302,37 @@ func dropWarmTab() {
 	}
 	warmTabCtx, warmTabCancel = nil, nil
 	warmTabAt = time.Time{}
+}
+
+// warmPathUsable reports whether the warm fast path is worth attempting.
+// Callers must hold browserMu.
+func warmPathUsable() bool {
+	if warmTabPausedAt.IsZero() {
+		return true
+	}
+	if time.Since(warmTabPausedAt) < warmTabPauseFor {
+		return false
+	}
+	warmTabPausedAt, warmTabFails = time.Time{}, 0 // cooled off — try again
+	return true
+}
+
+// noteWarmFailure records a failed warm attempt, pausing the path once it has
+// failed warmTabMaxFails times in a row. Callers must hold browserMu.
+func noteWarmFailure(diag *[]string) {
+	warmTabFails++
+	dropWarmTab()
+	if warmTabFails >= warmTabMaxFails && warmTabPausedAt.IsZero() {
+		warmTabPausedAt = time.Now()
+		log.Printf("warm-tab lookup failed %d times — pausing the fast path for %v", warmTabFails, warmTabPauseFor)
+		*diag = append(*diag, "Fast lookup path paused after repeated failures — using full page loads for now")
+	}
+}
+
+// noteWarmSuccess clears the failure streak. Callers must hold browserMu.
+func noteWarmSuccess() {
+	warmTabFails = 0
+	warmTabPausedAt = time.Time{}
 }
 
 // parseStorefrontPayload turns a storefront API body into product fields.
@@ -301,18 +369,22 @@ func parseStorefrontPayload(body string) (page *pageProduct, storePrice, salePri
 // minutes. Reusing one warmed tab turns each lookup into a single fetch.
 // Anything this path cannot answer falls back to the full navigation below.
 func lookupSKUViaWarmTab(base context.Context, sku, store string, diag *[]string) (page *pageProduct, storePrice, salePrice, finalURL string, ok bool) {
+	if !warmPathUsable() {
+		return nil, "", "", "", false
+	}
 	tab, err := ensureWarmTab(base, diag)
 	if err != nil {
 		*diag = append(*diag, "Could not open a warm session tab: "+err.Error())
+		noteWarmFailure(diag)
 		return nil, "", "", "", false
 	}
-	runCtx, cancel := context.WithTimeout(tab, 15*time.Second)
+	runCtx, cancel := context.WithTimeout(tab, warmFetchTimeout)
 	defer cancel()
 
 	var raw string
 	if err := chromedp.Run(runCtx, chromedp.Evaluate(storefrontFetchJS(sku, store), &raw, awaitPromise)); err != nil {
 		*diag = append(*diag, "Warm-tab price fetch failed: "+err.Error())
-		dropWarmTab() // tab is unusable (closed, crashed, navigated away)
+		noteWarmFailure(diag) // tab is unusable (closed, crashed, navigated away)
 		return nil, "", "", "", false
 	}
 	var bf browserFetch
@@ -325,6 +397,8 @@ func lookupSKUViaWarmTab(base context.Context, sku, store string, diag *[]string
 	}
 	if bf.Status != 200 {
 		// 401/403 means the session went stale — re-warm on the next attempt.
+		// That is an expected, self-healing condition rather than a fault of
+		// the fast path, so it must not count toward the circuit breaker.
 		if bf.Status == 401 || bf.Status == 403 {
 			dropWarmTab()
 		}
@@ -336,6 +410,7 @@ func lookupSKUViaWarmTab(base context.Context, sku, store string, diag *[]string
 		*diag = append(*diag, "Store API returned no usable product fields")
 		return nil, "", "", "", false
 	}
+	noteWarmSuccess()
 	page.sku = sku
 	*diag = append(*diag, fmt.Sprintf("Store price via warm session for store %s: %s (sale: %s)", store, orDash(storePrice), orDash(salePrice)))
 	return page, storePrice, salePrice, baseSite + "/product/" + sku, true
