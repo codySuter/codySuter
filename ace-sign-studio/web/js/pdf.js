@@ -4,6 +4,40 @@
    ============================================================ */
 "use strict";
 
+/* jsPDF (~365 KB) + svg2pdf (~85 KB) are only needed once the user prints
+   or saves. Loading them from index.html cost a parse/compile of ~450 KB of
+   minified JS on every launch — before the gallery could build — for
+   something most sessions use later or not at all. They are fetched on the
+   first export instead; the promise is cached so later exports are instant. */
+const PDF_LIB_SCRIPTS = ["vendor/jspdf.umd.min.js", "vendor/svg2pdf.umd.min.js"];
+let _pdfLibsReady = null;
+function ensurePdfLibs() {
+  if (_pdfLibsReady) return _pdfLibsReady;
+  const loadScript = (src) =>
+    new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error(`could not load ${src}`));
+      document.head.appendChild(s);
+    });
+  // svg2pdf registers itself onto jsPDF, so order matters.
+  _pdfLibsReady = PDF_LIB_SCRIPTS.reduce(
+    (chain, src) => chain.then(() => loadScript(src)),
+    Promise.resolve()
+  ).catch((e) => { _pdfLibsReady = null; throw e; }); // let a failed load retry
+  return _pdfLibsReady;
+}
+
+/* Hand the renderer a frame so progress text actually paints. The export
+   loop is otherwise an unbroken microtask chain (fonts, images and sign
+   SVGs all resolve from cache), which never yields — so "Sheet 3/8…" and
+   the disabled button state were computed but never shown, and the window
+   simply froze until the save dialog appeared. */
+function yieldToPaint() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /* Compose one sheet SVG (inches → 96dpi px) with nested sign SVGs. */
 async function composeSheetSVG(page, showGuides) {
   const pw = page.landscape ? PAGE_H : PAGE_W;
@@ -36,7 +70,7 @@ async function composeSheetSVG(page, showGuides) {
 
 /* Render pages → jsPDF document. pages from packQueue().pages. */
 async function pagesToPdf(pages, showGuides, onProgress) {
-  await ensureFontsLoaded();
+  await Promise.all([ensureFontsLoaded(), ensurePdfLibs()]);
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "in", format: "letter", orientation: pages.length && pages[0].landscape ? "landscape" : "portrait", compress: true });
   await ensurePdfFonts(doc);
@@ -48,6 +82,7 @@ async function pagesToPdf(pages, showGuides, onProgress) {
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
       if (onProgress) onProgress(i + 1, pages.length);
+      await yieldToPaint();
       const { svg, pw, ph } = await composeSheetSVG(page, showGuides);
       doc.addPage([pw, ph], pw > ph ? "landscape" : "portrait");
       host.innerHTML = svg;
@@ -63,7 +98,7 @@ async function pagesToPdf(pages, showGuides, onProgress) {
 /* Single sign → its own PDF at true size. Accepts either a queue-packable
    item ({size}) or an editor item ({sizeId}). */
 async function signToPdf(q) {
-  await ensureFontsLoaded();
+  await Promise.all([ensureFontsLoaded(), ensurePdfLibs()]);
   const { jsPDF } = window.jspdf;
   const size = q.size || sizeById(q.sizeId);
   const w = size.w, h = size.h;
