@@ -1,0 +1,83 @@
+name: Build Ace Document Studio (Windows)
+
+# Builds Ace Document Studio into a portable Windows .exe on a real Windows
+# runner — after running the renderer E2E suite and an Electron smoke test
+# (library seeding + a production printToPDF) — and publishes it as both a
+# workflow artifact and a stable GitHub Release download.
+
+# claude/wizardly-rubin-exsovd is the repo's current default branch, so
+# merged PRs actually publish a release; main stays for when the default
+# moves back.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/wizardly-rubin-exsovd]
+    paths:
+      - "ace-document-studio/**"
+      - ".github/workflows/build-document-studio-windows.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ace-document-studio
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ace-document-studio/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Renderer E2E (Playwright)
+        run: |
+          npx playwright install chromium
+          npx playwright test tests/app.spec.ts
+
+      - name: Electron smoke test (seeding + printToPDF)
+        run: node scripts/electron-smoke.mjs
+
+      - name: Package portable EXE
+        run: npx electron-builder --win portable
+
+      # The app's startup update check reads this file from the release.
+      - name: Stamp version file for the update check
+        shell: bash
+        run: node -p "require('./package.json').version" > release/version.txt
+
+      - name: Upload EXE as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AceDocumentStudio-windows
+          path: ace-document-studio/release/AceDocumentStudio.exe
+          if-no-files-found: error
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-evidence
+          path: ace-document-studio/test-results/
+          if-no-files-found: ignore
+
+      - name: Publish EXE to a Release (stable download link)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ace-document-studio-windows --yes --cleanup-tag || true
+          gh release create ace-document-studio-windows release/AceDocumentStudio.exe release/version.txt \
+            --title "Ace Document Studio for Windows" \
+            --notes "Latest Windows build. Download **AceDocumentStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**." \
+            --target "$GITHUB_SHA"
