@@ -1,6 +1,8 @@
-# Ace Sign Studio 2.0
+# Ace Sign Studio 2.3
 
-One app for every sign in the store. Replaces and unifies the three older tools:
+One app for every sign in the store
+([download the Windows .exe](https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/AceSignStudio.exe)).
+Replaces and unifies the three older tools:
 
 | Legacy tool | What it did | Where it lives now |
 |---|---|---|
@@ -37,6 +39,23 @@ One app for every sign in the store. Replaces and unifies the three older tools:
   live preview at every size, WYSIWYG with the printed output.
 - **Print queue**: add any mix of signs/sizes, bulk-add by pasting SKUs
   (runs of 4+ digits are detected), duplicate/remove, live thumbnails.
+  **Click any queued sign to reopen it in the editor** and update it in
+  place; every row has a **copies counter** (− ×N +) and ▲▼ reordering.
+  Destructive actions (clear, remove, batch load) show an **Undo** toast
+  instead of a confirm dialog.
+- **Named batches**: save the whole queue under a name ("Spring Grill
+  Sale") and load it back any week — great for recurring promos.
+- **↻ Prices**: one button re-checks the store price of every queued
+  Regular/Sale/Large Text sign, updates them (flipping Regular↔Sale as
+  items go on/off sale), and leaves hand-priced signs alone. Queue rows
+  show an amber badge when a price was looked up more than 3 days ago.
+- **SKU barcodes**: any sign with a SKU can print it as a scannable
+  Code 128 barcode (checkbox in the editor) — scan straight from the
+  shelf sign at the register.
+- **Bulk add reports failures**: SKUs that didn't resolve are listed with
+  the reason and a one-click **Retry failed**. Bulk Was/Now signs
+  auto-fill the WAS price from today's shelf price and flag any that
+  still need a NOW price.
 - **Sheet optimizer**: packs the queue onto US Letter sheets to fit as many
   signs per page as possible — shelf-row packing so every cut is a straight
   guillotine cut, 0.375″ margin (Brother MFC-L9160CDN safe), shared cut
@@ -67,25 +86,36 @@ One app for every sign in the store. Replaces and unifies the three older tools:
 
 ## Running it
 
-`dist/AceSignStudio.exe` is fully standalone — double-click it. It starts a
-local server on `127.0.0.1:8347` and opens an app window via Edge/Chrome
-(default browser as fallback). Launching it again just refocuses the
-running copy. Closing the window shuts it down.
+Download
+[`AceSignStudio.exe`](https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/AceSignStudio.exe)
+— fully standalone, double-click it. It starts a local server on
+`127.0.0.1:8347` and opens an app window via Edge/Chrome (default browser
+as fallback). Launching it again just refocuses the running copy. Closing
+the window shuts it down. The exe is rebuilt and republished by CI
+(`.github/workflows/build-sign-windows.yml`) on every push to `main` that
+touches this app, after the Go and E2E suites pass.
 
 Flags: `-port N`, `-no-browser`, `-no-exit` (for kiosk/testing).
 
-## Building
+## Building & testing
 
 ```sh
 cd ace-sign-studio
 ./build.sh          # → ../dist/AceSignStudio.exe (windows/amd64)
 ./build.sh mac      # → ../dist/AceSignStudio-mac-arm64 (Apple Silicon)
 ./build.sh linux    # → ../dist/AceSignStudio-linux
+
+go test ./...       # Go suite: lookup parsing, disk cache, server hardening
+cd e2e && npm install && node run.mjs   # Playwright E2E: builds the real
+                    # binary, mocks acehardware.com, drives every flow
 ```
 
-Requires Go 1.22+. Windows resources (icon/version/DPI manifest) are
+Requires Go 1.26+. Windows resources (icon/version/DPI manifest) are
 pre-generated in `rsrc_windows_*.syso` from `winres/winres.json`
-(regenerate with [go-winres](https://github.com/tc-hib/go-winres)).
+(regenerate with [go-winres](https://github.com/tc-hib/go-winres)). The
+app icon comes from the shared family style in
+[`../ace-studio-brand/`](../ace-studio-brand/) —
+`node ../ace-studio-brand/icons.mjs sign` regenerates it.
 
 ## Layout
 

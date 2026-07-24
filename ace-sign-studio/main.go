@@ -14,6 +14,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -29,7 +30,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "2.2.1"
+var appVersion = "2.3.1"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -105,7 +106,9 @@ func main() {
 		go openAppWindow(url)
 	}
 
-	srv := &http.Server{Handler: touchHeartbeat(mux)}
+	// touchHeartbeat sits inside the security wrappers so only requests that
+	// pass the loopback/cross-site checks count as signs of life.
+	srv := &http.Server{Handler: requireLoopbackHost(blockCrossSite(touchHeartbeat(mux)))}
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
@@ -127,6 +130,43 @@ func noCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
+	})
+}
+
+// blockCrossSite rejects browser requests initiated by another origin.
+// The Host check below can't catch a cross-origin fetch/img aimed straight
+// at http://127.0.0.1:8347 (the browser sends our own Host), but every
+// current browser stamps such requests with Sec-Fetch-Site — anything not
+// same-origin/none is an outside page poking the local API (e.g. blind
+// SSRF via /api/lookup?q=<url>). Non-browser clients don't send the
+// header and pass through.
+func blockCrossSite(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Header.Get("Sec-Fetch-Site") {
+		case "", "same-origin", "none":
+			next.ServeHTTP(w, r)
+		default:
+			http.Error(w, "cross-site request blocked", http.StatusForbidden)
+		}
+	})
+}
+
+// requireLoopbackHost rejects requests whose Host header isn't loopback.
+// The server only listens on 127.0.0.1, but a malicious page could point a
+// DNS name at 127.0.0.1 and ride the browser into the local API (DNS
+// rebinding) — the Host check shuts that door.
+func requireLoopbackHost(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		switch strings.ToLower(host) {
+		case "127.0.0.1", "localhost", "::1", "[::1]":
+			next.ServeHTTP(w, r)
+		default:
+			http.Error(w, "forbidden host", http.StatusForbidden)
+		}
 	})
 }
 
@@ -264,6 +304,11 @@ func handleState(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(data)
 	case http.MethodPost:
+		// JSON only — blocks cross-site form posts from overwriting the queue
+		if mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mt != "application/json" {
+			http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
+			return
+		}
 		data, err := io.ReadAll(io.LimitReader(r.Body, 32<<20))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -288,7 +333,15 @@ func handleState(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func statePath() (string, error) {
+// configDir is where state.json and the lookup cache live. ACE_CONFIG_DIR
+// overrides the platform default (used by the e2e suite for isolation).
+func configDir() (string, error) {
+	if v := os.Getenv("ACE_CONFIG_DIR"); v != "" {
+		if err := os.MkdirAll(v, 0o755); err != nil {
+			return "", err
+		}
+		return v, nil
+	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		dir = os.TempDir()
@@ -297,7 +350,15 @@ func statePath() (string, error) {
 	if err := os.MkdirAll(appDir, 0o755); err != nil {
 		return "", err
 	}
-	return filepath.Join(appDir, "state.json"), nil
+	return appDir, nil
+}
+
+func statePath() (string, error) {
+	dir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "state.json"), nil
 }
 
 func handleLookup(w http.ResponseWriter, r *http.Request) {

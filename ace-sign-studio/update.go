@@ -24,13 +24,15 @@ import (
 	"time"
 )
 
-// updateManifestURL points at the raw manifest on the default branch.
-// Overridable via ACE_UPDATE_MANIFEST for testing.
+// updateManifestURL points at the manifest published beside the exe on the
+// stable GitHub Release (CI uploads both on every green build — the exe is
+// no longer committed to git). Overridable via ACE_UPDATE_MANIFEST for
+// testing.
 func updateManifestURL() string {
 	if v := os.Getenv("ACE_UPDATE_MANIFEST"); v != "" {
 		return v
 	}
-	return "https://raw.githubusercontent.com/codysuter/codysuter/main/dist/version.json"
+	return "https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/version.json"
 }
 
 type updateManifest struct {

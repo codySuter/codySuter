@@ -5,13 +5,10 @@ name: Build Ace Document Studio (Windows)
 # (library seeding + a production printToPDF) — and publishes it as both a
 # workflow artifact and a stable GitHub Release download.
 
-# claude/wizardly-rubin-exsovd is the repo's current default branch, so
-# merged PRs actually publish a release; main stays for when the default
-# moves back.
 on:
   workflow_dispatch:
   push:
-    branches: [main, claude/wizardly-rubin-exsovd]
+    branches: [main]
     paths:
       - "ace-document-studio/**"
       - ".github/workflows/build-document-studio-windows.yml"

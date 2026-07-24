@@ -9,6 +9,7 @@ const App = {
   typeId: null,
   sizeId: "letter-l",
   spec: {},              // editor working spec
+  editingUid: null,      // queue item being edited, or null
   userPickedType: false,
   batchStart: "",
   batchEnd: "",
@@ -31,11 +32,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   checkForUpdate();
   $("#settingsBtn").onclick = openSettings;
   $("#homeBtn").onclick = showGallery;
-  $("#clearQueueBtn").onclick = () => { if (confirm("Clear the whole queue?")) Queue.clear(); };
+  $("#clearQueueBtn").onclick = clearQueueWithUndo;
+  $("#refreshPricesBtn").onclick = refreshQueuePrices;
+  $("#batchesBtn").onclick = openBatches;
   $("#printAllBtn").onclick = () => exportQueue(true);
   $("#exportAllBtn").onclick = () => exportQueue(false);
   $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
   initBulk();
+  window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
   initSupport();
   fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => { window.__appVersion = h.version; }).catch(() => {});
   $$(".modal-back").forEach((mb) => {
@@ -99,7 +103,7 @@ function renderUpdateBar(st) {
   const btn = bar.querySelector("#updateBtn");
   if (!st.canApply) {
     btn.textContent = "Download";
-    btn.onclick = () => window.open("https://github.com/codysuter/codysuter/raw/main/dist/AceSignStudio.exe", "_blank");
+    btn.onclick = () => window.open("https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/AceSignStudio.exe", "_blank");
   } else {
     btn.textContent = "Update & Restart";
     btn.onclick = () => applyUpdate(btn, bar);
@@ -235,6 +239,7 @@ function refreshTypeThumbs() {
 /* ---------------- gallery ---------------- */
 function showGallery() {
   App.view = "gallery";
+  if (App.editingUid) { App.editingUid = null; renderQueue(); }
   markActiveNav();
   const work = $("#work");
   work.innerHTML = `
@@ -273,14 +278,16 @@ function showEditor(typeId) {
   App.userPickedType = true;
   if (!t.sizes && !SIZES.some((s) => s.id === App.sizeId)) App.sizeId = "letter-l";
   if (t.sizes && !t.sizes.includes(App.sizeId)) App.sizeId = t.defaultSize;
-  // keep shared fields (sku/name/image/price) when switching types
+  // keep shared fields (sku/name/image/price) when switching types;
+  // while editing a queued sign the spec is taken verbatim (no batch dates)
   const keep = App.spec || {};
-  App.spec = Object.assign({ startDate: App.batchStart, endDate: App.batchEnd }, keep);
+  App.spec = App.editingUid ? keep : Object.assign({ startDate: App.batchStart, endDate: App.batchEnd }, keep);
   markActiveNav();
 
   const work = $("#work");
   work.innerHTML = `
     <div class="work-inner">
+      <div class="edit-banner" id="editBanner" style="display:none">✏️ Editing a queued sign — <b>&nbsp;Update Sign&nbsp;</b> saves your changes to it.<span class="link" id="cancelEditBtn">Cancel</span></div>
       <div class="editor-grid">
         <div class="card">
           <div class="card-head"><h2>${esc(t.label)}</h2><span class="hint">${esc(t.note || "")}</span></div>
@@ -309,8 +316,28 @@ function showEditor(typeId) {
   $("#addQueueBtn").onclick = () => {
     const err = validateSpec(t, App.spec);
     if (err) return showMsg("editorMsg", "err", err);
-    Queue.add(t.id, App.sizeId, currentRenderSpec());
-    showMsg("editorMsg", "ok", `Added to queue — ${Queue.items.length} sign${Queue.items.length === 1 ? "" : "s"} queued.`);
+    if (App.editingUid) {
+      const updated = Queue.update(App.editingUid, t.id, App.sizeId, App.spec);
+      App.editingUid = null;
+      updateEditMode();
+      if (updated) {
+        showMsg("editorMsg", "ok", "Sign updated in the queue.");
+        showToast("Sign updated.");
+      } else {
+        // the row was deleted while editing — keep the work, add as new
+        Queue.add(t.id, App.sizeId, App.spec);
+        showMsg("editorMsg", "ok", "That sign was no longer in the queue — added it as a new one.");
+      }
+      return;
+    }
+    Queue.add(t.id, App.sizeId, App.spec);
+    const n = Queue.totalSigns();
+    showMsg("editorMsg", "ok", `Added to queue — ${n} sign${n === 1 ? "" : "s"} queued.`);
+  };
+  $("#cancelEditBtn").onclick = () => {
+    App.editingUid = null;
+    updateEditMode();
+    showMsg("editorMsg", "ok", "Edit cancelled — the button adds a new sign again.");
   };
   $("#printOneBtn").onclick = async () => {
     const err = validateSpec(t, App.spec);
@@ -332,7 +359,30 @@ function showEditor(typeId) {
       showMsg("editorMsg", "ok", "PDF saved.");
     } catch (e) { showMsg("editorMsg", "err", "PDF failed: " + friendlyError(e) + "."); }
   };
+  updateEditMode();
   schedulePreview();
+}
+
+/* Reflect edit mode in the editor chrome + queue highlight. */
+function updateEditMode() {
+  const banner = $("#editBanner");
+  if (banner) banner.style.display = App.editingUid ? "flex" : "none";
+  const btn = $("#addQueueBtn");
+  if (btn) btn.textContent = App.editingUid ? "✓ Update Sign" : "＋ Add to Queue";
+  // re-render the rail only when the highlighted row is out of sync
+  const current = $(".q-item.editing .q-thumb");
+  const inSync = App.editingUid ? (current && current.dataset.uid === App.editingUid) : !current;
+  if (!inSync) renderQueue();
+}
+
+/* Open a queued sign back up in the editor. */
+function startEditQueueItem(uid) {
+  const item = Queue.items.find((q) => q.uid === uid);
+  if (!item) return;
+  App.editingUid = uid;
+  App.sizeId = item.sizeId;
+  App.spec = JSON.parse(JSON.stringify(item.spec));
+  showEditor(item.typeId);
 }
 
 function currentRenderSpec() {
@@ -372,9 +422,12 @@ function buildEditorFields(t) {
       host.appendChild(labelEl(f.label));
       const inp = inputEl("text", App.spec.sku || "", "e.g. 7135975 — or paste a product URL");
       const status = el("div", "lookup-status");
-      inp.addEventListener("input", () => { App.spec.sku = onlyDigitsMaybe(inp.value); });
+      inp.addEventListener("input", () => { App.spec.sku = inp.value.trim(); });
       attachAutoLookup(inp, status, (res, si) => {
         App.spec.sku = res.sku || inp.value.trim();
+        // prefer the server's fetch time — cached results carry the
+        // ORIGINAL lookup time, so the stale badge stays honest
+        App.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
         if (res.name) setField("name", res.name);
         if (si.onSale) {
           setField("price", si.sale);
@@ -525,10 +578,6 @@ function inputEl(type, value, placeholder) {
   if (placeholder) i.placeholder = placeholder;
   return i;
 }
-function onlyDigitsMaybe(v) {
-  const t = String(v || "").trim();
-  return /^\d+$/.test(t) ? t : t;
-}
 function setField(key, value) {
   App.spec[key] = value;
   const inp = $(`#editorFields [data-field="${key}"]`);
@@ -597,10 +646,18 @@ function setPreviewSVG(svg, size) {
 }
 
 /* ---------------- queue rail ---------------- */
+/* Days since a spec's price was looked up, or null when unknown. */
+function priceAgeDays(spec) {
+  if (!spec || !spec.lookedUpAt || !String(spec.sku || "").trim()) return null;
+  const t = Date.parse(spec.lookedUpAt);
+  if (isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / 86400000);
+}
+
 async function renderQueue() {
   const host = $("#queueItems");
   const count = $("#queueCount");
-  count.textContent = String(Queue.items.length);
+  count.textContent = String(Queue.totalSigns());
   if (!Queue.items.length) {
     host.innerHTML = `<div class="queue-empty">Queue is empty.<br>Build a sign and hit <b>＋ Add to Queue</b> — mix any types and sizes, then print them all at once.</div>`;
     $("#sheetPreviews").innerHTML = "";
@@ -609,28 +666,65 @@ async function renderQueue() {
     return;
   }
   host.innerHTML = "";
-  for (const q of Queue.items) {
-    const item = el("div", "q-item");
+  Queue.items.forEach((q, idx) => {
+    const item = el("div", "q-item" + (q.uid === App.editingUid ? " editing" : ""));
+    item.title = "Click to edit this sign";
+    const main = el("div", "q-main");
     const thumb = el("div", "q-thumb");
     thumb.dataset.uid = q.uid;
     const info = el("div", "q-info");
     const size = sizeById(q.sizeId);
     info.appendChild(el("div", "q-title", queueItemTitle(q)));
-    info.appendChild(el("div", "q-sub", `${typeById(q.typeId) ? typeById(q.typeId).label : q.typeId} · ${size.w}×${size.h}″`));
+    const sub = el("div", "q-sub");
+    sub.appendChild(document.createTextNode(`${typeById(q.typeId) ? typeById(q.typeId).label : q.typeId} · ${size.w}×${size.h}″`));
+    const age = priceAgeDays(q.spec);
+    if (age != null && age > 3) sub.appendChild(el("span", "q-stale", `price ${age}d old`));
+    else if (age == null && PRICE_REFRESH_TYPES[q.typeId] && String(q.spec.sku || "").trim()) {
+      // pre-2.1 items carry no lookup timestamp — call that out rather
+      // than silently skipping the badge on the stalest signs of all
+      sub.appendChild(el("span", "q-stale", "price unchecked"));
+    }
+    if (q.typeId === "was_now" && !String(q.spec.price || "").trim()) sub.appendChild(el("span", "q-warn", "needs Now price"));
+    info.appendChild(sub);
+    main.onclick = () => startEditQueueItem(q.uid);
+
     const actions = el("div", "q-actions");
-    const dup = el("button", "q-btn", "⧉");
-    dup.title = "Duplicate";
-    dup.onclick = () => Queue.duplicate(q.uid);
-    const del = el("button", "q-btn", "✕");
-    del.title = "Remove";
-    del.onclick = () => Queue.remove(q.uid);
-    actions.appendChild(dup);
-    actions.appendChild(del);
-    item.appendChild(thumb);
-    item.appendChild(info);
-    item.appendChild(actions);
+    const btn = (label, title, fn, disabled) => {
+      const b = el("button", "q-btn", label);
+      b.title = title;
+      b.disabled = !!disabled;
+      b.onclick = (e) => { e.stopPropagation(); fn(); };
+      actions.appendChild(b);
+    };
+    btn("▲", "Move up", () => Queue.move(q.uid, -1), idx === 0);
+    btn("⧉", "Duplicate", () => Queue.duplicate(q.uid));
+    btn("▼", "Move down", () => Queue.move(q.uid, 1), idx === Queue.items.length - 1);
+    btn("✕", "Remove", () => {
+      const rem = Queue.remove(q.uid);
+      if (rem) showToast(`Removed “${queueItemTitle(rem.item)}”.`, { undo: () => Queue.restore(rem.item, rem.index) });
+    });
+    main.appendChild(thumb);
+    main.appendChild(info);
+    main.appendChild(actions);
+    item.appendChild(main);
+
+    const copies = el("div", "q-copy-row");
+    copies.onclick = (e) => e.stopPropagation();
+    copies.appendChild(el("span", null, "Copies"));
+    const minus = el("button", "q-step", "−");
+    minus.title = "One less copy";
+    minus.disabled = (q.copies || 1) <= 1;
+    minus.onclick = () => Queue.setCopies(q.uid, (q.copies || 1) - 1);
+    const n = el("b", "q-copies", `×${q.copies || 1}`);
+    const plus = el("button", "q-step", "＋");
+    plus.title = "One more copy";
+    plus.onclick = () => Queue.setCopies(q.uid, (q.copies || 1) + 1);
+    copies.appendChild(minus);
+    copies.appendChild(n);
+    copies.appendChild(plus);
+    item.appendChild(copies);
     host.appendChild(item);
-  }
+  });
   updateQueueButtons();
   renderSheetPreviews();
   // thumbnails (async, after list is in place)
@@ -653,20 +747,199 @@ function updateQueueButtons() {
   $("#printAllBtn").disabled = !has;
   $("#exportAllBtn").disabled = !has;
   $("#clearQueueBtn").disabled = !has;
+  $("#refreshPricesBtn").disabled = !has || _refreshingPrices;
 }
 
+function clearQueueWithUndo() {
+  if (!Queue.items.length) return;
+  const snap = Queue.clear();
+  const n = snap.reduce((a, q) => a + (q.copies || 1), 0);
+  // prepend on undo: signs added during the toast window survive
+  showToast(`Queue cleared — ${n} sign${n === 1 ? "" : "s"}.`, { undo: () => Queue.replaceAll(snap.concat(Queue.items)) });
+}
+
+/* ---------------- toasts ---------------- */
+let _toastTimer = null;
+function showToast(text, opts) {
+  const o = opts || {};
+  const host = $("#toastHost");
+  if (!host) return;
+  clearTimeout(_toastTimer);
+  host.innerHTML = "";
+  const t = el("div", "toast");
+  t.appendChild(el("span", "toast-text", text));
+  if (o.undo) {
+    const u = el("button", "toast-undo", "Undo");
+    u.onclick = () => { clearTimeout(_toastTimer); host.innerHTML = ""; o.undo(); };
+    t.appendChild(u);
+  }
+  const x = el("button", "toast-close", "✕");
+  x.title = "Dismiss";
+  x.onclick = () => { clearTimeout(_toastTimer); host.innerHTML = ""; };
+  t.appendChild(x);
+  host.appendChild(t);
+  _toastTimer = setTimeout(() => { host.innerHTML = ""; }, o.ms || (o.undo ? 10000 : 5000));
+}
+
+/* ---------------- price refresh ---------------- */
+/* Types whose price fields map 1:1 onto lookup results. Everything else
+   (percent/BOGO/savings…) is hand-entered and left alone. */
+const PRICE_REFRESH_TYPES = { regular: true, sale: true, large_text: true };
+let _refreshingPrices = false;
+
+async function refreshQueuePrices() {
+  if (_refreshingPrices) return;
+  const refreshable = (q) => String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId] && q.uid !== App.editingUid;
+  const targets = Queue.items.filter(refreshable);
+  const manual = Queue.items.filter((q) => !refreshable(q)).length;
+  if (!targets.length) {
+    showToast("Nothing to refresh — no queued Regular/Sale/Large Text signs with a SKU.");
+    return;
+  }
+  const btn = $("#refreshPricesBtn");
+  const orig = btn.textContent;
+  _refreshingPrices = true;
+  btn.disabled = true;
+  let done = 0, changed = 0, failed = 0;
+  const work = targets.slice();
+  const runOne = async () => {
+    const q = work.shift();
+    if (!q) return;
+    btn.textContent = `↻ ${++done}/${targets.length}`;
+    try {
+      const res = await fetch(`/api/lookup?q=${encodeURIComponent(q.spec.sku)}&refresh=1&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
+      const si = res.ok ? saleInfo(res) : { onSale: false };
+      const plain = res.ok ? (res.price || res.listPrice || "") : "";
+      if (!res.ok || (!si.onSale && !plain)) {
+        // a lookup with no price data must never rewrite a sign — a Sale
+        // sign demoted here would print its discount as the regular price
+        failed++;
+      } else {
+        const before = `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
+        if (si.onSale) {
+          if (q.typeId === "regular") q.typeId = "sale";
+          if (q.typeId === "sale") { q.spec.price = si.sale; q.spec.regPrice = si.reg; }
+          else q.spec.price = si.sale;
+        } else {
+          if (q.typeId === "sale") {
+            q.typeId = "regular";
+            q.spec.regPrice = "";
+            // the sale's date pill has no field on a Regular sign — drop it
+            q.spec.startDate = "";
+            q.spec.endDate = "";
+          }
+          q.spec.price = plain;
+        }
+        // photos refresh only when the sign already shows one — a hidden
+        // or never-fetched photo must not reappear
+        if (res.imageUrl && q.spec.image && !q.spec._customImage) q.spec.image = res.imageUrl;
+        q.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
+        if (before !== `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`) changed++;
+      }
+    } catch (e) { failed++; }
+    await runOne();
+  };
+  await Promise.all(Array.from({ length: Math.min(4, targets.length) }, runOne));
+  btn.textContent = orig;
+  _refreshingPrices = false;
+  persistState();
+  renderQueue();
+  const okCount = targets.length - failed;
+  let msg = `Refreshed ${okCount} sign${okCount === 1 ? "" : "s"} — ${changed} price change${changed === 1 ? "" : "s"}`;
+  if (manual) msg += `, ${manual} sign${manual === 1 ? "" : "s"} left untouched`;
+  if (failed) msg += `, ${failed} without price data (unchanged)`;
+  showToast(msg + ".");
+}
+
+/* ---------------- named batches ---------------- */
+function openBatches() {
+  const inp = $("#batchName");
+  const hint = $("#batchSaveHint");
+  const n = Queue.totalSigns();
+  hint.textContent = Queue.items.length
+    ? `Saves the ${n} sign${n === 1 ? "" : "s"} currently in the queue under this name.`
+    : "The queue is empty — build it first, then save it as a batch.";
+  $("#batchSaveBtn").disabled = !Queue.items.length;
+  $("#batchSaveBtn").onclick = () => {
+    const name = inp.value.trim();
+    if (!name || !Queue.items.length) return;
+    const existed = !!Batches.data[name];
+    Batches.save(name);
+    inp.value = "";
+    renderBatchList();
+    showToast(existed ? `Batch “${name}” updated.` : `Batch “${name}” saved.`);
+  };
+  renderBatchList();
+  $("#batchModal").classList.add("show");
+}
+
+function fmtBatchDate(iso) {
+  const t = Date.parse(iso);
+  if (isNaN(t)) return "—";
+  const d = new Date(t);
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+function renderBatchList() {
+  const host = $("#batchList");
+  host.innerHTML = "";
+  const names = Batches.names();
+  if (!names.length) {
+    host.appendChild(el("div", "queue-empty", "No saved batches yet."));
+    return;
+  }
+  for (const name of names) {
+    const b = Batches.data[name];
+    const row = el("div", "batch-row");
+    const info = el("div", "batch-info");
+    info.appendChild(el("div", "batch-name", name));
+    const n = (b.items || []).reduce((a, q) => a + (q.copies || 1), 0);
+    info.appendChild(el("div", "batch-sub", `${n} sign${n === 1 ? "" : "s"} · saved ${fmtBatchDate(b.savedAt)}`));
+    const load = el("button", "btn btn-secondary btn-sm", "Load");
+    load.onclick = () => {
+      const prev = Queue.items;
+      Queue.replaceAll(b.items || []);
+      const gen = Queue._gen;
+      $("#batchModal").classList.remove("show");
+      showToast(`Loaded batch “${name}” — replaced the queue.`, {
+        undo: () => {
+          // the snapshot is only safe while the queue hasn't diverged
+          if (Queue._gen !== gen) return showToast("The queue changed since the batch loaded — undo unavailable.");
+          Queue.replaceAll(prev);
+        },
+      });
+    };
+    const del = el("button", "q-btn", "✕");
+    del.title = "Delete batch";
+    del.onclick = () => {
+      Batches.remove(name);
+      renderBatchList();
+      showToast(`Batch “${name}” deleted.`, { undo: () => { Batches.data[name] = b; persistState(); renderBatchList(); } });
+    };
+    row.appendChild(info);
+    row.appendChild(load);
+    row.appendChild(del);
+    host.appendChild(row);
+  }
+}
+
+let _sheetSeq = 0;
 async function renderSheetPreviews() {
+  const seq = ++_sheetSeq;
   const host = $("#sheetPreviews");
   host.innerHTML = "";
   const packed = packQueue(Queue.packable(), { margin: Settings.get().margin });
   const stats = $("#queueStats");
-  const nSigns = Queue.items.length;
-  stats.textContent = `${nSigns} sign${nSigns === 1 ? "" : "s"} → ${packed.pages.length} sheet${packed.pages.length === 1 ? "" : "s"} (optimized layout, straight cuts)`;
+  const nSigns = Queue.totalSigns();
+  const nKinds = Queue.items.length;
+  const kindsNote = nSigns !== nKinds ? ` (${nKinds} unique)` : "";
+  stats.textContent = `${nSigns} sign${nSigns === 1 ? "" : "s"}${kindsNote} → ${packed.pages.length} sheet${packed.pages.length === 1 ? "" : "s"} (optimized layout, straight cuts)`;
   await ensureFontsLoaded();
   for (let i = 0; i < packed.pages.length && i < 8; i++) {
     const page = packed.pages[i];
     const box = el("div", "sheet-thumb");
     const { svg, pw, ph } = await composeSheetSVG(page, Settings.get().cutGuides);
+    if (seq !== _sheetSeq) return packed; // a newer run owns the host now
     const scale = Math.min(84 / (pw * PPI), 106 / (ph * PPI));
     box.innerHTML = svg.replace(/^<svg /, `<svg style="width:${pw * PPI * scale}px;height:${ph * PPI * scale}px" `);
     box.appendChild(el("span", "pg", String(i + 1)));
@@ -680,6 +953,17 @@ async function renderSheetPreviews() {
 
 async function exportQueue(print) {
   if (!Queue.items.length) return;
+  // never print a broken sign (e.g. a bulk Was/Now still missing its
+  // NOW price would render "NOW $—") — block with a pointer instead
+  const bad = Queue.items.filter((q) => {
+    const t = typeById(q.typeId);
+    return t && validateSpec(t, q.spec);
+  });
+  if (bad.length) {
+    const first = validateSpec(typeById(bad[0].typeId), bad[0].spec);
+    showToast(`${bad.length} sign${bad.length === 1 ? " is" : "s are"} incomplete — “${queueItemTitle(bad[0])}”: ${first} Click it in the queue to fix.`, { ms: 9000 });
+    return;
+  }
   const btn = print ? $("#printAllBtn") : $("#exportAllBtn");
   const orig = btn.textContent;
   btn.disabled = true;
@@ -717,9 +1001,13 @@ function initBulk() {
     if (!skus.length) return;
     const typeId = $("#bulkType").value;
     const sizeId = $("#bulkSize").value;
+    const copies = clampCopies($("#bulkCopies").value);
     const prog = $("#bulkProgress");
     const fill = prog.querySelector("i");
     prog.classList.add("show");
+    $("#bulkReport").innerHTML = "";
+    const failed = [];   // {sku, reason}
+    const needsNow = []; // Was/Now signs added without a Now price
     let done = 0, ok = 0;
     const CONCURRENCY = 5;
     const work = skus.slice();
@@ -737,11 +1025,25 @@ function initBulk() {
             price: si.onSale ? si.sale : (res.price || res.listPrice || ""),
             regPrice: si.onSale ? si.reg : "",
             startDate: App.batchStart, endDate: App.batchEnd,
+            lookedUpAt: res.fetchedAt || new Date().toISOString(),
           };
-          Queue.add(si.onSale && typeId === "regular" ? "sale" : typeId, sizeId, spec);
+          let addType = typeId;
+          if (typeId === "regular" && si.onSale) addType = "sale";
+          if (typeId === "was_now") {
+            // clearance: today's shelf price is the WAS; the NOW comes from
+            // the sale price, or gets set by hand (click the queued sign)
+            spec.regPrice = si.onSale ? si.reg : (res.price || res.listPrice || "");
+            spec.price = si.onSale ? si.sale : "";
+            if (!spec.price) needsNow.push(spec.sku);
+          }
+          Queue.add(addType, sizeId, spec, copies);
           ok++;
+        } else {
+          failed.push({ sku, reason: res.error || "no product data" });
         }
-      } catch (e) {}
+      } catch (e) {
+        failed.push({ sku, reason: "connection failed" });
+      }
       done++;
       fill.style.width = `${(done / skus.length) * 100}%`;
       await runOne();
@@ -751,7 +1053,33 @@ function initBulk() {
     fill.style.width = "0";
     badge.textContent = `Added ${ok} of ${skus.length}`;
     if (ok) ta.value = "";
+    renderBulkReport(failed, needsNow);
   };
+}
+
+/* Per-SKU failure list + retry, and Was/Now signs still needing a price. */
+function renderBulkReport(failed, needsNow) {
+  const host = $("#bulkReport");
+  host.innerHTML = "";
+  if (failed.length) {
+    const box = el("div", "bulk-fails");
+    box.appendChild(el("div", "bulk-fail-head", `✗ ${failed.length} SKU${failed.length === 1 ? "" : "s"} failed`));
+    for (const f of failed.slice(0, 12)) box.appendChild(el("div", "bulk-fail-row", `${f.sku} — ${f.reason}`));
+    if (failed.length > 12) box.appendChild(el("div", "bulk-fail-row", `…and ${failed.length - 12} more`));
+    const retry = el("button", "btn btn-secondary btn-sm", "Retry failed");
+    retry.onclick = () => {
+      const ta = $("#bulkSkus");
+      ta.value = failed.map((f) => f.sku).join("\n");
+      ta.dispatchEvent(new Event("input"));
+      host.innerHTML = "";
+    };
+    box.appendChild(retry);
+    host.appendChild(box);
+  }
+  if (needsNow.length) {
+    host.appendChild(el("div", "bulk-warn",
+      `⚠ ${needsNow.length} Was/Now sign${needsNow.length === 1 ? "" : "s"} added without a Now price — click them in the queue to set it.`));
+  }
 }
 
 /* ---------------- settings ---------------- */

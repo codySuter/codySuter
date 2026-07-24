@@ -9,15 +9,24 @@
 
 const CHANGELOG = [
   {
-    version: "2.2.1",
+    version: "2.3.1",
     date: "July 2026",
     notes: [
       "Fixed: the app could quietly shut down while its window was minimized — after that, every button failed with “Failed to fetch”. It now stays alive, and if the background app ever really does stop, a clear red banner says to relaunch it.",
       "Fixed: the dollar sign printed too high on Regular price signs. The $ and cents now sit level with the top of the price digits on every sign type.",
-      "Fixed: the Print and PDF buttons in the sign editor crashed for single signs.",
       "Fixed: if the product-lookup browser failed to start once, lookups stayed degraded until the app was restarted. It now retries after a couple of minutes and reports the real reason.",
       "Faster, safer exports: PDF fonts load at startup instead of at print time.",
       "New: “Check for updates” button and this version history, in Settings.",
+    ],
+  },
+  {
+    version: "2.3.0",
+    date: "July 2026",
+    notes: [
+      "The 2.1 and 2.2 lines come together: edit signs right in the queue, print multiple copies, set sale dates for a whole batch, refresh prices in one click, and barcoded SKUs.",
+      "PDF exports are ~93% smaller, and the editor's Print/PDF buttons work again.",
+      "Layout fixes for narrow windows; hardened local server; lookup cache persists between launches.",
+      "The app is now built and tested automatically, and updates download from its official release page.",
     ],
   },
   {
