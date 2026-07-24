@@ -132,7 +132,7 @@ async function sendSupport() {
       showMsgEl($("#supportMsgPanel"), "warn", "Saved on this PC" + (res.savedPath ? ": " + res.savedPath : "") + ". Couldn't open email automatically — use Copy report and email it to csuter@snydersace.net.");
     }
   } catch (e) {
-    showMsgEl($("#supportMsgPanel"), "err", "Couldn't submit: " + e.message + ". Use Copy report and email it manually.");
+    showMsgEl($("#supportMsgPanel"), "err", "Couldn't submit: " + friendlyError(e) + ". Use Copy report and email it manually.");
   } finally {
     btn.disabled = false;
     btn.textContent = orig;

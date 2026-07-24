@@ -115,6 +115,16 @@ function sanitizeFilename(s) {
   return String(s || "sign").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
+/* The browser reports any network-level failure as a bare TypeError
+   ("Failed to fetch"). For this app that almost always means the local
+   backend process has exited, so translate it into something actionable. */
+function friendlyError(e) {
+  if (e instanceof TypeError) {
+    return "can't reach the app's background process. Close this window and start Ace Sign Studio again (your queue is saved)";
+  }
+  return e && e.message ? e.message : String(e);
+}
+
 /* Fetch an image URL (via our proxy for remote ones) and return a data URI.
    `reencode` normalizes the image through a canvas to a baseline format that
    jsPDF's decoders accept — real product photos are often progressive or

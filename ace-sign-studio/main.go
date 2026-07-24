@@ -30,7 +30,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "2.3.0"
+var appVersion = "2.3.1"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -106,10 +106,24 @@ func main() {
 		go openAppWindow(url)
 	}
 
-	srv := &http.Server{Handler: requireLoopbackHost(blockCrossSite(mux))}
+	// touchHeartbeat sits inside the security wrappers so only requests that
+	// pass the loopback/cross-site checks count as signs of life.
+	srv := &http.Server{Handler: requireLoopbackHost(blockCrossSite(touchHeartbeat(mux)))}
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+// touchHeartbeat counts every request — not just /__ping — as proof the UI
+// is alive, so a burst of real work (lookups, state saves, image fetches)
+// keeps the watchdog satisfied even if ping timers are being throttled.
+func touchHeartbeat(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		heartbeatMu.Lock()
+		lastHeartbeat = time.Now()
+		heartbeatMu.Unlock()
+		next.ServeHTTP(w, r)
+	})
 }
 
 func noCache(next http.Handler) http.Handler {
@@ -168,16 +182,20 @@ func handlePing(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// watchdog shuts the process down once the UI has been closed: the frontend
-// pings every 2s, so 25s of silence after at least one ping means the window
-// (and any duplicated tabs) are gone.
+// watchdog shuts the process down once the UI has been closed. The frontend
+// pings every 2s (from a worker) and every other request also refreshes the
+// heartbeat — but Chrome throttles timers in minimized/hidden windows to as
+// little as one tick per minute, so the silence threshold must sit well
+// above 60s or the app kills itself while its window is merely minimized
+// (every button then fails with "Failed to fetch"). 90s of total silence
+// after at least one ping means the window really is gone.
 func watchdog() {
 	for {
 		time.Sleep(5 * time.Second)
 		heartbeatMu.Lock()
 		pinged, last := everPinged, lastHeartbeat
 		heartbeatMu.Unlock()
-		if pinged && time.Since(last) > 25*time.Second {
+		if pinged && time.Since(last) > 90*time.Second {
 			log.Println("UI window closed — exiting")
 			shutdownBrowser() // close the headless lookup browser too
 			os.Exit(0)

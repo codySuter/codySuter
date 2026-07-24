@@ -18,6 +18,21 @@ const INK = "#000000";
 const GRAY11 = "#6D6E71";
 const GRAY5 = "#BCBEC0";
 
+/* Roboto Black vertical metrics, measured from the TTF (em fractions above
+   the baseline): digits top out at 0.721 em, the "$" glyph at 0.823 em.
+   The brand price format hangs the superscript $ and cents from the same
+   top line as the big dollar digits — eyeballed offsets drift as soon as
+   the glyph sizes differ, so compute the baseline from these. */
+const DIGIT_TOP_EM = 0.721;
+const DOLLAR_TOP_EM = 0.823;
+
+/* Baseline y for a superscript glyph (its own size `glyphSize`, top of ink
+   at `glyphTopEm`) so its top aligns with the top of size-S dollar digits
+   sitting on baseline `base`. */
+function supBaseline(base, S, glyphSize, glyphTopEm) {
+  return base - (DIGIT_TOP_EM * S - glyphTopEm * glyphSize);
+}
+
 /* ---------- low-level svg builders ---------- */
 
 function svgText(x, y, text, family, size, fill, opts) {
@@ -108,12 +123,12 @@ function priceBlockMarkup(cx, top, price, targetH, maxW, opts) {
     m += svgText(cur, baseline, o.pre, "RobotoBlack", S * 0.62, "#fff", { anchor: "start" });
     cur += mtr.preW;
   }
-  m += svgText(cur, top + blockH * 0.30 + S * 0.55 * 0.36, "$", "RobotoBlack", S * 0.55, "#fff", { anchor: "start" });
+  m += svgText(cur, supBaseline(baseline, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, "#fff", { anchor: "start" });
   cur += mtr.curW;
   m += svgText(cur, baseline, mp.d, "RobotoBlack", S, "#fff", { anchor: "start" });
   cur += mtr.dW + S * 0.06;
   if (mp.c) {
-    m += svgText(cur, top + blockH * 0.26 + S * 0.45 * 0.36, mp.c, "RobotoBlack", S * 0.45, "#fff", { anchor: "start" });
+    m += svgText(cur, supBaseline(baseline, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, "#fff", { anchor: "start" });
   }
   if (o.suffixWord) {
     m += svgText(cur, top + blockH - S * 0.18, o.suffixWord, "RobotoBold", S * 0.17, "#fff", { anchor: "start" });
@@ -333,11 +348,11 @@ AceRenderers.regular = (spec, W, H) =>
     const w = measure(S);
     const x0 = cx - w / 2;
     const base = top + (availH - S * 1.05) / 2 + S * 0.9;
-    let m = svgText(x0, base - S * 0.52, "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
+    let m = svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
     let cur = x0 + textWidth("$", "RobotoBlack", S * 0.55);
     m += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start" });
     cur += textWidth(mp.d, "RobotoBlack", S) + S * 0.08;
-    if (mp.c) m += svgText(cur, base - S * 0.5, mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
+    if (mp.c) m += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
     if (spec.unit) m += svgText(cur, base, spec.unit, "RobotoBold", S * 0.16, GRAY11, { anchor: "start" });
     return { markup: m, h: availH };
   });
@@ -696,11 +711,11 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
     const w = wOf(S);
     const x0 = cx - w / 2;
     const base = y + priceH / 2 + S * 0.33;
-    markup += svgText(x0, base - S * 0.5, "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
+    markup += svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
     let cur = x0 + textWidth("$", "RobotoBlack", S * 0.55);
     markup += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start" });
     cur += textWidth(mp.d, "RobotoBlack", S) + S * 0.08;
-    if (mp.c) markup += svgText(cur, base - S * 0.48, mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
+    if (mp.c) markup += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
 };

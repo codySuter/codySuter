@@ -41,9 +41,11 @@ function ensureFontsLoaded() {
    ~5.7 MB; Roboto-only keeps exports lean. */
 const PDF_FONTS = ["RobotoRegular", "RobotoMedium", "RobotoBold", "RobotoBlack"];
 
-/* jsPDF registration (lazy, once). */
+/* PDF font data: fetched once and kept in memory. Prefetched at boot so a
+   later print/export doesn't depend on live font fetches at click time.
+   A failed prefetch clears the cache so the next call retries. */
 let _pdfFontsReady = null;
-function ensurePdfFonts(doc) {
+function prefetchPdfFonts() {
   if (!_pdfFontsReady) {
     _pdfFontsReady = (async () => {
       const entries = await Promise.all(
@@ -59,9 +61,13 @@ function ensurePdfFonts(doc) {
         })
       );
       return entries;
-    })();
+    })().catch((e) => { _pdfFontsReady = null; throw e; });
   }
-  return _pdfFontsReady.then((entries) => {
+  return _pdfFontsReady;
+}
+
+function ensurePdfFonts(doc) {
+  return prefetchPdfFonts().then((entries) => {
     for (const [family, b64] of entries) {
       const file = family + ".ttf";
       doc.addFileToVFS(file, b64);

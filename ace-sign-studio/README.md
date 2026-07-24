@@ -69,6 +69,9 @@ Replaces and unifies the three older tools:
   the standard single-binary idiom) and relaunches. Stays a portable
   single file — no installer. Falls back to a manual download link if the
   folder isn't writable. Set `ACE_DEBUG_LOG=<path>` for a launch/update log.
+  Settings → Updates adds an on-demand **Check for updates** button and a
+  user-facing **version history** (`web/js/changelog.js` — add an entry per
+  release).
 - **Support & feedback**: a ✉ Support button files a bug report or feature
   request to csuter@snydersace.net. Bug reports auto-attach diagnostics
   (app version, OS, store #, current sign/queue, the last lookup log, and
