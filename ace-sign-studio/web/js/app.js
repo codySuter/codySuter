@@ -82,14 +82,18 @@ function startHeartbeat() {
   const pingURL = location.origin + "/__ping";
   const pingNow = () => fetch(pingURL, { cache: "no-store" }).then(() => reportPing(true)).catch(() => reportPing(false));
   try {
+    // Self-rescheduling rather than setInterval so a failure can retry
+    // sooner; every path must re-arm or the app loses its liveness signal.
     const src = `const PING_MS = ${PING_MS}, RETRY_MS = ${RETRY_MS};
       let timer = null;
-      const beat = () => {
-        fetch(${JSON.stringify(pingURL)}, { cache: "no-store" })
-          .then(() => { postMessage(true); schedule(PING_MS); })
-          .catch(() => { postMessage(false); schedule(RETRY_MS); });
-      };
       const schedule = (ms) => { clearTimeout(timer); timer = setTimeout(beat, ms); };
+      function beat() {
+        try {
+          fetch(${JSON.stringify(pingURL)}, { cache: "no-store" })
+            .then(() => { postMessage(true); schedule(PING_MS); })
+            .catch(() => { postMessage(false); schedule(RETRY_MS); });
+        } catch (e) { postMessage(false); schedule(RETRY_MS); }
+      }
       beat();`;
     const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
     w.onmessage = (e) => reportPing(!!e.data);

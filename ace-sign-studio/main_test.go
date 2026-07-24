@@ -151,8 +151,15 @@ func TestStaticCachePolicy(t *testing.T) {
 	for _, p := range []string{"/fonts/Roboto-Bold.ttf", "/vendor/jspdf.umd.min.js", "/img/ace_logo_transparent.png", "/css/app.css", "/js/app.js"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
-		if cc := rec.Header().Get("Cache-Control"); cc == "no-store" || cc == "" {
+		cc := rec.Header().Get("Cache-Control")
+		if cc == "no-store" || cc == "" {
 			t.Errorf("%s Cache-Control = %q, want a cacheable policy", p, cc)
+		}
+		// No freshness window: a self-update ends in location.reload(), and
+		// Chrome does not revalidate subresources on a normal reload, so any
+		// max-age could serve the previous build's JS to the new backend.
+		if strings.Contains(cc, "max-age") && !strings.Contains(cc, "max-age=0") {
+			t.Errorf("%s Cache-Control = %q — must revalidate, not go stale across an update", p, cc)
 		}
 		if rec.Header().Get("ETag") == "" {
 			t.Errorf("%s has no ETag to revalidate against", p)
