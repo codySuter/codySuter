@@ -127,6 +127,27 @@ const Batches = {
   },
 };
 
+/* Print history: a snapshot of every Print All / Save PDF / single-sign
+   print, newest first, capped. Restoring puts the exact set back in the
+   queue — items keep their uid+rev, so unchanged signs reuse their
+   cached SVG correctly. */
+const History = {
+  data: [], // {at, kind: "print"|"pdf", signs, items}
+  MAX: 25,
+  record(kind, items) {
+    const snap = JSON.parse(JSON.stringify(items || []));
+    if (!snap.length) return;
+    this.data.unshift({
+      at: new Date().toISOString(),
+      kind,
+      signs: snap.reduce((a, q) => a + (q.copies || 1), 0),
+      items: snap,
+    });
+    if (this.data.length > this.MAX) this.data.length = this.MAX;
+    persistState();
+  },
+};
+
 function sizeOfQueueItem(q) {
   const s = sizeById(q.sizeId);
   return { w: s.w, h: s.h };
@@ -178,6 +199,7 @@ function stateJSON() {
     settings: Settings.data,
     queue: Queue.items,
     batches: Batches.data,
+    history: History.data,
   });
 }
 function persistState() {
@@ -217,6 +239,7 @@ async function restoreState() {
     if (state.settings) Object.assign(Settings.data, state.settings);
     if (Array.isArray(state.queue)) Queue.items = state.queue;
     if (state.batches && typeof state.batches === "object") Batches.data = state.batches;
+    if (Array.isArray(state.history)) History.data = state.history;
   }
   // drop queue entries whose sign type isn't registered
   Queue.items = Queue.items.filter((q) => typeById(q.typeId));

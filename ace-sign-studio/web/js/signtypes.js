@@ -42,6 +42,7 @@ const F = {
   category: { key: "category", kind: "text", label: "Category name (e.g. HAND TOOLS)" },
   message:  { key: "message", kind: "textarea", label: "Message" },
   barcode:  { key: "barcode", kind: "check", label: "Print a scannable SKU barcode (Code 128)" },
+  qr:       { key: "qr", kind: "check", label: "Print a QR code to this product on acehardware.com" },
 };
 
 const SIGN_TYPES = [
@@ -162,9 +163,10 @@ const SIGN_TYPES = [
 
 const typeById = (id) => SIGN_TYPES.find((t) => t.id === id) || null;
 
-/* Every sign type that shows a SKU can also print it as a barcode. */
+/* Every sign type that shows a SKU can also print it as a barcode, and a
+   QR code linking customers to the product page (reviews, online order). */
 for (const t of SIGN_TYPES) {
-  if (t.fields.some((f) => f.kind === "sku")) t.fields.push(F.barcode);
+  if (t.fields.some((f) => f.kind === "sku")) t.fields.push(F.barcode, F.qr);
 }
 
 /* ---------- gallery template product ----------
