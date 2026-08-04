@@ -114,3 +114,32 @@ function code128Rects(value, x, y, widthPx, heightPx, fill) {
   }
   return { rects: out, text: String(value) };
 }
+
+/* SVG rects for a QR code (vendored qrcode-generator lib, EC level M,
+   auto version). Horizontal runs of dark modules merge into one rect to
+   keep the SVG/PDF small. Returns null if the lib is missing or the
+   content can't be encoded. */
+function qrRects(text, x, y, sizePx, fill) {
+  if (typeof qrcode !== "function") return null;
+  try {
+    const qr = qrcode(0, "M");
+    qr.addData(String(text));
+    qr.make();
+    const n = qr.getModuleCount();
+    const cell = sizePx / n;
+    let out = "";
+    for (let r = 0; r < n; r++) {
+      let run = 0;
+      for (let c = 0; c <= n; c++) {
+        if (c < n && qr.isDark(r, c)) { run++; continue; }
+        if (run > 0) {
+          out += `<rect x="${(x + (c - run) * cell).toFixed(3)}" y="${(y + r * cell).toFixed(3)}" width="${(run * cell).toFixed(3)}" height="${cell.toFixed(3)}" fill="${fill || "#111111"}"/>`;
+          run = 0;
+        }
+      }
+    }
+    return { rects: out, modules: n };
+  } catch (e) {
+    return null;
+  }
+}

@@ -98,11 +98,14 @@ function signHeader(W, H, frame, logoURI, datesText, small, noLogo, logoScale) {
   const logoW = logoH * 1.856;
   let markup = "";
   if (!noLogo) {
+    // the data-elem group is the editor's drag-to-resize handle
+    markup += `<g data-elem="logo">`;
     if (logoURI) {
       markup += `<image x="${(m + pad).toFixed(2)}" y="${(m + pad).toFixed(2)}" width="${logoW.toFixed(2)}" height="${logoH.toFixed(2)}" preserveAspectRatio="xMinYMin meet" href="${logoURI}"/>`;
     } else {
       markup += svgText(m + pad, m + pad + logoH * 0.82, "ACE", "RobotoBlack", logoH * 0.9, ACE_RED, { anchor: "start" });
     }
+    markup += `</g>`;
   }
   const pillSize = Math.max(9, Math.min(16, H * 0.024));
   const pill = datePill(W - m - pad, m + pad, datesText, pillSize);
@@ -174,7 +177,7 @@ function imageMarkup(dataURI, natural, cx, top, maxW, maxH) {
   const scale = Math.min(maxW / natural.w, maxH / natural.h);
   const w = natural.w * scale, h = natural.h * scale;
   return {
-    markup: `<image x="${(cx - w / 2).toFixed(2)}" y="${(top + (maxH - h) / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" href="${dataURI}"/>`,
+    markup: `<g data-elem="image"><image x="${(cx - w / 2).toFixed(2)}" y="${(top + (maxH - h) / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" href="${dataURI}"/></g>`,
     h: maxH,
   };
 }
@@ -185,26 +188,52 @@ function nameBlock(cx, top, name, maxW, targetSize, minSize) {
   const fit = balancedLines(name, "RobotoBold", targetSize, maxW, 2);
   const size = Math.max(minSize || 9, fit.size);
   const lineGap = size * 0.16;
-  let markup = "";
+  let markup = `<g data-elem="name">`;
   let y = top + size * 0.85;
   for (const line of fit.lines) {
     markup += svgText(cx, y, line, "RobotoBold", size, INK);
     y += size + lineGap;
   }
-  return { markup, h: fit.lines.length * (size + lineGap) };
+  return { markup: markup + `</g>`, h: fit.lines.length * (size + lineGap) };
 }
 
-function skuFooter(W, H, frame, sku, detail, storeLine, barcode, scale) {
+/* The product-page URL a sign's QR code points at: the canonical URL the
+   lookup captured, else an acehardware.com search for the SKU. */
+function qrURLFor(spec) {
+  if (!spec || !spec.qr) return null;
+  if (spec.productUrl) return spec.productUrl;
+  const sku = String(spec.sku || "").trim();
+  return /^\d{4,9}$/.test(sku) ? `https://www.acehardware.com/search?query=${sku}` : null;
+}
+
+function skuFooter(W, H, frame, sku, detail, storeLine, barcode, scale, qrURL) {
   const f = scale || 1;
   const m = frame.margin;
   const cx = W / 2;
-  let markup = "";
+  let markup = `<g data-elem="footer">`;
   const skuSize = Math.max(7, Math.min(Math.max(8.5, Math.min(15, H * 0.023)) * f, H * 0.04));
   const bottomPad = Math.max(6, H * 0.014);
   let y = H - m - bottomPad;
+
+  // QR code bottom-right; skipped on shelf sizes — below ~0.45" a phone
+  // can't reliably scan it, and it would crowd the footer out
+  let qrSize = 0;
+  if (qrURL && Math.min(W, H) >= 326 && typeof qrRects === "function") {
+    const qs = Math.max(42, Math.min(Math.min(78, H * 0.085) * Math.min(f, 1.25), H * 0.12));
+    const qx = W - m - 6 - qs, qy = H - m - 6 - qs;
+    const qr = qrRects(qrURL, qx, qy, qs, INK);
+    if (qr) {
+      markup += qr.rects;
+      qrSize = qs;
+    }
+  }
+  // centered footer lines must stay clear of the QR corner (symmetric so
+  // the centering holds)
+  const centerAvail = W - 2 * (m + 10) - (qrSize ? 2 * (qrSize + 8) : 0);
+
   if (storeLine) {
     const s = skuSize * 0.72;
-    markup += svgText(cx, y, storeLine, "RobotoMedium", s, GRAY5);
+    markup += svgText(cx, y, storeLine, "RobotoMedium", Math.min(s, fitTextSize(storeLine, "RobotoMedium", s, centerAvail)), GRAY5);
     y -= s * 1.45;
   }
   if (sku) {
@@ -231,10 +260,14 @@ function skuFooter(W, H, frame, sku, detail, storeLine, barcode, scale) {
     }
   }
   if (detail) {
-    markup += svgText(cx, y, detail, "RobotoMedium", skuSize * 0.92, GRAY11);
+    const ds = Math.min(skuSize * 0.92, fitTextSize(detail, "RobotoMedium", skuSize * 0.92, centerAvail));
+    markup += svgText(cx, y, detail, "RobotoMedium", ds, GRAY11);
     y -= skuSize * 1.4;
   }
-  return { markup, reserved: (H - m) - y };
+  // the QR sits beside the footer stack, not in it — reserve enough for
+  // whichever is taller so content above never runs into the QR corner
+  const reserved = Math.max((H - m) - y, qrSize ? qrSize + 12 + bottomPad : 0);
+  return { markup: markup + `</g>`, reserved };
 }
 
 /* ---------- generic product-sign template ----------
@@ -249,7 +282,7 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const dates = formatSaleDates(spec.startDate, spec.endDate);
   const small = Math.min(Win, Hin) <= 5.6;
   const header = signHeader(W, H, frame, logoURI, dates, small, noLogo, elemScale(spec, "logo"));
-  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"));
+  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"), qrURLFor(spec));
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
 
@@ -325,7 +358,7 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
     const remaining = Math.max(24, contentBottom - y);
     const availH = scPrice < 1 ? Math.max(24, remaining * scPrice) : remaining;
     const pa = priceArea(cx, y + (remaining - availH) / 2, maxW, availH, spec);
-    markup += pa.markup;
+    markup += `<g data-elem="price">${pa.markup}</g>`;
   }
   markup += footer.markup;
 
@@ -715,7 +748,7 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
   const logoURI = noLogo ? null : await getLogoURI();
   const dates = formatSaleDates(spec.startDate, spec.endDate);
   const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6, noLogo, elemScale(spec, "logo"));
-  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"));
+  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"), qrURLFor(spec));
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
   let markup = frame.markup + header.markup + footer.markup;
@@ -747,10 +780,12 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
     totalNameH = nameH;
   }
   let y = contentTop + Math.max(0, (nameH - totalNameH) / 2) + fit.size * 0.9;
+  markup += `<g data-elem="name">`;
   for (const line of fit.lines) {
     markup += svgText(cx, y, line, "RobotoBlack", fit.size, INK);
     y += fit.size + lineGap;
   }
+  markup += `</g>`;
   y = contentTop + nameH;
   if (imgURI) {
     const im = imageMarkup(imgURI, imgNat, cx, y, maxW * 0.8, imgH * 0.94);
@@ -767,11 +802,13 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
     const w = wOf(S);
     const x0 = cx - w / 2;
     const base = y + priceH / 2 + S * 0.33;
+    markup += `<g data-elem="price">`;
     markup += svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
     let cur = x0 + textWidth("$", "RobotoBlack", S * 0.55);
     markup += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start" });
     cur += textWidth(mp.d, "RobotoBlack", S) + S * 0.08;
     if (mp.c) markup += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
+    markup += `</g>`;
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
 };
@@ -803,13 +840,15 @@ AceRenderers.text_only = async (spec, W_in, H_in) => {
     totalH = contentH - subH;
   }
   let y = contentTop + Math.max(0, (contentH - subH - totalH) / 2) + fit.size * 0.88;
+  markup += `<g data-elem="name">`;
   for (const line of fit.lines) {
     markup += svgText(cx, y, line, "RobotoBlack", fit.size, INK);
     y += fit.size + lineGap;
   }
+  markup += `</g>`;
   if (spec.detail) {
     const sS = Math.min(subH * 0.55, fitTextSize(spec.detail, "RobotoMedium", subH * 0.55, maxW));
-    markup += svgText(cx, contentBottom - subH / 2 + sS * 0.3, spec.detail, "RobotoMedium", sS, GRAY11);
+    markup += `<g data-elem="detail">` + svgText(cx, contentBottom - subH / 2 + sS * 0.3, spec.detail, "RobotoMedium", sS, GRAY11) + `</g>`;
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
 };

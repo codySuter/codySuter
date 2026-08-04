@@ -9,6 +9,16 @@
 
 const CHANGELOG = [
   {
+    version: "2.7.0",
+    date: "August 2026",
+    notes: [
+      "New: drag any element right on the sign preview to resize it — the photo, name, price, logo, or SKU footer. Same auto-fitting layout as the sliders, now hands-on.",
+      "New: QR codes. Tick “Print a QR code” on any sign with a SKU and customers can scan it to see the product on acehardware.com — reviews, details, online ordering. Skipped on shelf sizes, where a QR would be too small to scan.",
+      "New: Print history. Every Print All, Save PDF, and single-sign print is remembered (last 25) — open History next to Batches and restore any of them to the queue with one click.",
+      "The launch check now also notices when a saved batch's sale has ended, and offers regular-price replacement signs at today's shelf price. The batch keeps the promo sign for next time.",
+    ],
+  },
+  {
     version: "2.6.0",
     date: "August 2026",
     notes: [

@@ -43,6 +43,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("#clearQueueBtn").onclick = clearQueueWithUndo;
   $("#refreshPricesBtn").onclick = refreshQueuePrices;
   $("#batchesBtn").onclick = openBatches;
+  $("#historyBtn").onclick = openHistory;
   $("#printAllBtn").onclick = () => exportQueue(true);
   $("#exportAllBtn").onclick = () => exportQueue(false);
   $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
@@ -383,6 +384,7 @@ function showEditor(typeId) {
     try {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
       printPdfDoc(doc);
+      History.record("print", [editorHistoryItem(t)]);
       showMsg("editorMsg", "ok", "Sent to the print dialog.");
     } catch (e) { showMsg("editorMsg", "err", "Print failed: " + friendlyError(e) + "."); }
   };
@@ -393,11 +395,24 @@ function showEditor(typeId) {
     try {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
       downloadPdfDoc(doc, sanitizeFilename(queueItemTitle({ typeId: t.id, spec: App.spec })) + ".pdf");
+      History.record("pdf", [editorHistoryItem(t)]);
       showMsg("editorMsg", "ok", "PDF saved.");
     } catch (e) { showMsg("editorMsg", "err", "PDF failed: " + friendlyError(e) + "."); }
   };
   updateEditMode();
   schedulePreview();
+}
+
+/* A history row for a sign printed straight from the editor: the raw spec
+   (hides intact) so a restore is fully editable. */
+function editorHistoryItem(t) {
+  return {
+    uid: "hist-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+    typeId: t.id,
+    sizeId: App.sizeId,
+    spec: App.spec,
+    copies: 1,
+  };
 }
 
 /* Reflect edit mode in the editor chrome + queue highlight. */
@@ -463,6 +478,7 @@ function buildEditorFields(t) {
       attachAutoLookup(inp, status, (res, si) => {
         App.spec.sku = res.sku || inp.value.trim();
         maybeResetScaleForNewSku(App.spec.sku, t, host);
+        if (res.productUrl) App.spec.productUrl = res.productUrl; // QR target
         // prefer the server's fetch time — cached results carry the
         // ORIGINAL lookup time, so the stale badge stays honest
         App.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
@@ -645,6 +661,7 @@ function buildScaleSliders(t, host) {
     slider.max = "160";
     slider.step = "5";
     slider.value = String(Math.round((sc[d.key] || 1) * 100));
+    slider.dataset.scaleKey = d.key; // lets preview drags sync this row
     slider.disabled = hidden;
     slider.title = "Double-click to reset to 100%";
     const val = el("span", "scale-val", hidden ? "hidden" : slider.value + "%");
@@ -775,12 +792,119 @@ function setPreviewSVG(svg, size) {
   const availH = Math.max(300, window.innerHeight - 420);
   const scale = Math.min(availW / (size.w * PPI), availH / (size.h * PPI), 1.6);
   holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
+  attachPreviewDrag(holder);
   const meta = $("#previewMeta");
   if (meta) {
     let txt = `${size.label.replace(/"/g, "″")} — prints at exact size · shown at ${(scale * 100).toFixed(0)}%`;
     if (size.cut) txt += " · cut on the dashed line, laminate, and it fits the 8.5×11 holder";
+    if (!_elemDrag) txt += " · drag any element to resize it";
     meta.textContent = txt;
   }
+}
+
+/* ---------------- drag-to-resize in the preview ----------------
+   Every scalable element renders inside a g[data-elem] group. Dragging
+   one up/down feeds the same spec.scale factor as its slider (snapped to
+   the slider's 5% steps), and the auto-fit layout re-balances live. The
+   preview re-renders during the drag (replacing the SVG), so the drag
+   listens on the window, not on the group being replaced. */
+let _elemDrag = null; // {key, label, startY, start} while dragging
+
+function attachPreviewDrag(holder) {
+  const svg = holder.querySelector("svg");
+  if (!svg || App.view !== "editor") return;
+  const t = typeById(App.typeId);
+  if (!t) return;
+  const defs = scalablesForType(t);
+  const byKey = Object.fromEntries(defs.map((d) => [d.key, d]));
+  for (const g of svg.querySelectorAll("g[data-elem]")) {
+    const d = byKey[g.dataset.elem];
+    if (!d) continue;
+    g.style.cursor = "ns-resize";
+    g.addEventListener("pointerenter", () => { if (!_elemDrag) showDragHint(svg, g, d.label); });
+    g.addEventListener("pointerleave", () => hideDragHint());
+    g.addEventListener("pointerdown", (e) => startElemDrag(e, d));
+  }
+  // mid-drag re-render: keep the hint on the (new) group being dragged
+  if (_elemDrag) {
+    const g = svg.querySelector(`g[data-elem="${_elemDrag.key}"]`);
+    if (g) showDragHint(svg, g, _elemDrag.label);
+  }
+}
+
+let _dragHintEl = null;
+function showDragHint(svg, g, label) {
+  hideDragHint();
+  try {
+    const bb = g.getBBox();
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    const pad = 5;
+    r.setAttribute("x", bb.x - pad);
+    r.setAttribute("y", bb.y - pad);
+    r.setAttribute("width", bb.width + 2 * pad);
+    r.setAttribute("height", bb.height + 2 * pad);
+    r.setAttribute("rx", "4");
+    r.setAttribute("fill", "none");
+    r.setAttribute("stroke", "#D40029");
+    r.setAttribute("stroke-width", "1.6");
+    r.setAttribute("stroke-dasharray", "6 4");
+    r.setAttribute("pointer-events", "none");
+    svg.appendChild(r);
+    _dragHintEl = r;
+  } catch (e) { /* getBBox on a detached/empty group — no hint */ }
+}
+function hideDragHint() {
+  if (_dragHintEl) { try { _dragHintEl.remove(); } catch (e) {} _dragHintEl = null; }
+}
+
+function startElemDrag(e, d) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  if (!App.spec.scale) App.spec.scale = {};
+  _elemDrag = { key: d.key, label: d.label, startY: e.clientY, start: App.spec.scale[d.key] || 1 };
+  const badge = el("div", "drag-badge");
+  const place = (ev) => {
+    badge.textContent = `${d.label} ${Math.round((App.spec.scale[d.key] || 1) * 100)}%`;
+    badge.style.left = ev.clientX + 14 + "px";
+    badge.style.top = ev.clientY - 10 + "px";
+  };
+  place(e);
+  document.body.appendChild(badge);
+  const move = (ev) => {
+    // 220px of drag spans roughly the whole 50–160% slider range
+    const raw = _elemDrag.start + (_elemDrag.startY - ev.clientY) / 220;
+    const snapped = Math.round(Math.min(1.6, Math.max(0.5, raw)) * 20) / 20;
+    if (App.spec.scale[_elemDrag.key] !== snapped) {
+      App.spec.scale[_elemDrag.key] = snapped;
+      App.spec._scaleSku = String(App.spec.sku || "");
+      syncScaleSliders();
+      schedulePreview();
+    }
+    place(ev);
+  };
+  const up = () => {
+    window.removeEventListener("pointermove", move);
+    _elemDrag = null;
+    badge.remove();
+    hideDragHint();
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up, { once: true });
+}
+
+/* Push spec.scale back into the slider row that matches each key. */
+function syncScaleSliders() {
+  const sc = App.spec.scale || {};
+  $$("#scaleWrap .scale-slider").forEach((s) => {
+    const key = s.dataset.scaleKey;
+    if (!key) return;
+    const pct = Math.round((sc[key] || 1) * 100);
+    s.value = String(pct);
+    const val = s.parentElement.querySelector(".scale-val");
+    if (val && !s.disabled) val.textContent = pct + "%";
+  });
+  const reset = $("#scaleWrap .btn");
+  if (reset) reset.disabled = !Object.keys(sc).some((k) => sc[k] && sc[k] !== 1);
 }
 
 /* ---------------- queue rail ---------------- */
@@ -982,6 +1106,7 @@ function applyPriceResult(q, res) {
   // photos refresh only when the sign already shows one — a hidden
   // or never-fetched photo must not reappear
   if (res.imageUrl && q.spec.image && !q.spec._customImage) q.spec.image = res.imageUrl;
+  if (res.productUrl) q.spec.productUrl = res.productUrl; // keep the QR target fresh
   q.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
   return before !== `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
 }
@@ -1100,25 +1225,42 @@ function renderBatchList() {
   }
 }
 
-/* ---------------- launch batch price scan ----------------
-   At launch, every saved batch is checked against current store prices
-   (Regular/Sale/Large Text signs with a SKU — the same set the queue's
-   ↻ Prices button refreshes). When prices moved, a banner offers to queue
-   just the changed signs for reprint; accepting also writes the new
-   prices back into the batches so they stay current. */
+/* ---------------- launch batch scan: prices + ended sales ----------------
+   At launch, every saved batch is checked two ways:
+   1. Price changes on Regular/Sale/Large Text signs with a SKU (the same
+      set the queue's ↻ Prices button refreshes). Accepting the offer
+      queues replacements AND writes the new prices back into the batch.
+   2. Ended promos — any sign whose sale end date has passed. Promo signs
+      with a SKU (percent off, BOGO, …) get a regular-price replacement
+      built from the current shelf price; the batch itself is left alone
+      (it still describes the promo) but the item is stamped so the same
+      offer doesn't repeat after it's accepted. Ended promos without a
+      SKU can't be rebuilt automatically and are only mentioned. */
 const BATCH_SCAN_KEY = "acesignstudio.batchscan.v1";
+
+function todayISO() {
+  const d = new Date();
+  const p = (x) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 async function scanBatchPricesAtLaunch() {
   if (!Settings.get().batchPriceCheck) return;
-  const targets = []; // {name, q} — q is the live stored batch item
+  const today = todayISO();
+  // ended = the sale ran out before today; a sale ending today still counts
+  const isEnded = (q) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(String(q.spec.endDate || "")) &&
+    q.spec.endDate < today && !q.spec._endedOffered;
+  const priceTargets = [], endedTargets = [], endedNoSku = [];
   for (const name of Batches.names()) {
     for (const q of Batches.data[name].items || []) {
-      if (q.spec && String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId]) {
-        targets.push({ name, q });
-      }
+      if (!q.spec) continue;
+      const sku = String(q.spec.sku || "").trim();
+      if (sku && PRICE_REFRESH_TYPES[q.typeId]) priceTargets.push({ name, q });
+      else if (isEnded(q)) (sku ? endedTargets : endedNoSku).push({ name, q });
     }
   }
-  if (!targets.length) return;
+  if (!priceTargets.length && !endedTargets.length) return;
   // a crash-loop / quick relaunch shouldn't hammer acehardware.com —
   // skip only if a scan finished within the last 30 minutes
   try {
@@ -1126,7 +1268,7 @@ async function scanBatchPricesAtLaunch() {
     if (!isNaN(last) && Date.now() - last < 30 * 60000) return;
   } catch (e) {}
 
-  const skus = [...new Set(targets.map((t) => String(t.q.spec.sku).trim()))];
+  const skus = [...new Set(priceTargets.concat(endedTargets).map((t) => String(t.q.spec.sku).trim()))];
   const bySku = new Map();
   const work = skus.slice();
   const runOne = async () => {
@@ -1143,29 +1285,79 @@ async function scanBatchPricesAtLaunch() {
   try { localStorage.setItem(BATCH_SCAN_KEY, new Date().toISOString()); } catch (e) {}
 
   // apply to copies first — the stored batches only change if the user accepts
-  const changed = []; // {name, stored, updated}
-  for (const t of targets) {
+  const changed = []; // {name, stored, updated} — price moved, batch gets the update
+  const ended = [];   // {name, stored, updated} — promo over, replacement queued only
+  for (const t of priceTargets) {
     const res = bySku.get(String(t.q.spec.sku).trim());
     if (!res) continue;
     const updated = JSON.parse(JSON.stringify(t.q));
-    if (applyPriceResult(updated, res)) changed.push({ name: t.name, stored: t.q, updated });
+    if (applyPriceResult(updated, res)) {
+      changed.push({ name: t.name, stored: t.q, updated });
+    } else if (isEnded(t.q)) {
+      // price still right, but the sign shows a sale-date pill that's over
+      updated.spec.startDate = "";
+      updated.spec.endDate = "";
+      ended.push({ name: t.name, stored: t.q, updated });
+    }
   }
-  if (changed.length) showBatchPriceBar(changed);
+  for (const t of endedTargets) {
+    const res = bySku.get(String(t.q.spec.sku).trim());
+    const si = res ? saleInfo(res) : { onSale: false };
+    const price = res ? (si.onSale ? si.sale : (res.price || res.listPrice || "")) : "";
+    if (!price) { endedNoSku.push(t); continue; } // no price data — mention only
+    const src = t.q.spec;
+    const spec = {
+      sku: src.sku,
+      name: src.name || res.name || "",
+      detail: src.detail || "",
+      image: src.image || res.imageUrl || null,
+      price,
+      regPrice: si.onSale ? si.reg : "",
+      barcode: src.barcode,
+      qr: src.qr,
+      scale: src.scale, // element-size sliders carry over
+      hide: src.hide && src.hide.logo ? { logo: true } : {}, // promo hides don't map to a price sign
+      lookedUpAt: (res && res.fetchedAt) || new Date().toISOString(),
+    };
+    if (res && res.productUrl) spec.productUrl = res.productUrl;
+    ended.push({
+      name: t.name,
+      stored: t.q,
+      updated: { typeId: si.onSale ? "sale" : "regular", sizeId: t.q.sizeId, spec, copies: t.q.copies },
+    });
+  }
+  if (changed.length || ended.length) showBatchPriceBar(changed, ended, endedNoSku.length);
 }
 
-function showBatchPriceBar(changed) {
+function showBatchPriceBar(changed, ended, endedNoSkuCount) {
   const bar = $("#batchPriceBar");
   if (!bar) return;
-  const batches = [...new Set(changed.map((c) => c.name))];
+  ended = ended || [];
+  const all = changed.concat(ended);
+  const batches = [...new Set(all.map((c) => c.name))];
   const bList = batches.slice(0, 3).map((b) => `“${b}”`).join(", ") + (batches.length > 3 ? ` +${batches.length - 3} more` : "");
   // a sign saved in several batches counts (and prints) once
-  const n = new Set(changed.map((c) => `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`)).size;
-  $("#batchPriceText").innerHTML =
-    `<b>Store prices changed</b> — ${n} sign${n === 1 ? " in a" : "s in"} saved batch${batches.length === 1 ? "" : "es"} (${esc(bList)}) ` +
-    `no longer match${n === 1 ? "es" : ""} the shelf price. Queue them to print replacements — the batches update to the new prices too.`;
+  const uniq = (list) => new Set(list.map((c) => `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`)).size;
+  const nChanged = uniq(changed), nEnded = uniq(ended);
+  const parts = [];
+  if (nChanged) parts.push(`${nChanged} sign${nChanged === 1 ? "" : "s"} no longer match${nChanged === 1 ? "es" : ""} the shelf price`);
+  if (nEnded) parts.push(`${nEnded} sale${nEnded === 1 ? " has" : "s have"} ended and can go back to regular price`);
+  let txt = `<b>Saved batches need attention</b> — in ${bList}: ${parts.join(", and ")}. ` +
+    `Queue them to print replacements${nChanged ? " — price changes update the batches too" : ""}.`;
+  if (endedNoSkuCount) {
+    txt += ` ${endedNoSkuCount} more ended promo${endedNoSkuCount === 1 ? " has" : "s have"} no SKU — open their batch to rebuild by hand.`;
+  }
+  $("#batchPriceText").innerHTML = txt;
   $("#batchPriceQueueBtn").onclick = () => {
     const seen = new Set();
     let added = 0;
+    const queueOnce = (u) => {
+      const key = `${u.typeId}|${u.sizeId}|${u.spec.sku}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      Queue.add(u.typeId, u.sizeId, u.spec, u.copies || 1);
+      added++;
+    };
     for (const c of changed) {
       // write the new price/type into the stored batch item; the rev bump
       // keeps a later "Load batch" from serving the old price out of the
@@ -1173,19 +1365,72 @@ function showBatchPriceBar(changed) {
       c.stored.typeId = c.updated.typeId;
       c.stored.spec = c.updated.spec;
       Queue._bumpRev(c.stored);
-      // the same sign saved in several batches prints once
-      const key = `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      Queue.add(c.updated.typeId, c.updated.sizeId, c.updated.spec, c.updated.copies || 1);
-      added++;
+      queueOnce(c.updated);
+    }
+    for (const c of ended) {
+      // the batch keeps the promo sign (it may run again) — just remember
+      // the offer was taken so it doesn't repeat every launch
+      c.stored.spec._endedOffered = todayISO();
+      queueOnce(c.updated);
     }
     persistState();
     bar.classList.remove("show");
-    showToast(`Queued ${added} updated sign${added === 1 ? "" : "s"} — the saved batches now carry the new prices.`);
+    const notes = [];
+    if (changed.length) notes.push("the batches now carry the new prices");
+    if (ended.length) notes.push("ended promos stay in their batches for next time");
+    showToast(`Queued ${added} replacement sign${added === 1 ? "" : "s"} — ${notes.join("; ")}.`);
   };
   $("#batchPriceDismiss").onclick = () => bar.classList.remove("show");
   bar.classList.add("show");
+}
+
+/* ---------------- print history ---------------- */
+function fmtHistDate(iso) {
+  const t = Date.parse(iso);
+  if (isNaN(t)) return "—";
+  const d = new Date(t);
+  const hh = d.getHours() % 12 || 12;
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${hh}:${String(d.getMinutes()).padStart(2, "0")}${d.getHours() < 12 ? "am" : "pm"}`;
+}
+
+function openHistory() {
+  renderHistoryList();
+  $("#historyModal").classList.add("show");
+}
+
+function renderHistoryList() {
+  const host = $("#historyList");
+  host.innerHTML = "";
+  if (!History.data.length) {
+    host.appendChild(el("div", "queue-empty", "Nothing printed yet — Print All, Save PDF, and single-sign prints will appear here."));
+    return;
+  }
+  for (const h of History.data) {
+    const row = el("div", "batch-row");
+    const info = el("div", "batch-info");
+    const names = (h.items || []).map((q) => queueItemTitle(q)).filter(Boolean);
+    info.appendChild(el("div", "batch-name", `${h.kind === "pdf" ? "PDF" : "🖨 Print"} · ${fmtHistDate(h.at)}`));
+    info.appendChild(el("div", "batch-sub",
+      `${h.signs} sign${h.signs === 1 ? "" : "s"} — ${names.slice(0, 3).join(", ")}${names.length > 3 ? `, +${names.length - 3} more` : ""}`));
+    const load = el("button", "btn btn-secondary btn-sm", "Restore");
+    load.title = "Put this exact set back in the print queue";
+    load.onclick = () => {
+      const prev = Queue.items;
+      Queue.replaceAll(h.items || []);
+      const gen = Queue._gen;
+      $("#historyModal").classList.remove("show");
+      showToast(`Restored ${h.signs} sign${h.signs === 1 ? "" : "s"} from ${fmtHistDate(h.at)} — replaced the queue.`, {
+        undo: () => {
+          // the snapshot is only safe while the queue hasn't diverged
+          if (Queue._gen !== gen) return showToast("The queue changed since the restore — undo unavailable.");
+          Queue.replaceAll(prev);
+        },
+      });
+    };
+    row.appendChild(info);
+    row.appendChild(load);
+    host.appendChild(row);
+  }
 }
 
 let _sheetSeq = 0;
@@ -1306,6 +1551,7 @@ async function exportQueue(print, opts) {
       const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       downloadPdfDoc(doc, `ace-signs-${stamp}.pdf`);
     }
+    History.record(print ? "print" : "pdf", Queue.items);
   } catch (e) {
     alert("Export failed: " + friendlyError(e) + ".");
     console.error(e);
@@ -1352,6 +1598,7 @@ function initBulk() {
             price: si.onSale ? si.sale : (res.price || res.listPrice || ""),
             regPrice: si.onSale ? si.reg : "",
             startDate: App.batchStart, endDate: App.batchEnd,
+            productUrl: res.productUrl || undefined,
             lookedUpAt: res.fetchedAt || new Date().toISOString(),
           };
           let addType = typeId;

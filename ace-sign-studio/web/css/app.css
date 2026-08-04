@@ -207,6 +207,13 @@ label.f-label:first-child{margin-top:0}
 .scale-slider[disabled]{cursor:not-allowed}
 .scale-val{flex:0 0 46px;text-align:right;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-3)}
 
+/* drag-to-resize badge: follows the cursor while dragging a sign element */
+.drag-badge{
+  position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:#fff;
+  font-size:12px;font-weight:700;padding:4px 8px;border-radius:6px;white-space:nowrap;
+  box-shadow:var(--shadow);
+}
+
 /* actions */
 .actions{display:flex;gap:9px;margin-top:16px;position:sticky;bottom:0;padding:10px 0 2px;
   background:linear-gradient(to top,var(--surface) 65%,transparent)}

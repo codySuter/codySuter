@@ -58,6 +58,7 @@
       <div class="mini">
         <button class="mini-btn" id="refreshPricesBtn" title="Re-check store prices for queued signs">↻ Prices</button>
         <button class="mini-btn" id="batchesBtn" title="Save or load a named set of signs">Batches</button>
+        <button class="mini-btn" id="historyBtn" title="What was printed, with one-click restore">History</button>
         <button class="mini-btn" id="clearQueueBtn">Clear</button>
       </div>
     </div>
@@ -211,6 +212,17 @@
   </div>
 </div>
 
+<!-- Print history -->
+<div class="modal-back" id="historyModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Print history</h3><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="f-help">Every Print All, Save PDF, and single-sign print lands here (last 25). Restore puts that exact set back in the queue — prices are as they were printed, so hit ↻ Prices after restoring if it's been a while.</div>
+      <div class="batch-list" id="historyList"></div>
+    </div>
+  </div>
+</div>
+
 <div id="toastHost"></div>
 
 <iframe id="printFrame" style="position:fixed;right:0;bottom:0;width:0;height:0;border:0" title="print"></iframe>
@@ -220,6 +232,7 @@
 <script src="js/util.js"></script>
 <script src="js/changelog.js"></script>
 <script src="js/fonts.js"></script>
+<script src="vendor/qrcode.js"></script>
 <script src="js/barcode.js"></script>
 <script src="js/render-ace.js"></script>
 <script src="js/signtypes.js"></script>
