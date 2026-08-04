@@ -1688,7 +1688,7 @@ function openSettings() {
       printStoreLine: $("#setPrintStoreLine").checked,
       cutGuides: $("#setCutGuides").checked,
       batchPriceCheck: $("#setBatchPriceCheck").checked,
-      syncRepo: $("#setSyncRepo").value.trim(),
+      syncRepo: $("#setSyncRepo").value.trim() || "codysuter/ace-sign-sync",
       syncToken: $("#setSyncToken").value.trim(),
       syncName: $("#setSyncName").value.trim(),
       margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),

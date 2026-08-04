@@ -19,7 +19,7 @@ const Settings = {
     templateSku: "81995",
     keepScaleOnLookup: false, // keep Element sizes sliders when a new SKU's lookup lands
     batchPriceCheck: true,    // launch scan: saved batches vs current store prices
-    syncRepo: "",             // private GitHub repo for multi-PC sync (owner/repo, "" = off)
+    syncRepo: "codysuter/ace-sign-sync", // private GitHub repo for multi-PC sync — prefilled so setup is just the token
     syncToken: "",            // fine-grained token for that repo — local to this PC, never synced
     syncName: "",             // this computer's name, shown on synced history
   },
@@ -250,6 +250,9 @@ async function restoreState() {
   }
   if (state) {
     if (state.settings) Object.assign(Settings.data, state.settings);
+    // 3.0.0 installs saved syncRepo:"" before the default existed — an
+    // empty repo means "use the store default", not "off" (off = no token)
+    if (!String(Settings.data.syncRepo || "").trim()) Settings.data.syncRepo = "codysuter/ace-sign-sync";
     if (Array.isArray(state.queue)) Queue.items = state.queue;
     if (state.batches && typeof state.batches === "object") Batches.data = state.batches;
     if (Array.isArray(state.history)) History.data = state.history;

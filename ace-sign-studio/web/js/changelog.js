@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.0.1",
+    date: "August 2026",
+    notes: [
+      "Simpler sync setup: the sync repo is filled in for you — turning on sync is now just pasting the store's sync token and naming the computer. The repo field moved under “advanced”.",
+    ],
+  },
+  {
     version: "3.0.0",
     date: "August 2026",
     notes: [

@@ -121,13 +121,19 @@
       <label class="f-check"><input type="checkbox" id="setPrintStoreLine"> Print the store line at the bottom of signs</label>
       <label class="f-check"><input type="checkbox" id="setCutGuides"> Cut guides on multi-sign sheets</label>
       <label class="f-check"><input type="checkbox" id="setBatchPriceCheck"> At launch, check saved batches for price changes and offer reprints</label>
-      <label class="f-label">Sync between computers (private GitHub repo)</label>
-      <input class="f-input" id="setSyncRepo" placeholder="e.g. codysuter/ace-sign-sync" autocomplete="off">
-      <input class="f-input" id="setSyncToken" type="password" placeholder="Fine-grained token — Contents read &amp; write on that repo" autocomplete="off" style="margin-top:6px">
+      <label class="f-label">Sync between computers</label>
+      <input class="f-input" id="setSyncToken" type="password" placeholder="Paste the store sync token — same token on every computer" autocomplete="off">
       <div class="f-row" style="margin-top:6px">
         <input class="f-input" id="setSyncName" placeholder="This computer's name (e.g. Front Desk)">
       </div>
-      <div class="f-help">Saved batches and print history stay in sync on every computer pointed at the same repo. The print queue stays per-computer — save it as a batch to hand it to another PC. The token is stored only on this computer.</div>
+      <div class="f-help">Paste the store's sync token and saved batches &amp; print history stay identical on every computer. The print queue stays per-computer — save it as a batch to hand it to another PC. The token is stored only on this computer.</div>
+      <details class="bulk-box" style="margin-top:6px">
+        <summary>Sync repo (advanced)</summary>
+        <div class="bulk-inner">
+          <input class="f-input" id="setSyncRepo" placeholder="codysuter/ace-sign-sync" autocomplete="off">
+          <div class="f-help">The private GitHub repo holding the sync data. Leave as-is unless the store moves it.</div>
+        </div>
+      </details>
       <div class="f-help" id="syncStatus" style="font-weight:600"></div>
       <label class="f-label">Sheet packing margin (inches)</label>
       <input class="f-input" id="setMargin" type="number" step="0.025" min="0.25" max="0.6">
