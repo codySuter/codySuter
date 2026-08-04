@@ -33,6 +33,18 @@ function supBaseline(base, S, glyphSize, glyphTopEm) {
   return base - (DIGIT_TOP_EM * S - glyphTopEm * glyphSize);
 }
 
+/* ---------- element size sliders ----------
+   spec.scale = {logo, image, name, price, detail, footer} — factors from
+   the editor's "Element sizes" sliders, 1 = the automatic layout. The
+   layout treats them as preferences and re-balances: when a boosted
+   element no longer fits, every flexible element shrinks proportionally,
+   so nothing can overlap a neighbor or run off the sign. */
+const SCALE_MIN = 0.5, SCALE_MAX = 1.6;
+function elemScale(spec, key) {
+  const v = spec && spec.scale ? parseFloat(spec.scale[key]) : NaN;
+  return isNaN(v) ? 1 : Math.min(SCALE_MAX, Math.max(SCALE_MIN, v));
+}
+
 /* ---------- low-level svg builders ---------- */
 
 function svgText(x, y, text, family, size, fill, opts) {
@@ -76,10 +88,13 @@ function datePill(rightX, topY, text, fontSize) {
 /* Header: Ace logo top-left + optional red date pill top-right.
    Returns content-top y. Logo natural aspect ≈ 1.856. The logo can be
    toggled off (spec.showLogo === false); the layout reflows. */
-function signHeader(W, H, frame, logoURI, datesText, small, noLogo) {
+function signHeader(W, H, frame, logoURI, datesText, small, noLogo, logoScale) {
   const m = frame.margin;
   const pad = Math.max(8, Math.min(W, H) * 0.022);
-  const logoH = Math.max(22, Math.min(H * (small ? 0.15 : 0.115), 92));
+  // slider-scaled, but never taller than a quarter of the sign nor wider
+  // than ~55% of it — the date pill keeps its top-right corner
+  let logoH = Math.max(22, Math.min(H * (small ? 0.15 : 0.115), 92)) * (logoScale || 1);
+  logoH = Math.max(16, Math.min(logoH, H * 0.25, ((W - 2 * (m + pad)) * 0.55) / 1.856));
   const logoW = logoH * 1.856;
   let markup = "";
   if (!noLogo) {
@@ -179,11 +194,12 @@ function nameBlock(cx, top, name, maxW, targetSize, minSize) {
   return { markup, h: fit.lines.length * (size + lineGap) };
 }
 
-function skuFooter(W, H, frame, sku, detail, storeLine, barcode) {
+function skuFooter(W, H, frame, sku, detail, storeLine, barcode, scale) {
+  const f = scale || 1;
   const m = frame.margin;
   const cx = W / 2;
   let markup = "";
-  const skuSize = Math.max(8.5, Math.min(15, H * 0.023));
+  const skuSize = Math.max(7, Math.min(Math.max(8.5, Math.min(15, H * 0.023)) * f, H * 0.04));
   const bottomPad = Math.max(6, H * 0.014);
   let y = H - m - bottomPad;
   if (storeLine) {
@@ -196,8 +212,9 @@ function skuFooter(W, H, frame, sku, detail, storeLine, barcode) {
     // only a real 4–9 digit item number becomes a barcode — a pasted URL
     // or search phrase in the SKU field must not print as scannable noise
     if (barcode && /^\d{4,9}$/.test(String(sku)) && typeof code128Rects === "function") {
-      const bcH = Math.max(15, Math.min(30, H * 0.045));
-      const bw = Math.min(W * 0.5, Math.max(112, W * 0.24));
+      const bcH = Math.min(H * 0.07, Math.max(12, Math.max(15, Math.min(30, H * 0.045)) * f));
+      // width grows gently with the slider — bar spacing stays scannable
+      const bw = Math.min(W * 0.5, Math.max(112, W * 0.24) * (0.6 + 0.4 * f));
       const dsize = skuSize * 0.95;
       const barsTop = y - dsize * 1.05 - bcH;
       const bc = code128Rects(sku, cx - bw / 2, barsTop, bw, bcH, INK);
@@ -231,8 +248,8 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const logoURI = noLogo ? null : await getLogoURI();
   const dates = formatSaleDates(spec.startDate, spec.endDate);
   const small = Math.min(Win, Hin) <= 5.6;
-  const header = signHeader(W, H, frame, logoURI, dates, small, noLogo);
-  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode);
+  const header = signHeader(W, H, frame, logoURI, dates, small, noLogo, elemScale(spec, "logo"));
+  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"));
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
 
@@ -250,14 +267,39 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const contentBottom = H - frame.margin - footer.reserved;
   const contentH = contentBottom - contentTop;
 
-  const nameTarget = Math.max(13, H * 0.058);
-  const priceH = priceAreaFrac > 0 ? contentH * priceAreaFrac : 0;
-  const gap = Math.max(5, H * 0.012);
+  const scImage = elemScale(spec, "image");
+  const scName = elemScale(spec, "name");
+  const scPrice = elemScale(spec, "price");
 
-  // name measured first so the image can absorb leftover space
-  const nameProbe = spec.name ? balancedLines(spec.name, "RobotoBold", nameTarget, maxW, 2) : { size: 0, lines: [] };
-  const nameH = spec.name ? nameProbe.lines.length * (Math.max(9, nameProbe.size) * 1.16) : 0;
-  const imgH = imgURI ? Math.max(0, contentH - priceH - nameH - gap * 2.5) : 0;
+  const nameTarget = Math.max(13, H * 0.058);
+  const gap = Math.max(5, H * 0.012);
+  const probeName = (target) => {
+    if (!spec.name) return { size: 0, lines: [], h: 0 };
+    const p = balancedLines(spec.name, "RobotoBold", target, maxW, 2);
+    p.h = p.lines.length * (Math.max(9, p.size) * 1.16);
+    return p;
+  };
+
+  // Base allocation (all sliders at 100%): name measured first so the
+  // image can absorb leftover space, price area a fixed fraction.
+  const priceBase = priceAreaFrac > 0 ? contentH * priceAreaFrac : 0;
+  const baseName = probeName(nameTarget);
+  const imgBase = imgURI ? Math.max(0, contentH - priceBase - baseName.h - gap * 2.5) : 0;
+
+  // Sliders scale each element's share of the zone; when the boosted total
+  // no longer fits, every share shrinks proportionally — a bigger photo
+  // squeezes the name and price instead of covering them.
+  let priceH = priceBase * scPrice;
+  let nameFit = scName === 1 ? baseName : probeName(nameTarget * scName);
+  let imgH = imgBase * scImage;
+  const room = contentH - gap * 2.5;
+  const want = priceH + nameFit.h + imgH;
+  if (want > room && want > 0) {
+    const k = room / want;
+    priceH *= k;
+    imgH *= k;
+    nameFit = probeName(Math.max(9, nameTarget * scName * k));
+  }
 
   let y = contentTop;
   let markup = frame.markup + header.markup;
@@ -271,15 +313,18 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   if (spec.name) {
     // with no price area, the name centers in the remaining space
     if (priceAreaFrac === 0 && !imgURI) {
-      y += Math.max(0, (contentBottom - y - nameH) / 2);
+      y += Math.max(0, (contentBottom - y - nameFit.h) / 2);
     }
-    const nb = nameBlock(cx, y, spec.name, maxW, nameTarget);
+    const nb = nameBlock(cx, y, spec.name, maxW, nameFit.size);
     markup += nb.markup;
     y += nb.h + gap * 0.6;
   }
   if (priceAreaFrac > 0) {
-    const availH = Math.max(24, contentBottom - y);
-    const pa = priceArea(cx, y, maxW, availH, spec);
+    // the price area absorbs whatever is left; a shrunk price slider takes
+    // a centered share of that instead of stretching back to fill it
+    const remaining = Math.max(24, contentBottom - y);
+    const availH = scPrice < 1 ? Math.max(24, remaining * scPrice) : remaining;
+    const pa = priceArea(cx, y + (remaining - availH) / 2, maxW, availH, spec);
     markup += pa.markup;
   }
   markup += footer.markup;
@@ -669,8 +714,8 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
   const noLogo = spec.showLogo === false;
   const logoURI = noLogo ? null : await getLogoURI();
   const dates = formatSaleDates(spec.startDate, spec.endDate);
-  const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6, noLogo);
-  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode);
+  const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6, noLogo, elemScale(spec, "logo"));
+  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"));
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
   let markup = frame.markup + header.markup + footer.markup;
@@ -683,13 +728,24 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
   const contentBottom = H - frame.margin - footer.reserved;
   const contentH = contentBottom - contentTop;
   const hasPrice = !!spec.price;
-  const priceH = hasPrice ? contentH * 0.3 : 0;
-  const imgH = imgURI ? contentH * 0.3 : 0;
+  // sliders re-balance the three zones, but the name stays the hero:
+  // price + photo together may never take more than 2/3 of the space
+  let priceH = hasPrice ? contentH * 0.3 * elemScale(spec, "price") : 0;
+  let imgH = imgURI ? contentH * 0.3 * elemScale(spec, "image") : 0;
+  const over = (priceH + imgH) / (contentH * 0.66);
+  if (over > 1) { priceH /= over; imgH /= over; }
   const nameH = contentH - priceH - imgH;
 
-  const fit = balancedLines(spec.name || "", "RobotoBlack", nameH * (spec.name && spec.name.length < 14 ? 0.62 : 0.5), maxW, 2);
-  const lineGap = fit.size * 0.14;
-  const totalNameH = fit.lines.length * (fit.size + lineGap);
+  const fit = balancedLines(spec.name || "", "RobotoBlack", nameH * (spec.name && spec.name.length < 14 ? 0.62 : 0.5) * elemScale(spec, "name"), maxW, 2);
+  let lineGap = fit.size * 0.14;
+  let totalNameH = fit.lines.length * (fit.size + lineGap);
+  if (totalNameH > nameH) {
+    // a boosted name may not spill into the photo/price zones below
+    const k = nameH / totalNameH;
+    fit.size *= k;
+    lineGap *= k;
+    totalNameH = nameH;
+  }
   let y = contentTop + Math.max(0, (nameH - totalNameH) / 2) + fit.size * 0.9;
   for (const line of fit.lines) {
     markup += svgText(cx, y, line, "RobotoBlack", fit.size, INK);
@@ -727,18 +783,25 @@ AceRenderers.text_only = async (spec, W_in, H_in) => {
   const noLogo = spec.showLogo === false;
   const logoURI = noLogo ? null : await getLogoURI();
   const dates = formatSaleDates(spec.startDate, spec.endDate);
-  const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6, noLogo);
-  const footer = skuFooter(W, H, frame, spec.sku, "", spec.storeLine);
+  const header = signHeader(W, H, frame, logoURI, dates, Math.min(W_in, H_in) <= 5.6, noLogo, elemScale(spec, "logo"));
+  const footer = skuFooter(W, H, frame, spec.sku, "", spec.storeLine, false, elemScale(spec, "footer"));
   const cx = W / 2;
   const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
   let markup = frame.markup + header.markup + footer.markup;
   const contentTop = header.contentTop;
   const contentBottom = H - frame.margin - footer.reserved;
   const contentH = contentBottom - contentTop;
-  const subH = spec.detail ? contentH * 0.18 : 0;
-  const fit = balancedLines(spec.name || "", "RobotoBlack", (contentH - subH) * 0.5, maxW, 2);
-  const lineGap = fit.size * 0.14;
-  const totalH = fit.lines.length * (fit.size + lineGap);
+  const subH = spec.detail ? Math.min(contentH * 0.35, contentH * 0.18 * elemScale(spec, "detail")) : 0;
+  const fit = balancedLines(spec.name || "", "RobotoBlack", (contentH - subH) * 0.5 * elemScale(spec, "name"), maxW, 2);
+  let lineGap = fit.size * 0.14;
+  let totalH = fit.lines.length * (fit.size + lineGap);
+  if (totalH > contentH - subH) {
+    // a boosted message may not run into the small line or the footer
+    const k = (contentH - subH) / totalH;
+    fit.size *= k;
+    lineGap *= k;
+    totalH = contentH - subH;
+  }
   let y = contentTop + Math.max(0, (contentH - subH - totalH) / 2) + fit.size * 0.88;
   for (const line of fit.lines) {
     markup += svgText(cx, y, line, "RobotoBlack", fit.size, INK);

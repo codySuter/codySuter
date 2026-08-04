@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="2.5.0"
+VERSION="2.6.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Warns before printing prices that have not been checked recently, and hardens the built-in updater."
+NOTES="New Element sizes sliders on every sign (the layout auto-fits so nothing overlaps), plus a launch check of saved batches that offers to reprint signs whose store price changed."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"

@@ -37,6 +37,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
   loadTemplateProduct();
   checkForUpdate();
+  scanBatchPricesAtLaunch();
   $("#settingsBtn").onclick = openSettings;
   $("#homeBtn").onclick = showGallery;
   $("#clearQueueBtn").onclick = clearQueueWithUndo;
@@ -461,6 +462,7 @@ function buildEditorFields(t) {
       inp.addEventListener("input", () => { App.spec.sku = inp.value.trim(); });
       attachAutoLookup(inp, status, (res, si) => {
         App.spec.sku = res.sku || inp.value.trim();
+        maybeResetScaleForNewSku(App.spec.sku, t, host);
         // prefer the server's fetch time — cached results carry the
         // ORIGINAL lookup time, so the stale badge stays honest
         App.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
@@ -574,6 +576,7 @@ function buildEditorFields(t) {
     else host.appendChild(inp);
   }
   buildToggleChips(t, host);
+  buildScaleSliders(t, host);
 }
 
 function buildToggleChips(t, host) {
@@ -595,11 +598,97 @@ function buildToggleChips(t, host) {
     c.onclick = () => {
       App.spec.hide[tg.key] = !App.spec.hide[tg.key];
       buildToggleChips(t, host);
+      buildScaleSliders(t, host); // hidden elements gray out their slider
       schedulePreview();
     };
     row.appendChild(c);
   }
   wrap.appendChild(row);
+}
+
+/* Element size sliders — writes spec.scale.{key} (0.5–1.6, 1 = automatic).
+   The renderers re-balance the layout around whatever is boosted, so
+   growing the photo shrinks the name/price to fit instead of colliding. */
+function buildScaleSliders(t, host) {
+  const defs = scalablesForType(t);
+  if (!defs.length) return;
+  let wrap = $("#scaleWrap", host);
+  if (!wrap) {
+    wrap = el("div");
+    wrap.id = "scaleWrap";
+    host.appendChild(wrap);
+  }
+  wrap.innerHTML = "";
+  const sc = App.spec.scale || (App.spec.scale = {});
+  const head = el("div", "scale-head");
+  head.appendChild(labelEl("Element sizes — the sign re-fits itself around your changes"));
+  const reset = el("button", "btn btn-ghost btn-sm", "Reset");
+  reset.title = "Back to the automatic layout";
+  const updateReset = () => {
+    reset.disabled = !defs.some((d) => sc[d.key] && sc[d.key] !== 1);
+  };
+  reset.onclick = () => {
+    App.spec.scale = {};
+    buildScaleSliders(t, host);
+    schedulePreview();
+  };
+  head.appendChild(reset);
+  wrap.appendChild(head);
+  for (const d of defs) {
+    const row = el("div", "scale-row");
+    const hidden = !!(App.spec.hide && App.spec.hide[d.key]);
+    if (hidden) row.classList.add("off");
+    row.appendChild(el("span", "scale-name", d.label));
+    const slider = el("input", "scale-slider");
+    slider.type = "range";
+    slider.min = "50";
+    slider.max = "160";
+    slider.step = "5";
+    slider.value = String(Math.round((sc[d.key] || 1) * 100));
+    slider.disabled = hidden;
+    slider.title = "Double-click to reset to 100%";
+    const val = el("span", "scale-val", hidden ? "hidden" : slider.value + "%");
+    slider.addEventListener("input", () => {
+      sc[d.key] = parseInt(slider.value, 10) / 100;
+      // remember which product these sizes were tuned for, so a new
+      // SKU's lookup knows whether to keep or reset them
+      App.spec._scaleSku = String(App.spec.sku || "");
+      val.textContent = slider.value + "%";
+      updateReset();
+      schedulePreview();
+    });
+    slider.addEventListener("dblclick", () => {
+      slider.value = "100";
+      slider.dispatchEvent(new Event("input"));
+    });
+    row.appendChild(slider);
+    row.appendChild(val);
+    wrap.appendChild(row);
+  }
+  updateReset();
+  const keep = el("label", "f-check");
+  const cb = el("input");
+  cb.type = "checkbox";
+  cb.checked = !!Settings.get().keepScaleOnLookup;
+  cb.onchange = () => Settings.set({ keepScaleOnLookup: cb.checked });
+  keep.appendChild(cb);
+  keep.appendChild(document.createTextNode("Keep these sizes when a new SKU is looked up"));
+  keep.title = "Off: a new product goes back to the automatic layout. On: your slider settings carry over.";
+  wrap.appendChild(keep);
+}
+
+/* A different product usually wants the automatic layout back: unless the
+   keep toggle is on, slider adjustments tuned for a previous SKU are
+   cleared when a new SKU's lookup lands. Re-looking-up the same SKU
+   (blur, price refresh) never clears them. */
+function maybeResetScaleForNewSku(newSku, t, host) {
+  const sc = App.spec.scale;
+  const tuned = sc && Object.keys(sc).some((k) => sc[k] && sc[k] !== 1);
+  if (!tuned || Settings.get().keepScaleOnLookup) return;
+  if (App.spec._scaleSku != null && String(newSku) === App.spec._scaleSku) return;
+  App.spec.scale = {};
+  delete App.spec._scaleSku;
+  buildScaleSliders(t, host);
 }
 
 function labelEl(text) { return el("label", "f-label", text); }
@@ -866,6 +955,37 @@ function showToast(text, opts) {
 const PRICE_REFRESH_TYPES = { regular: true, sale: true, large_text: true };
 let _refreshingPrices = false;
 
+/* Apply a lookup result to a sign item ({typeId, spec}) — the shared rules
+   behind the queue's ↻ Prices button and the launch batch scan. Returns
+   null when the lookup carried no price data (the sign must never be
+   rewritten from nothing — a Sale sign demoted that way would print its
+   discount as the regular price), else whether type/prices changed. */
+function applyPriceResult(q, res) {
+  const si = res.ok ? saleInfo(res) : { onSale: false };
+  const plain = res.ok ? (res.price || res.listPrice || "") : "";
+  if (!res.ok || (!si.onSale && !plain)) return null;
+  const before = `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
+  if (si.onSale) {
+    if (q.typeId === "regular") q.typeId = "sale";
+    if (q.typeId === "sale") { q.spec.price = si.sale; q.spec.regPrice = si.reg; }
+    else q.spec.price = si.sale;
+  } else {
+    if (q.typeId === "sale") {
+      q.typeId = "regular";
+      q.spec.regPrice = "";
+      // the sale's date pill has no field on a Regular sign — drop it
+      q.spec.startDate = "";
+      q.spec.endDate = "";
+    }
+    q.spec.price = plain;
+  }
+  // photos refresh only when the sign already shows one — a hidden
+  // or never-fetched photo must not reappear
+  if (res.imageUrl && q.spec.image && !q.spec._customImage) q.spec.image = res.imageUrl;
+  q.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
+  return before !== `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
+}
+
 async function refreshQueuePrices() {
   if (_refreshingPrices) return;
   const refreshable = (q) => String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId] && q.uid !== App.editingUid;
@@ -887,34 +1007,11 @@ async function refreshQueuePrices() {
     btn.textContent = `↻ ${++done}/${targets.length}`;
     try {
       const res = await fetch(`/api/lookup?q=${encodeURIComponent(q.spec.sku)}&refresh=1&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
-      const si = res.ok ? saleInfo(res) : { onSale: false };
-      const plain = res.ok ? (res.price || res.listPrice || "") : "";
-      if (!res.ok || (!si.onSale && !plain)) {
-        // a lookup with no price data must never rewrite a sign — a Sale
-        // sign demoted here would print its discount as the regular price
-        failed++;
-      } else {
-        const before = `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
-        if (si.onSale) {
-          if (q.typeId === "regular") q.typeId = "sale";
-          if (q.typeId === "sale") { q.spec.price = si.sale; q.spec.regPrice = si.reg; }
-          else q.spec.price = si.sale;
-        } else {
-          if (q.typeId === "sale") {
-            q.typeId = "regular";
-            q.spec.regPrice = "";
-            // the sale's date pill has no field on a Regular sign — drop it
-            q.spec.startDate = "";
-            q.spec.endDate = "";
-          }
-          q.spec.price = plain;
-        }
-        // photos refresh only when the sign already shows one — a hidden
-        // or never-fetched photo must not reappear
-        if (res.imageUrl && q.spec.image && !q.spec._customImage) q.spec.image = res.imageUrl;
-        q.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
+      const r = applyPriceResult(q, res);
+      if (r == null) failed++;
+      else {
         Queue._bumpRev(q); // spec mutated in place — drop its cached SVG
-        if (before !== `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`) changed++;
+        if (r) changed++;
       }
     } catch (e) { failed++; }
     await runOne();
@@ -1001,6 +1098,94 @@ function renderBatchList() {
     row.appendChild(del);
     host.appendChild(row);
   }
+}
+
+/* ---------------- launch batch price scan ----------------
+   At launch, every saved batch is checked against current store prices
+   (Regular/Sale/Large Text signs with a SKU — the same set the queue's
+   ↻ Prices button refreshes). When prices moved, a banner offers to queue
+   just the changed signs for reprint; accepting also writes the new
+   prices back into the batches so they stay current. */
+const BATCH_SCAN_KEY = "acesignstudio.batchscan.v1";
+
+async function scanBatchPricesAtLaunch() {
+  if (!Settings.get().batchPriceCheck) return;
+  const targets = []; // {name, q} — q is the live stored batch item
+  for (const name of Batches.names()) {
+    for (const q of Batches.data[name].items || []) {
+      if (q.spec && String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId]) {
+        targets.push({ name, q });
+      }
+    }
+  }
+  if (!targets.length) return;
+  // a crash-loop / quick relaunch shouldn't hammer acehardware.com —
+  // skip only if a scan finished within the last 30 minutes
+  try {
+    const last = Date.parse(localStorage.getItem(BATCH_SCAN_KEY) || "");
+    if (!isNaN(last) && Date.now() - last < 30 * 60000) return;
+  } catch (e) {}
+
+  const skus = [...new Set(targets.map((t) => String(t.q.spec.sku).trim()))];
+  const bySku = new Map();
+  const work = skus.slice();
+  const runOne = async () => {
+    const sku = work.shift();
+    if (sku == null) return;
+    try {
+      const res = await fetch(`/api/lookup?q=${encodeURIComponent(sku)}&refresh=1&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
+      if (res.ok) bySku.set(sku, res);
+    } catch (e) { /* offline / backend gone — just no offer this launch */ }
+    await runOne();
+  };
+  await Promise.all(Array.from({ length: Math.min(3, skus.length) }, runOne));
+  if (!bySku.size) return;
+  try { localStorage.setItem(BATCH_SCAN_KEY, new Date().toISOString()); } catch (e) {}
+
+  // apply to copies first — the stored batches only change if the user accepts
+  const changed = []; // {name, stored, updated}
+  for (const t of targets) {
+    const res = bySku.get(String(t.q.spec.sku).trim());
+    if (!res) continue;
+    const updated = JSON.parse(JSON.stringify(t.q));
+    if (applyPriceResult(updated, res)) changed.push({ name: t.name, stored: t.q, updated });
+  }
+  if (changed.length) showBatchPriceBar(changed);
+}
+
+function showBatchPriceBar(changed) {
+  const bar = $("#batchPriceBar");
+  if (!bar) return;
+  const batches = [...new Set(changed.map((c) => c.name))];
+  const bList = batches.slice(0, 3).map((b) => `“${b}”`).join(", ") + (batches.length > 3 ? ` +${batches.length - 3} more` : "");
+  // a sign saved in several batches counts (and prints) once
+  const n = new Set(changed.map((c) => `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`)).size;
+  $("#batchPriceText").innerHTML =
+    `<b>Store prices changed</b> — ${n} sign${n === 1 ? " in a" : "s in"} saved batch${batches.length === 1 ? "" : "es"} (${esc(bList)}) ` +
+    `no longer match${n === 1 ? "es" : ""} the shelf price. Queue them to print replacements — the batches update to the new prices too.`;
+  $("#batchPriceQueueBtn").onclick = () => {
+    const seen = new Set();
+    let added = 0;
+    for (const c of changed) {
+      // write the new price/type into the stored batch item; the rev bump
+      // keeps a later "Load batch" from serving the old price out of the
+      // rendered-SVG cache (batch items keep their uid when reloaded)
+      c.stored.typeId = c.updated.typeId;
+      c.stored.spec = c.updated.spec;
+      Queue._bumpRev(c.stored);
+      // the same sign saved in several batches prints once
+      const key = `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      Queue.add(c.updated.typeId, c.updated.sizeId, c.updated.spec, c.updated.copies || 1);
+      added++;
+    }
+    persistState();
+    bar.classList.remove("show");
+    showToast(`Queued ${added} updated sign${added === 1 ? "" : "s"} — the saved batches now carry the new prices.`);
+  };
+  $("#batchPriceDismiss").onclick = () => bar.classList.remove("show");
+  bar.classList.add("show");
 }
 
 let _sheetSeq = 0;
@@ -1231,6 +1416,7 @@ function openSettings() {
   $("#setStoreLine").value = s.storeLine;
   $("#setPrintStoreLine").checked = !!s.printStoreLine;
   $("#setCutGuides").checked = !!s.cutGuides;
+  $("#setBatchPriceCheck").checked = !!s.batchPriceCheck;
   $("#setMargin").value = String(s.margin);
   $("#setTemplateSku").value = s.templateSku || "81995";
   initSettingsUpdates();
@@ -1242,6 +1428,7 @@ function openSettings() {
       storeLine: $("#setStoreLine").value.trim(),
       printStoreLine: $("#setPrintStoreLine").checked,
       cutGuides: $("#setCutGuides").checked,
+      batchPriceCheck: $("#setBatchPriceCheck").checked,
       margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),
       templateSku: $("#setTemplateSku").value.trim() || "81995",
     });

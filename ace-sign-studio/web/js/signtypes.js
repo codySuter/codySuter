@@ -233,6 +233,34 @@ function togglesForType(t) {
   return (t.hideable || []).map((k) => ({ key: k, label: TOGGLE_DEFS[k].label }));
 }
 
+/* ---------- per-element size sliders ----------
+   Each sign type exposes a size slider per major element. The factors
+   live on the spec (spec.scale = {key: 0.5–1.6}, 1 = automatic); the
+   renderers treat them as preferences and re-balance the layout so a
+   boosted element squeezes its neighbors instead of overlapping them. */
+const SCALE_DEFS = {
+  logo: "Ace logo",
+  image: "Photo",
+  name: "Name",
+  price: "Price / promo",
+  detail: "Small line",
+  footer: "SKU & footer",
+};
+
+function scalablesForType(t) {
+  const has = (k) => t.fields.some((f) => f.key === k);
+  const keys = ["logo"];
+  if (has("image")) keys.push("image");
+  if (has("name")) keys.push("name");
+  if (t.id !== "text_only") keys.push("price"); // every other type draws a price/promo block
+  else keys.push("detail"); // Text Only's small line under the message
+  if (has("sku")) keys.push("footer");
+  return keys.map((k) => ({
+    key: k,
+    label: t.id === "text_only" && k === "name" ? "Message" : SCALE_DEFS[k],
+  }));
+}
+
 function applyHiddenFields(spec, hide) {
   for (const k of Object.keys(hide || {})) {
     if (hide[k] && TOGGLE_DEFS[k]) TOGGLE_DEFS[k].apply(spec);

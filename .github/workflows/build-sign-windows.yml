@@ -99,8 +99,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Create the release with no assets so it publishes immediately,
+          # then upload the files to it. Passing assets to `gh release
+          # create` goes through a hidden draft phase — create draft,
+          # upload, publish — and if that last publish silently fails the
+          # release is stuck as an unlisted draft with a dead download URL
+          # (which happened once: the run was green, the download 404'd).
+          # Stale drafts from such failures don't match the tag lookup, so
+          # sweep them by name first.
           gh release delete ace-sign-studio-windows --yes --cleanup-tag || true
-          gh release create ace-sign-studio-windows ../dist/AceSignStudio.exe ../dist/version.json \
+          gh api repos/${GITHUB_REPOSITORY}/releases --paginate \
+            --jq '.[] | select(.draft and .tag_name == "ace-sign-studio-windows") | .id' |
+            while read -r id; do gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/$id"; done
+          gh release create ace-sign-studio-windows \
             --title "Ace Sign Studio for Windows" \
             --notes "Latest Windows build. Download **AceSignStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**. Installed copies self-update from this release via version.json." \
             --target "$GITHUB_SHA"
+          gh release upload ace-sign-studio-windows ../dist/AceSignStudio.exe ../dist/version.json
