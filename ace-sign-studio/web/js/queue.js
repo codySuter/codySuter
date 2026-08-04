@@ -19,6 +19,9 @@ const Settings = {
     templateSku: "81995",
     keepScaleOnLookup: false, // keep Element sizes sliders when a new SKU's lookup lands
     batchPriceCheck: true,    // launch scan: saved batches vs current store prices
+    syncRepo: "",             // private GitHub repo for multi-PC sync (owner/repo, "" = off)
+    syncToken: "",            // fine-grained token for that repo — local to this PC, never synced
+    syncName: "",             // this computer's name, shown on synced history
   },
   get() { return this.data; },
   set(patch) { Object.assign(this.data, patch); persistState(); },
@@ -110,19 +113,24 @@ const Queue = {
   },
 };
 
-/* Named batches: snapshots of the whole queue, saved under a name. */
+/* Named batches: snapshots of the whole queue, saved under a name.
+   Deleting keeps a tombstone ({deletedAt}, no items) instead of removing
+   the key — without one, multi-PC sync would resurrect every deleted
+   batch from the other computers' copies. Tombstones are pruned after
+   60 days (restoreState). */
 const Batches = {
-  data: {}, // name -> {items, savedAt}
+  data: {}, // name -> {items, savedAt} | {deletedAt}
   names() {
-    return Object.keys(this.data).sort((a, b) =>
-      String(this.data[b].savedAt || "").localeCompare(String(this.data[a].savedAt || "")));
+    return Object.keys(this.data)
+      .filter((n) => this.data[n] && this.data[n].items)
+      .sort((a, b) => String(this.data[b].savedAt || "").localeCompare(String(this.data[a].savedAt || "")));
   },
   save(name) {
     this.data[name] = { items: JSON.parse(JSON.stringify(Queue.items)), savedAt: new Date().toISOString() };
     persistState();
   },
   remove(name) {
-    delete this.data[name];
+    this.data[name] = { deletedAt: new Date().toISOString() };
     persistState();
   },
 };
@@ -138,10 +146,12 @@ const History = {
     const snap = JSON.parse(JSON.stringify(items || []));
     if (!snap.length) return;
     this.data.unshift({
+      uid: "h-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8), // sync dedupe key
       at: new Date().toISOString(),
       kind,
       signs: snap.reduce((a, q) => a + (q.copies || 1), 0),
       items: snap,
+      by: String(Settings.get().syncName || "").trim() || undefined, // which computer printed it
     });
     if (this.data.length > this.MAX) this.data.length = this.MAX;
     persistState();
@@ -212,6 +222,9 @@ function persistState() {
       await fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: json });
     } catch (e) {}
   }, 400);
+  // local changes should reach the other store computers soon, not on the
+  // next 20s poll (no-op when sync is off; converges to no writes)
+  if (typeof Sync !== "undefined") Sync.request();
 }
 
 /* The debounce loses the last mutation if the window closes inside the
@@ -240,6 +253,16 @@ async function restoreState() {
     if (Array.isArray(state.queue)) Queue.items = state.queue;
     if (state.batches && typeof state.batches === "object") Batches.data = state.batches;
     if (Array.isArray(state.history)) History.data = state.history;
+  }
+  // sync migrations: pre-3.0 history rows have no uid (the sync dedupe
+  // key), and batch tombstones only matter for 60 days
+  History.data.forEach((h) => {
+    if (h && !h.uid) h.uid = "h-" + (Date.parse(h.at) || 0) + "-" + Math.random().toString(36).slice(2, 8);
+  });
+  const tombCutoff = Date.now() - 60 * 86400000;
+  for (const n of Object.keys(Batches.data)) {
+    const b = Batches.data[n];
+    if (b && !b.items && (Date.parse(b.deletedAt || 0) || 0) < tombCutoff) delete Batches.data[n];
   }
   // drop queue entries whose sign type isn't registered
   Queue.items = Queue.items.filter((q) => typeById(q.typeId));

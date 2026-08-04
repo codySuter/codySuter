@@ -8,6 +8,7 @@ package main
 
 import (
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -30,7 +32,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "2.7.0"
+var appVersion = "3.0.0"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -65,6 +67,7 @@ func main() {
 	mux.HandleFunc("/api/lookup", handleLookup)
 	mux.HandleFunc("/api/img", handleImageProxy)
 	mux.HandleFunc("/api/state", handleState)
+	mux.HandleFunc("/api/sync/github", handleSyncGithub)
 	mux.HandleFunc("/api/update/check", handleUpdateCheck)
 	mux.HandleFunc("/api/update/apply", handleUpdateApply)
 	mux.HandleFunc("/api/support", handleSupport)
@@ -207,7 +210,196 @@ func requireLoopbackHost(next http.Handler) http.Handler {
 }
 
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, map[string]any{"ok": true, "version": appVersion})
+	host, _ := os.Hostname()
+	writeJSON(w, map[string]any{"ok": true, "version": appVersion, "host": host})
+}
+
+// ---------------- multi-PC sync via a private GitHub repo ----------------
+//
+// The sync store is a single JSON file in a private repo the store owns
+// (e.g. codysuter/ace-sign-sync). Each PC pastes a fine-grained token
+// (Contents read/write on that one repo) into Settings; the frontend owns
+// the merge logic and this endpoint just proxies the GitHub Contents API,
+// keeping the token out of third-party requests made by the page.
+//
+// GitHub's sha-guarded PUT gives compare-and-swap: when two PCs write at
+// once, the loser gets {conflict:true}, re-pulls, re-merges, and retries —
+// no torn writes, unlike a plain shared file.
+//
+// The token stays in this PC's local state.json and is sent only to
+// api.github.com; it is never part of the synced document itself.
+
+var githubAPIBase = "https://api.github.com" // overridden in tests
+
+const syncRepoFile = "acesignstudio-sync.json"
+
+var syncHTTP = &http.Client{Timeout: 20 * time.Second}
+
+type syncGithubReq struct {
+	Op    string          `json:"op"` // "get" | "put"
+	Repo  string          `json:"repo"`
+	Token string          `json:"token"`
+	Sha   string          `json:"sha,omitempty"`
+	Doc   json.RawMessage `json:"doc,omitempty"`
+	By    string          `json:"by,omitempty"` // computer name for the commit message
+}
+
+var syncRepoRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+
+func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mt != "application/json" {
+		http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 32<<20))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var req syncGithubReq
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	req.Repo = strings.TrimSpace(req.Repo)
+	req.Token = strings.TrimSpace(req.Token)
+	if !syncRepoRe.MatchString(req.Repo) {
+		writeJSON(w, map[string]any{"ok": false, "error": "sync repo must look like owner/repo (e.g. codysuter/ace-sign-sync)"})
+		return
+	}
+	if req.Token == "" {
+		writeJSON(w, map[string]any{"ok": false, "error": "paste the GitHub token for the sync repo"})
+		return
+	}
+	url := fmt.Sprintf("%s/repos/%s/contents/%s", githubAPIBase, req.Repo, syncRepoFile)
+
+	ghDo := func(method string, payload any) (*http.Response, []byte, error) {
+		var rd io.Reader
+		if payload != nil {
+			b, _ := json.Marshal(payload)
+			rd = strings.NewReader(string(b))
+		}
+		greq, err := http.NewRequest(method, url, rd)
+		if err != nil {
+			return nil, nil, err
+		}
+		greq.Header.Set("Authorization", "Bearer "+req.Token)
+		greq.Header.Set("Accept", "application/vnd.github+json")
+		greq.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+		resp, err := syncHTTP.Do(greq)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer resp.Body.Close()
+		rb, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+		return resp, rb, err
+	}
+
+	authError := func(code int) string {
+		switch code {
+		case http.StatusUnauthorized:
+			return "GitHub rejected the token — paste it again (it may have expired)"
+		case http.StatusForbidden:
+			return "the token doesn't have access — it needs Contents read & write on the sync repo"
+		}
+		return ""
+	}
+
+	switch req.Op {
+	case "get":
+		resp, rb, err := ghDo(http.MethodGet, nil)
+		if err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": "can't reach GitHub — check the internet connection"})
+			return
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			// an unreachable repo and a missing file both 404 — check the repo
+			// itself so a typo'd name doesn't silently "sync" into nothing
+			if greq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/repos/%s", githubAPIBase, req.Repo), nil); err == nil {
+				greq.Header.Set("Authorization", "Bearer "+req.Token)
+				greq.Header.Set("Accept", "application/vnd.github+json")
+				if repoResp, err := syncHTTP.Do(greq); err == nil {
+					_, _ = io.Copy(io.Discard, repoResp.Body)
+					repoResp.Body.Close()
+					if repoResp.StatusCode != http.StatusOK {
+						writeJSON(w, map[string]any{"ok": false, "error": "GitHub can't find that repo with this token — check the owner/repo name and the token's repository access"})
+						return
+					}
+				}
+			}
+			writeJSON(w, map[string]any{"ok": true, "missing": true})
+			return
+		}
+		if msg := authError(resp.StatusCode); msg != "" {
+			writeJSON(w, map[string]any{"ok": false, "error": msg})
+			return
+		}
+		if resp.StatusCode != http.StatusOK {
+			writeJSON(w, map[string]any{"ok": false, "error": fmt.Sprintf("GitHub error (%d)", resp.StatusCode)})
+			return
+		}
+		var got struct {
+			Content string `json:"content"`
+			Sha     string `json:"sha"`
+		}
+		if err := json.Unmarshal(rb, &got); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": "unexpected GitHub response"})
+			return
+		}
+		raw, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(got.Content), ""))
+		if err != nil || !json.Valid(raw) {
+			// unreadable sync file — treat as missing so the next write repairs it
+			writeJSON(w, map[string]any{"ok": true, "missing": true, "sha": got.Sha})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "sha": got.Sha, "doc": json.RawMessage(raw)})
+	case "put":
+		if !json.Valid(req.Doc) {
+			http.Error(w, "invalid doc", http.StatusBadRequest)
+			return
+		}
+		by := strings.TrimSpace(req.By)
+		if by == "" {
+			by, _ = os.Hostname()
+		}
+		payload := map[string]any{
+			"message": "sync from " + by,
+			"content": base64.StdEncoding.EncodeToString(req.Doc),
+		}
+		if req.Sha != "" {
+			payload["sha"] = req.Sha
+		}
+		resp, rb, err := ghDo(http.MethodPut, payload)
+		if err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": "can't reach GitHub — check the internet connection"})
+			return
+		}
+		switch {
+		case resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated:
+			var got struct {
+				Content struct {
+					Sha string `json:"sha"`
+				} `json:"content"`
+			}
+			_ = json.Unmarshal(rb, &got)
+			writeJSON(w, map[string]any{"ok": true, "sha": got.Content.Sha})
+		case resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusUnprocessableEntity:
+			// sha raced another PC's write — the frontend re-pulls & re-merges
+			writeJSON(w, map[string]any{"ok": true, "conflict": true})
+		default:
+			if msg := authError(resp.StatusCode); msg != "" {
+				writeJSON(w, map[string]any{"ok": false, "error": msg})
+				return
+			}
+			writeJSON(w, map[string]any{"ok": false, "error": fmt.Sprintf("GitHub error (%d)", resp.StatusCode)})
+		}
+	default:
+		http.Error(w, "unknown op", http.StatusBadRequest)
+	}
 }
 
 func handlePing(w http.ResponseWriter, _ *http.Request) {
