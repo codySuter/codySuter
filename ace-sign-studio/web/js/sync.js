@@ -27,11 +27,12 @@ const Sync = {
 
   cfg() {
     const s = Settings.get();
+    // a blank token is fine — release builds carry the store token and
+    // the backend substitutes it server-side
     return { repo: String(s.syncRepo || "").trim(), token: String(s.syncToken || "").trim() };
   },
   enabled() {
-    const c = this.cfg();
-    return !!(c.repo && c.token);
+    return !!Settings.get().syncOn && !!this.cfg().repo;
   },
 
   /* (Re)start polling — call at boot and whenever Settings change. */
@@ -148,7 +149,7 @@ function syncRefreshUI() {
 
 /* Status line inside Settings (only present while the modal is open). */
 function syncStatusText() {
-  if (!Sync.enabled()) return "Off — point every store computer at the same private GitHub repo to share batches and print history.";
+  if (!Sync.enabled()) return "Off — tick the box above to share batches and print history with the other store computers.";
   if (Sync.lastError) return "⚠ " + Sync.lastError;
   if (Sync.lastSync) {
     const mins = Math.round((Date.now() - Sync.lastSync.getTime()) / 60000);

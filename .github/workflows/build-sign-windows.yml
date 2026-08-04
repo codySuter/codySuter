@@ -81,6 +81,11 @@ jobs:
           if-no-files-found: ignore
 
       - name: Build Windows EXE
+        # ACE_SYNC_TOKEN (repo secret) is baked into the exe so store PCs
+        # sync with zero per-machine setup; when absent (e.g. fork PRs)
+        # the build still works and sync falls back to a pasted token.
+        env:
+          ACE_SYNC_TOKEN: ${{ secrets.ACE_SYNC_TOKEN }}
         run: ./build.sh
 
       - name: Upload EXE as a workflow artifact

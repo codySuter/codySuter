@@ -29,6 +29,15 @@
   <button class="upd-dismiss" id="updateDismiss" title="Later">✕</button>
 </div>
 
+<!-- One-click sync opt-in, shown at launch on release builds until turned
+     on or dismissed for this computer. -->
+<div class="update-bar" id="syncOfferBar">
+  <span class="upd-dot"></span>
+  <div><b>Store sync is ready</b> — this computer can share saved batches and print history with the other store computers.</div>
+  <button class="upd-btn" id="syncOfferOn">Turn on</button>
+  <button class="upd-dismiss" id="syncOfferDismiss" title="Not on this computer">✕</button>
+</div>
+
 <!-- Launch scan of saved batches: shown when store prices changed since
      a batch was saved, offering to queue reprints of just those signs. -->
 <div class="update-bar" id="batchPriceBar">
@@ -122,16 +131,17 @@
       <label class="f-check"><input type="checkbox" id="setCutGuides"> Cut guides on multi-sign sheets</label>
       <label class="f-check"><input type="checkbox" id="setBatchPriceCheck"> At launch, check saved batches for price changes and offer reprints</label>
       <label class="f-label">Sync between computers</label>
-      <input class="f-input" id="setSyncToken" type="password" placeholder="Paste the store sync token — same token on every computer" autocomplete="off">
+      <label class="f-check"><input type="checkbox" id="setSyncOn"> Share saved batches &amp; print history with the other store computers</label>
       <div class="f-row" style="margin-top:6px">
         <input class="f-input" id="setSyncName" placeholder="This computer's name (e.g. Front Desk)">
       </div>
-      <div class="f-help">Paste the store's sync token and saved batches &amp; print history stay identical on every computer. The print queue stays per-computer — save it as a batch to hand it to another PC. The token is stored only on this computer.</div>
+      <div class="f-help">Works out of the box — the store's sync connection is built into the app. The print queue stays per-computer; save it as a batch to hand it to another PC.</div>
       <details class="bulk-box" style="margin-top:6px">
-        <summary>Sync repo (advanced)</summary>
+        <summary>Sync connection (advanced)</summary>
         <div class="bulk-inner">
           <input class="f-input" id="setSyncRepo" placeholder="codysuter/ace-sign-sync" autocomplete="off">
-          <div class="f-help">The private GitHub repo holding the sync data. Leave as-is unless the store moves it.</div>
+          <input class="f-input" id="setSyncToken" type="password" placeholder="Token override — blank uses the built-in store token" autocomplete="off" style="margin-top:6px">
+          <div class="f-help">The private GitHub repo holding the sync data, plus an optional token override (needed only on builds without a built-in token).</div>
         </div>
       </details>
       <div class="f-help" id="syncStatus" style="font-weight:600"></div>

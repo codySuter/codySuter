@@ -107,6 +107,28 @@ func TestSyncGithubRoundtrip(t *testing.T) {
 	}
 }
 
+func TestSyncGithubEmbeddedToken(t *testing.T) {
+	gh := &mockGithub{token: "tok123"}
+	srv := httptest.NewServer(gh.handler())
+	defer srv.Close()
+	oldBase, oldTok := githubAPIBase, embeddedSyncTokenB64
+	githubAPIBase = srv.URL
+	embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte("tok123"))
+	defer func() { githubAPIBase, embeddedSyncTokenB64 = oldBase, oldTok }()
+
+	// no token in the request — the embedded store token carries it
+	out := syncCall(t, `{"op":"put","repo":"store/sync","token":"","doc":{"batches":{}}}`)
+	if out["ok"] != true || out["conflict"] == true {
+		t.Fatalf("embedded-token put failed: %v", out)
+	}
+	// a pasted token still wins over the embedded one
+	embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte("stale-rotated-out"))
+	out = syncCall(t, `{"op":"get","repo":"store/sync","token":"tok123"}`)
+	if out["ok"] != true {
+		t.Fatalf("explicit token should override embedded: %v", out)
+	}
+}
+
 func TestSyncGithubErrors(t *testing.T) {
 	gh := &mockGithub{token: "tok123"}
 	srv := httptest.NewServer(gh.handler())
