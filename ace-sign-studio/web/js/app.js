@@ -30,6 +30,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   prefetchPdfFonts().catch(() => {}); // warm the PDF font cache for later exports
   loadTemplateProduct();
   checkForUpdate();
+  scanBatchPricesAtLaunch();
   $("#settingsBtn").onclick = openSettings;
   $("#homeBtn").onclick = showGallery;
   $("#clearQueueBtn").onclick = clearQueueWithUndo;
@@ -875,6 +876,37 @@ function showToast(text, opts) {
 const PRICE_REFRESH_TYPES = { regular: true, sale: true, large_text: true };
 let _refreshingPrices = false;
 
+/* Apply a lookup result to a sign item ({typeId, spec}) — the shared rules
+   behind the queue's ↻ Prices button and the launch batch scan. Returns
+   null when the lookup carried no price data (the sign must never be
+   rewritten from nothing — a Sale sign demoted that way would print its
+   discount as the regular price), else whether type/prices changed. */
+function applyPriceResult(q, res) {
+  const si = res.ok ? saleInfo(res) : { onSale: false };
+  const plain = res.ok ? (res.price || res.listPrice || "") : "";
+  if (!res.ok || (!si.onSale && !plain)) return null;
+  const before = `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
+  if (si.onSale) {
+    if (q.typeId === "regular") q.typeId = "sale";
+    if (q.typeId === "sale") { q.spec.price = si.sale; q.spec.regPrice = si.reg; }
+    else q.spec.price = si.sale;
+  } else {
+    if (q.typeId === "sale") {
+      q.typeId = "regular";
+      q.spec.regPrice = "";
+      // the sale's date pill has no field on a Regular sign — drop it
+      q.spec.startDate = "";
+      q.spec.endDate = "";
+    }
+    q.spec.price = plain;
+  }
+  // photos refresh only when the sign already shows one — a hidden
+  // or never-fetched photo must not reappear
+  if (res.imageUrl && q.spec.image && !q.spec._customImage) q.spec.image = res.imageUrl;
+  q.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
+  return before !== `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
+}
+
 async function refreshQueuePrices() {
   if (_refreshingPrices) return;
   const refreshable = (q) => String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId] && q.uid !== App.editingUid;
@@ -896,34 +928,9 @@ async function refreshQueuePrices() {
     btn.textContent = `↻ ${++done}/${targets.length}`;
     try {
       const res = await fetch(`/api/lookup?q=${encodeURIComponent(q.spec.sku)}&refresh=1&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
-      const si = res.ok ? saleInfo(res) : { onSale: false };
-      const plain = res.ok ? (res.price || res.listPrice || "") : "";
-      if (!res.ok || (!si.onSale && !plain)) {
-        // a lookup with no price data must never rewrite a sign — a Sale
-        // sign demoted here would print its discount as the regular price
-        failed++;
-      } else {
-        const before = `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`;
-        if (si.onSale) {
-          if (q.typeId === "regular") q.typeId = "sale";
-          if (q.typeId === "sale") { q.spec.price = si.sale; q.spec.regPrice = si.reg; }
-          else q.spec.price = si.sale;
-        } else {
-          if (q.typeId === "sale") {
-            q.typeId = "regular";
-            q.spec.regPrice = "";
-            // the sale's date pill has no field on a Regular sign — drop it
-            q.spec.startDate = "";
-            q.spec.endDate = "";
-          }
-          q.spec.price = plain;
-        }
-        // photos refresh only when the sign already shows one — a hidden
-        // or never-fetched photo must not reappear
-        if (res.imageUrl && q.spec.image && !q.spec._customImage) q.spec.image = res.imageUrl;
-        q.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
-        if (before !== `${q.typeId}|${q.spec.price || ""}|${q.spec.regPrice || ""}`) changed++;
-      }
+      const r = applyPriceResult(q, res);
+      if (r == null) failed++;
+      else if (r) changed++;
     } catch (e) { failed++; }
     await runOne();
   };
@@ -1009,6 +1016,91 @@ function renderBatchList() {
     row.appendChild(del);
     host.appendChild(row);
   }
+}
+
+/* ---------------- launch batch price scan ----------------
+   At launch, every saved batch is checked against current store prices
+   (Regular/Sale/Large Text signs with a SKU — the same set the queue's
+   ↻ Prices button refreshes). When prices moved, a banner offers to queue
+   just the changed signs for reprint; accepting also writes the new
+   prices back into the batches so they stay current. */
+const BATCH_SCAN_KEY = "acesignstudio.batchscan.v1";
+
+async function scanBatchPricesAtLaunch() {
+  if (!Settings.get().batchPriceCheck) return;
+  const targets = []; // {name, q} — q is the live stored batch item
+  for (const name of Batches.names()) {
+    for (const q of Batches.data[name].items || []) {
+      if (q.spec && String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId]) {
+        targets.push({ name, q });
+      }
+    }
+  }
+  if (!targets.length) return;
+  // a crash-loop / quick relaunch shouldn't hammer acehardware.com —
+  // skip only if a scan finished within the last 30 minutes
+  try {
+    const last = Date.parse(localStorage.getItem(BATCH_SCAN_KEY) || "");
+    if (!isNaN(last) && Date.now() - last < 30 * 60000) return;
+  } catch (e) {}
+
+  const skus = [...new Set(targets.map((t) => String(t.q.spec.sku).trim()))];
+  const bySku = new Map();
+  const work = skus.slice();
+  const runOne = async () => {
+    const sku = work.shift();
+    if (sku == null) return;
+    try {
+      const res = await fetch(`/api/lookup?q=${encodeURIComponent(sku)}&refresh=1&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
+      if (res.ok) bySku.set(sku, res);
+    } catch (e) { /* offline / backend gone — just no offer this launch */ }
+    await runOne();
+  };
+  await Promise.all(Array.from({ length: Math.min(3, skus.length) }, runOne));
+  if (!bySku.size) return;
+  try { localStorage.setItem(BATCH_SCAN_KEY, new Date().toISOString()); } catch (e) {}
+
+  // apply to copies first — the stored batches only change if the user accepts
+  const changed = []; // {name, stored, updated}
+  for (const t of targets) {
+    const res = bySku.get(String(t.q.spec.sku).trim());
+    if (!res) continue;
+    const updated = JSON.parse(JSON.stringify(t.q));
+    if (applyPriceResult(updated, res)) changed.push({ name: t.name, stored: t.q, updated });
+  }
+  if (changed.length) showBatchPriceBar(changed);
+}
+
+function showBatchPriceBar(changed) {
+  const bar = $("#batchPriceBar");
+  if (!bar) return;
+  const batches = [...new Set(changed.map((c) => c.name))];
+  const bList = batches.slice(0, 3).map((b) => `“${b}”`).join(", ") + (batches.length > 3 ? ` +${batches.length - 3} more` : "");
+  // a sign saved in several batches counts (and prints) once
+  const n = new Set(changed.map((c) => `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`)).size;
+  $("#batchPriceText").innerHTML =
+    `<b>Store prices changed</b> — ${n} sign${n === 1 ? " in a" : "s in"} saved batch${batches.length === 1 ? "" : "es"} (${esc(bList)}) ` +
+    `no longer match${n === 1 ? "es" : ""} the shelf price. Queue them to print replacements — the batches update to the new prices too.`;
+  $("#batchPriceQueueBtn").onclick = () => {
+    const seen = new Set();
+    let added = 0;
+    for (const c of changed) {
+      // write the new price/type into the stored batch item
+      c.stored.typeId = c.updated.typeId;
+      c.stored.spec = c.updated.spec;
+      // the same sign saved in several batches prints once
+      const key = `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      Queue.add(c.updated.typeId, c.updated.sizeId, c.updated.spec, c.updated.copies || 1);
+      added++;
+    }
+    persistState();
+    bar.classList.remove("show");
+    showToast(`Queued ${added} updated sign${added === 1 ? "" : "s"} — the saved batches now carry the new prices.`);
+  };
+  $("#batchPriceDismiss").onclick = () => bar.classList.remove("show");
+  bar.classList.add("show");
 }
 
 let _sheetSeq = 0;
@@ -1177,6 +1269,7 @@ function openSettings() {
   $("#setStoreLine").value = s.storeLine;
   $("#setPrintStoreLine").checked = !!s.printStoreLine;
   $("#setCutGuides").checked = !!s.cutGuides;
+  $("#setBatchPriceCheck").checked = !!s.batchPriceCheck;
   $("#setMargin").value = String(s.margin);
   $("#setTemplateSku").value = s.templateSku || "81995";
   initSettingsUpdates();
@@ -1188,6 +1281,7 @@ function openSettings() {
       storeLine: $("#setStoreLine").value.trim(),
       printStoreLine: $("#setPrintStoreLine").checked,
       cutGuides: $("#setCutGuides").checked,
+      batchPriceCheck: $("#setBatchPriceCheck").checked,
       margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),
       templateSku: $("#setTemplateSku").value.trim() || "81995",
     });
