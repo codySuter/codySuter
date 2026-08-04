@@ -425,6 +425,7 @@ function buildEditorFields(t) {
       inp.addEventListener("input", () => { App.spec.sku = inp.value.trim(); });
       attachAutoLookup(inp, status, (res, si) => {
         App.spec.sku = res.sku || inp.value.trim();
+        maybeResetScaleForNewSku(App.spec.sku, t, host);
         // prefer the server's fetch time — cached results carry the
         // ORIGINAL lookup time, so the stale badge stays honest
         App.spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
@@ -542,6 +543,7 @@ function buildEditorFields(t) {
     else host.appendChild(inp);
   }
   buildToggleChips(t, host);
+  buildScaleSliders(t, host);
 }
 
 function buildToggleChips(t, host) {
@@ -563,11 +565,97 @@ function buildToggleChips(t, host) {
     c.onclick = () => {
       App.spec.hide[tg.key] = !App.spec.hide[tg.key];
       buildToggleChips(t, host);
+      buildScaleSliders(t, host); // hidden elements gray out their slider
       schedulePreview();
     };
     row.appendChild(c);
   }
   wrap.appendChild(row);
+}
+
+/* Element size sliders — writes spec.scale.{key} (0.5–1.6, 1 = automatic).
+   The renderers re-balance the layout around whatever is boosted, so
+   growing the photo shrinks the name/price to fit instead of colliding. */
+function buildScaleSliders(t, host) {
+  const defs = scalablesForType(t);
+  if (!defs.length) return;
+  let wrap = $("#scaleWrap", host);
+  if (!wrap) {
+    wrap = el("div");
+    wrap.id = "scaleWrap";
+    host.appendChild(wrap);
+  }
+  wrap.innerHTML = "";
+  const sc = App.spec.scale || (App.spec.scale = {});
+  const head = el("div", "scale-head");
+  head.appendChild(labelEl("Element sizes — the sign re-fits itself around your changes"));
+  const reset = el("button", "btn btn-ghost btn-sm", "Reset");
+  reset.title = "Back to the automatic layout";
+  const updateReset = () => {
+    reset.disabled = !defs.some((d) => sc[d.key] && sc[d.key] !== 1);
+  };
+  reset.onclick = () => {
+    App.spec.scale = {};
+    buildScaleSliders(t, host);
+    schedulePreview();
+  };
+  head.appendChild(reset);
+  wrap.appendChild(head);
+  for (const d of defs) {
+    const row = el("div", "scale-row");
+    const hidden = !!(App.spec.hide && App.spec.hide[d.key]);
+    if (hidden) row.classList.add("off");
+    row.appendChild(el("span", "scale-name", d.label));
+    const slider = el("input", "scale-slider");
+    slider.type = "range";
+    slider.min = "50";
+    slider.max = "160";
+    slider.step = "5";
+    slider.value = String(Math.round((sc[d.key] || 1) * 100));
+    slider.disabled = hidden;
+    slider.title = "Double-click to reset to 100%";
+    const val = el("span", "scale-val", hidden ? "hidden" : slider.value + "%");
+    slider.addEventListener("input", () => {
+      sc[d.key] = parseInt(slider.value, 10) / 100;
+      // remember which product these sizes were tuned for, so a new
+      // SKU's lookup knows whether to keep or reset them
+      App.spec._scaleSku = String(App.spec.sku || "");
+      val.textContent = slider.value + "%";
+      updateReset();
+      schedulePreview();
+    });
+    slider.addEventListener("dblclick", () => {
+      slider.value = "100";
+      slider.dispatchEvent(new Event("input"));
+    });
+    row.appendChild(slider);
+    row.appendChild(val);
+    wrap.appendChild(row);
+  }
+  updateReset();
+  const keep = el("label", "f-check");
+  const cb = el("input");
+  cb.type = "checkbox";
+  cb.checked = !!Settings.get().keepScaleOnLookup;
+  cb.onchange = () => Settings.set({ keepScaleOnLookup: cb.checked });
+  keep.appendChild(cb);
+  keep.appendChild(document.createTextNode("Keep these sizes when a new SKU is looked up"));
+  keep.title = "Off: a new product goes back to the automatic layout. On: your slider settings carry over.";
+  wrap.appendChild(keep);
+}
+
+/* A different product usually wants the automatic layout back: unless the
+   keep toggle is on, slider adjustments tuned for a previous SKU are
+   cleared when a new SKU's lookup lands. Re-looking-up the same SKU
+   (blur, price refresh) never clears them. */
+function maybeResetScaleForNewSku(newSku, t, host) {
+  const sc = App.spec.scale;
+  const tuned = sc && Object.keys(sc).some((k) => sc[k] && sc[k] !== 1);
+  if (!tuned || Settings.get().keepScaleOnLookup) return;
+  if (App.spec._scaleSku != null && String(newSku) === App.spec._scaleSku) return;
+  App.spec.scale = {};
+  delete App.spec._scaleSku;
+  buildScaleSliders(t, host);
 }
 
 function labelEl(text) { return el("label", "f-label", text); }

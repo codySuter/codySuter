@@ -9,6 +9,15 @@
 
 const CHANGELOG = [
   {
+    version: "2.4.0",
+    date: "August 2026",
+    notes: [
+      "New: Element sizes sliders in the editor — grow or shrink the photo, name, price, logo, and SKU footer on any sign. The layout re-fits itself automatically, so a bigger photo squeezes the text down instead of covering it, and nothing ever runs off the page.",
+      "Slider settings are saved with each sign, so queued signs, batches, and reprints keep your adjustments.",
+      "Looking up a new SKU goes back to the automatic layout by default — a “Keep these sizes” toggle under the sliders carries your adjustments over to the next product instead.",
+    ],
+  },
+  {
     version: "2.3.1",
     date: "July 2026",
     notes: [

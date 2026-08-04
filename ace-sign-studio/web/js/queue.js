@@ -17,6 +17,7 @@ const Settings = {
     cutGuides: true,
     margin: 0.375,
     templateSku: "81995",
+    keepScaleOnLookup: false, // keep Element sizes sliders when a new SKU's lookup lands
   },
   get() { return this.data; },
   set(patch) { Object.assign(this.data, patch); persistState(); },
