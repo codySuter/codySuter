@@ -50,7 +50,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   initBulk();
   window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
   initSupport();
-  fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => { window.__appVersion = h.version; }).catch(() => {});
+  fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => { window.__appVersion = h.version; window.__appHost = h.host; }).catch(() => {});
+  Sync.start();
   $$(".modal-back").forEach((mb) => {
     mb.addEventListener("click", (e) => { if (e.target === mb) mb.classList.remove("show"); });
   });
@@ -1216,7 +1217,13 @@ function renderBatchList() {
     del.onclick = () => {
       Batches.remove(name);
       renderBatchList();
-      showToast(`Batch “${name}” deleted.`, { undo: () => { Batches.data[name] = b; persistState(); renderBatchList(); } });
+      showToast(`Batch “${name}” deleted.`, { undo: () => {
+        // fresh savedAt so the undo outranks the delete's tombstone when
+        // another computer merges — else sync would re-delete it
+        Batches.data[name] = Object.assign({}, b, { savedAt: new Date().toISOString() });
+        persistState();
+        renderBatchList();
+      } });
     };
     row.appendChild(info);
     row.appendChild(load);
@@ -1409,7 +1416,7 @@ function renderHistoryList() {
     const row = el("div", "batch-row");
     const info = el("div", "batch-info");
     const names = (h.items || []).map((q) => queueItemTitle(q)).filter(Boolean);
-    info.appendChild(el("div", "batch-name", `${h.kind === "pdf" ? "PDF" : "🖨 Print"} · ${fmtHistDate(h.at)}`));
+    info.appendChild(el("div", "batch-name", `${h.kind === "pdf" ? "PDF" : "🖨 Print"} · ${fmtHistDate(h.at)}${h.by ? ` · ${h.by}` : ""}`));
     info.appendChild(el("div", "batch-sub",
       `${h.signs} sign${h.signs === 1 ? "" : "s"} — ${names.slice(0, 3).join(", ")}${names.length > 3 ? `, +${names.length - 3} more` : ""}`));
     const load = el("button", "btn btn-secondary btn-sm", "Restore");
@@ -1664,6 +1671,11 @@ function openSettings() {
   $("#setPrintStoreLine").checked = !!s.printStoreLine;
   $("#setCutGuides").checked = !!s.cutGuides;
   $("#setBatchPriceCheck").checked = !!s.batchPriceCheck;
+  $("#setSyncRepo").value = s.syncRepo || "";
+  $("#setSyncToken").value = s.syncToken || "";
+  $("#setSyncName").value = s.syncName || "";
+  if (window.__appHost) $("#setSyncName").placeholder = `This computer's name (e.g. ${window.__appHost})`;
+  syncStatusUI();
   $("#setMargin").value = String(s.margin);
   $("#setTemplateSku").value = s.templateSku || "81995";
   initSettingsUpdates();
@@ -1676,6 +1688,9 @@ function openSettings() {
       printStoreLine: $("#setPrintStoreLine").checked,
       cutGuides: $("#setCutGuides").checked,
       batchPriceCheck: $("#setBatchPriceCheck").checked,
+      syncRepo: $("#setSyncRepo").value.trim(),
+      syncToken: $("#setSyncToken").value.trim(),
+      syncName: $("#setSyncName").value.trim(),
       margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),
       templateSku: $("#setTemplateSku").value.trim() || "81995",
     });
@@ -1685,6 +1700,7 @@ function openSettings() {
       try { localStorage.removeItem("acesignstudio.template.v1"); } catch (e) {}
       loadTemplateProduct();
     }
+    Sync.start(); // pick up sync repo/token changes immediately
     renderQueue();
   };
 }

@@ -69,6 +69,13 @@ Replaces and unifies the three older tools:
   sheet. Layout preview shows each sheet before you print.
 - **Print All / Save PDF**: one vector PDF (brand Roboto embedded), sent
   straight to the print dialog or saved.
+- **Multi-PC sync** (3.0): saved batches and print history stay identical
+  on every store computer pointed at the same private GitHub repo
+  (Settings → Sync: `owner/repo` + a fine-grained token with Contents
+  read/write on that one repo). The frontend merges convergently — batch
+  deletions carry tombstones, history unions by id — and writes go through
+  GitHub's sha-guarded PUT, so concurrent computers can't tear the file.
+  The live print queue stays per-computer by design.
 - **Self-update**: on launch the app checks a version manifest on GitHub;
   when a newer build exists it shows an "Update & Restart" banner that
   downloads the new exe, verifies its SHA-256, swaps it in (rename-swap,

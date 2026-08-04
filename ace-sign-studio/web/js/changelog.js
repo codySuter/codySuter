@@ -9,6 +9,17 @@
 
 const CHANGELOG = [
   {
+    version: "3.0.0",
+    date: "August 2026",
+    notes: [
+      "Ace Sign Studio 3.0: your store computers now sync. Point every PC's Settings → Sync at the same private GitHub repo and saved batches and print history stay identical everywhere — save a batch at the office computer, print it at the service desk.",
+      "Deleting a batch on one computer deletes it on all of them; deletions and edits merge safely even when two computers change things at the same time.",
+      "Print history shows which computer printed each set (set “This computer's name” in Settings).",
+      "The print queue itself stays per-computer on purpose, so two people can build different queues at once — save a queue as a batch to hand it to another PC.",
+      "Setup: create a free private repo on github.com (e.g. ace-sign-sync), make a fine-grained token with Contents read & write on just that repo, and paste both into Settings on each computer.",
+    ],
+  },
+  {
     version: "2.7.0",
     date: "August 2026",
     notes: [
