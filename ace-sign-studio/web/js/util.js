@@ -11,6 +11,14 @@ function el(tag, cls, text) {
   return n;
 }
 
+/* Run work once the browser is idle, so background warm-ups don't compete
+   with first paint. Falls back to a plain timer where requestIdleCallback
+   isn't available. */
+function whenIdle(fn, timeout) {
+  if (typeof requestIdleCallback === "function") requestIdleCallback(fn, { timeout: timeout || 3000 });
+  else setTimeout(fn, timeout || 1200);
+}
+
 function debounce(fn, ms) {
   let t = null;
   return function (...args) {
@@ -132,11 +140,22 @@ function friendlyError(e) {
    fine) but jsPDF.addImage silently rejects (so they vanish from the PDF).
    Passing "jpeg" (opaque, small) or "png" (keeps alpha) re-bakes them to
    baseline so preview and PDF match. */
+/* Bounded so a long bulk-add session (hundreds of product photos, each a
+   few hundred KB of base64) can't grow the heap without limit. Insertion
+   order = eviction order; a re-read refreshes an entry's position. */
+const DATA_URI_CACHE_MAX = 60;
 const _dataURICache = new Map();
+function _cacheTouch(map, key, max) {
+  const v = map.get(key);
+  map.delete(key);
+  map.set(key, v);
+  while (map.size > max) map.delete(map.keys().next().value);
+  return v;
+}
 async function toDataURI(url, reencode) {
   if (!url) return null;
   const key = url + "|" + (reencode || "");
-  if (_dataURICache.has(key)) return _dataURICache.get(key);
+  if (_dataURICache.has(key)) return _cacheTouch(_dataURICache, key, DATA_URI_CACHE_MAX);
   const p = (async () => {
     const src = /^https?:\/\//.test(url) ? `/api/img?u=${encodeURIComponent(url)}` : url;
     const resp = await fetch(src);
@@ -152,6 +171,7 @@ async function toDataURI(url, reencode) {
     return await reencodeImage(raw, reencode);
   })();
   _dataURICache.set(key, p);
+  while (_dataURICache.size > DATA_URI_CACHE_MAX) _dataURICache.delete(_dataURICache.keys().next().value);
   try { return await p; } catch (e) { _dataURICache.delete(key); throw e; }
 }
 
@@ -187,6 +207,36 @@ async function reencodeImage(dataURI, mode) {
   } catch (e) {
     return dataURI; // tainted/oversized canvas — fall back to the original
   }
+}
+
+/* Downscale a (usually huge) camera/phone data URL to a bounded baseline
+   JPEG before it ever enters the queue spec. A raw 12MP drop is ~3-5 MB of
+   base64 that would then be JSON.stringify'd, POSTed to /api/state, and
+   deep-copied into every saved batch on each queue mutation; capping the
+   long edge keeps state.json small and the app responsive. Anything already
+   under the cap, or that fails to decode, is returned unchanged. */
+function downscaleDataURL(dataURL, maxEdge, quality) {
+  return new Promise((resolve) => {
+    if (!dataURL || typeof dataURL !== "string") { resolve(dataURL); return; }
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const scale = Math.min(1, maxEdge / Math.max(w || 1, h || 1));
+      if (!(w > 0) || scale >= 1) { resolve(dataURL); return; } // already small enough
+      try {
+        const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+        const cv = document.createElement("canvas");
+        cv.width = cw; cv.height = ch;
+        const ctx = cv.getContext("2d");
+        ctx.fillStyle = "#ffffff"; // JPEG has no alpha — matte onto white
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.drawImage(img, 0, 0, cw, ch);
+        resolve(cv.toDataURL("image/jpeg", quality || 0.85));
+      } catch (e) { resolve(dataURL); }
+    };
+    img.onerror = () => resolve(dataURL);
+    img.src = dataURL;
+  });
 }
 
 /* Natural size of a data-URI image. */

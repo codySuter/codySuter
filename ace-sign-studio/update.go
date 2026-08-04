@@ -16,8 +16,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -40,6 +42,55 @@ type updateManifest struct {
 	URL     string `json:"url"`
 	SHA256  string `json:"sha256"`
 	Notes   string `json:"notes"`
+}
+
+// updateURLAllowed reports whether an exe URL is one we are willing to
+// download and then execute.
+//
+// The manifest names the binary to run, so without this the app would fetch
+// and launch whatever it was pointed at. The SHA-256 is no defence: it lives
+// in the same manifest, so anything able to rewrite the URL rewrites the hash
+// with it — the checksum catches a corrupt download, not a substituted one.
+//
+// The rule is that the exe must sit in the same directory as the manifest
+// that advertised it. In production that pins downloads to this repo's own
+// release (a bare github.com host check would not: any GitHub user can host a
+// release there). It also keeps the ACE_UPDATE_MANIFEST test seam working,
+// since a mock serves both files from one place.
+//
+// Redirects are deliberately still followed: a GitHub release download
+// redirects to whichever asset CDN hostname GitHub currently uses, and
+// pinning that list would break updates the day they change it. Only GitHub
+// can issue that redirect, because the URL it starts from is pinned here.
+func updateURLAllowed(exeURL, manifestURL string) bool {
+	eu, err := url.Parse(exeURL)
+	if err != nil {
+		return false
+	}
+	mu, err := url.Parse(manifestURL)
+	if err != nil {
+		return false
+	}
+	if eu.Scheme != mu.Scheme || !strings.EqualFold(eu.Host, mu.Host) {
+		return false
+	}
+	if eu.Scheme != "https" && !isLoopbackHost(eu.Hostname()) {
+		return false // plain HTTP only for a local test manifest
+	}
+	// path.Clean resolves any "…/../" that would otherwise escape the prefix.
+	dir := path.Dir(path.Clean(mu.Path))
+	if !strings.HasSuffix(dir, "/") {
+		dir += "/"
+	}
+	return strings.HasPrefix(path.Clean(eu.Path), dir)
+}
+
+func isLoopbackHost(host string) bool {
+	switch strings.ToLower(host) {
+	case "127.0.0.1", "localhost", "::1":
+		return true
+	}
+	return false
 }
 
 type updateStatus struct {
@@ -122,7 +173,16 @@ func handleUpdateCheck(w http.ResponseWriter, _ *http.Request) {
 	}
 	st.Latest = m.Version
 	st.Notes = m.Notes
-	st.Available = compareVersions(m.Version, appVersion) > 0 && m.URL != ""
+	newer := compareVersions(m.Version, appVersion) > 0
+	// Don't advertise an update we would refuse to install (or send the user
+	// to download by hand) — an unexpected URL means the manifest is not
+	// describing our own release.
+	if newer && m.URL != "" && !updateURLAllowed(m.URL, updateManifestURL()) {
+		st.Error = "update manifest points somewhere unexpected — ignoring it"
+		writeJSON(w, st)
+		return
+	}
+	st.Available = newer && m.URL != ""
 	writeJSON(w, st)
 }
 
@@ -178,6 +238,19 @@ func applyUpdate(m *updateManifest) error {
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
 	}
+	if err := applyUpdateTo(m, exe); err != nil {
+		return err
+	}
+	pendingExe = exe
+	return nil
+}
+
+// applyUpdateTo is applyUpdate against an explicit exe path, so the download,
+// verification and swap can be tested without replacing the test binary.
+func applyUpdateTo(m *updateManifest, exe string) error {
+	if !updateURLAllowed(m.URL, updateManifestURL()) {
+		return fmt.Errorf("update download URL is not from the expected release location")
+	}
 	newPath := exe + ".new"
 	if err := downloadFile(m.URL, newPath); err != nil {
 		return fmt.Errorf("download failed: %w", err)
@@ -207,7 +280,6 @@ func applyUpdate(m *updateManifest) error {
 		os.Remove(newPath)
 		return fmt.Errorf("could not install the new app: %w", err)
 	}
-	pendingExe = exe
 	return nil
 }
 
@@ -225,6 +297,7 @@ func relaunchAndExit() {
 		cmd.Env = append(os.Environ(), "ACE_UPDATED=1")
 		_ = cmd.Start()
 	}
+	flushDiskCache()
 	shutdownBrowser()
 	os.Exit(0)
 }

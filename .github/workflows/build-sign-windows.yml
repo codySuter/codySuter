@@ -60,6 +60,18 @@ jobs:
           npx playwright install --with-deps chromium
           node run.mjs
 
+      # The suite above runs with ACE_LOOKUP_MODE=http, so it never touches
+      # the browser lookup path that real lookups use. 2.4.0 shipped with
+      # that path silently timing out on every lookup — results stayed
+      # correct (the fallback answered) so nothing failed, they were just
+      # ~17s each. This suite drives the browser path against a mock with
+      # bot protection and fails if lookups stop using the warm session tab.
+      - name: Browser lookup suite (warm-session fast path)
+        run: |
+          cd e2e
+          CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")" \
+            node browser-lookup.mjs
+
       - name: Upload E2E screenshots
         if: always()
         uses: actions/upload-artifact@v4

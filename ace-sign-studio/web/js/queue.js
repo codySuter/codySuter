@@ -29,7 +29,7 @@ function clampCopies(n) {
 }
 
 const Queue = {
-  items: [], // {uid, typeId, sizeId, spec (raw, incl. hide), copies}
+  items: [], // {uid, typeId, sizeId, spec (raw, incl. hide), copies, _rev}
   _gen: 0,   // bumps on every mutation — lets undo closures detect divergence
   _uid() { return Date.now() + "-" + Math.random().toString(36).slice(2, 7); },
   _touch() {
@@ -37,8 +37,11 @@ const Queue = {
     persistState();
     renderQueue();
   },
+  /* Bump when an item's *appearance* changes, so the rendered-SVG cache
+     knows to drop it. Copy count and row order don't change the artwork. */
+  _bumpRev(q) { if (q) q._rev = (q._rev || 0) + 1; },
   add(typeId, sizeId, spec, copies) {
-    this.items.push({ uid: this._uid(), typeId, sizeId, spec: JSON.parse(JSON.stringify(spec)), copies: clampCopies(copies) });
+    this.items.push({ uid: this._uid(), typeId, sizeId, spec: JSON.parse(JSON.stringify(spec)), copies: clampCopies(copies), _rev: 0 });
     this._touch();
   },
   update(uid, typeId, sizeId, spec) {
@@ -47,6 +50,7 @@ const Queue = {
     q.typeId = typeId;
     q.sizeId = sizeId;
     q.spec = JSON.parse(JSON.stringify(spec));
+    this._bumpRev(q);
     this._touch();
     return true;
   },
@@ -136,15 +140,35 @@ function queueItemTitle(q) {
 /* Render a queue item's sign SVG (used by thumbnails, sheet composer,
    and PDF). The stored spec is raw — per-field hides are applied here,
    on a copy, so the item stays editable. Renders at the item's
-   registered size, including the pallet cut guide when it has one. */
+   registered size, including the pallet cut guide when it has one.
+
+   Memoized per uid+revision: a single queue render asks for the same item's
+   SVG once per thumbnail and again for every placement on every sheet
+   preview (a ×12 sign appears 12 times), and each render re-measures text
+   and re-inlines the product photo. The cache key includes the settings
+   that affect artwork, so toggling them invalidates correctly. */
+const _itemSVGCache = new Map();
+const ITEM_SVG_CACHE_MAX = 80;
+function _itemSVGKey(q) {
+  const s = Settings.get();
+  return `${q.uid}|${q._rev || 0}|${q.typeId}|${q.sizeId}|${s.printStoreLine ? s.storeLine : ""}`;
+}
 async function renderQueueItemSVG(qOrItem) {
   const q = qOrItem.q || qOrItem;
+  const key = q.uid ? _itemSVGKey(q) : null;
+  if (key && _itemSVGCache.has(key)) return _cacheTouch(_itemSVGCache, key, ITEM_SVG_CACHE_MAX);
   const spec = Object.assign({}, q.spec);
   const hide = spec.hide;
   delete spec.hide;
   applyHiddenFields(spec, hide);
   if (Settings.get().printStoreLine) spec.storeLine = Settings.get().storeLine;
-  return renderSignSVG(q.typeId, spec, q.sizeId);
+  const p = renderSignSVG(q.typeId, spec, q.sizeId);
+  if (key) {
+    _itemSVGCache.set(key, p);
+    while (_itemSVGCache.size > ITEM_SVG_CACHE_MAX) _itemSVGCache.delete(_itemSVGCache.keys().next().value);
+    p.catch(() => _itemSVGCache.delete(key)); // a failed render must not stick
+  }
+  return p;
 }
 
 /* ---------- persistence ---------- */
@@ -154,7 +178,6 @@ function stateJSON() {
     settings: Settings.data,
     queue: Queue.items,
     batches: Batches.data,
-    stihl: typeof StihlData !== "undefined" ? { overrides: StihlData.overrides, meta: StihlData.meta, dataset: StihlData.meta.source === "import" ? StihlData.data : null } : undefined,
   });
 }
 function persistState() {
@@ -194,11 +217,8 @@ async function restoreState() {
     if (state.settings) Object.assign(Settings.data, state.settings);
     if (Array.isArray(state.queue)) Queue.items = state.queue;
     if (state.batches && typeof state.batches === "object") Batches.data = state.batches;
-    if (typeof StihlData !== "undefined") StihlData.init(state.stihl || null);
-  } else if (typeof StihlData !== "undefined") {
-    StihlData.init(null);
   }
-  // drop queue entries whose sign type isn't registered (e.g. STIHL, disabled for now)
+  // drop queue entries whose sign type isn't registered
   Queue.items = Queue.items.filter((q) => typeById(q.typeId));
   // migrate pre-2.1 items: no copies counter, and hides applied
   // destructively (blanked fields / showLogo:false with no hide map) —

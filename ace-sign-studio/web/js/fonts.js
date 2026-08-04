@@ -5,9 +5,6 @@
 
 const SIGN_FONTS = [
   "RobotoRegular", "RobotoMedium", "RobotoBold", "RobotoBlack",
-  "BarlowRegular", "BarlowMedium", "BarlowSemiBold", "BarlowBold",
-  "BarlowCondensedMedium", "BarlowCondensedSemiBold", "BarlowCondensedBold",
-  "BarlowSemiCondensedBoldItalic", "BarlowSemiCondensedExtraBoldItalic",
 ];
 
 const FONT_FILES = {
@@ -15,15 +12,6 @@ const FONT_FILES = {
   RobotoMedium: "fonts/Roboto-Medium.ttf",
   RobotoBold: "fonts/Roboto-Bold.ttf",
   RobotoBlack: "fonts/Roboto-Black.ttf",
-  BarlowRegular: "fonts/BarlowRegular.ttf",
-  BarlowMedium: "fonts/BarlowMedium.ttf",
-  BarlowSemiBold: "fonts/BarlowSemiBold.ttf",
-  BarlowBold: "fonts/BarlowBold.ttf",
-  BarlowCondensedMedium: "fonts/BarlowCondensedMedium.ttf",
-  BarlowCondensedSemiBold: "fonts/BarlowCondensedSemiBold.ttf",
-  BarlowCondensedBold: "fonts/BarlowCondensedBold.ttf",
-  BarlowSemiCondensedBoldItalic: "fonts/BarlowSemiCondensedBoldItalic.ttf",
-  BarlowSemiCondensedExtraBoldItalic: "fonts/BarlowSemiCondensedExtraBoldItalic.ttf",
 };
 
 let _fontsReady = null;
@@ -35,10 +23,7 @@ function ensureFontsLoaded() {
   return _fontsReady;
 }
 
-/* Fonts embedded into exported/printed PDFs. Ace signs only use Roboto;
-   the Barlow families are STIHL-only — add them back here when the STIHL
-   module is re-enabled. Registering all 13 TTFs ballooned every PDF to
-   ~5.7 MB; Roboto-only keeps exports lean. */
+/* Fonts embedded into exported/printed PDFs. Ace signs use Roboto only. */
 const PDF_FONTS = ["RobotoRegular", "RobotoMedium", "RobotoBold", "RobotoBlack"];
 
 /* PDF font data: fetched once and kept in memory. Prefetched at boot so a

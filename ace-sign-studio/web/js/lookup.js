@@ -25,11 +25,21 @@ function saleInfo(p) {
   return { onSale: false };
 }
 
-/* Wire an input for lookup: 600ms debounce + Enter + blur. */
+/* Wire an input for lookup: 600ms debounce + Enter + blur.
+   Enter and blur cancel the debounce the last keystroke armed, and a query
+   already in flight is not re-issued — typing a SKU and hitting Enter used
+   to fire two full lookups for the same thing, and the second one is what
+   the user waited on. */
 function attachAutoLookup(inputEl, statusEl, onResult) {
+  let debTimer = null;
+  let inFlight = null; // query currently being looked up
   const run = async (force) => {
+    clearTimeout(debTimer);
+    debTimer = null;
     const q = inputEl.value.trim();
     if (!q) { statusEl.className = "lookup-status"; statusEl.textContent = ""; return; }
+    if (inFlight === q && force !== true) return; // same query already running
+    inFlight = q;
     statusEl.className = "lookup-status busy";
     statusEl.innerHTML = `<span class="spin"></span> Looking up ${esc(q)}…`;
     try {
@@ -49,10 +59,14 @@ function attachAutoLookup(inputEl, statusEl, onResult) {
     } catch (e) {
       statusEl.className = "lookup-status err";
       statusEl.textContent = `✗ ${e.message || "No connection"} — enter details manually`;
+    } finally {
+      if (inFlight === q) inFlight = null;
     }
   };
-  const deb = debounce(run, 600);
-  inputEl.addEventListener("input", () => deb());
+  inputEl.addEventListener("input", () => {
+    clearTimeout(debTimer);
+    debTimer = setTimeout(run, 600);
+  });
   inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
   inputEl.addEventListener("blur", () => { if (inputEl.value.trim()) run(); });
   return run;

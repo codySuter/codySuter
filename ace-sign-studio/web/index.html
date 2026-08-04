@@ -180,6 +180,21 @@
   </div>
 </div>
 
+<!-- Stale price check before printing a queue -->
+<div class="modal-back" id="stalePriceModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Check these prices first?</h3><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div id="staleIntro" class="stale-intro"></div>
+      <div class="stale-list" id="staleList"></div>
+      <div class="actions" style="position:static;background:none">
+        <button class="btn btn-primary" id="staleRefreshBtn">Refresh prices, then print</button>
+        <button class="btn btn-secondary" id="staleProceedBtn">Print anyway</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Saved batches -->
 <div class="modal-back" id="batchModal">
   <div class="modal">
@@ -200,12 +215,8 @@
 
 <iframe id="printFrame" style="position:fixed;right:0;bottom:0;width:0;height:0;border:0" title="print"></iframe>
 
-<script src="vendor/jspdf.umd.min.js"></script>
-<script src="vendor/svg2pdf.umd.min.js"></script>
-<!-- STIHL module disabled for now: to re-enable, restore the data/*.js,
-     js/render-stihl.js, js/stihl.js tags and the stihl_shelf entry in
-     js/signtypes.js (see git history). barcode.js stays loaded — it also
-     draws the Code 128 SKU barcodes on Ace signs. -->
+<!-- jsPDF + svg2pdf are only needed at Print/Save-PDF time; they are loaded
+     on demand (see ensurePdfLibs in js/pdf.js) so they don't block startup. -->
 <script src="js/util.js"></script>
 <script src="js/changelog.js"></script>
 <script src="js/fonts.js"></script>

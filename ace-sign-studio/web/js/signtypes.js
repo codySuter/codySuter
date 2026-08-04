@@ -207,7 +207,7 @@ function applyTemplateProduct(p) {
 
 applyTemplateProduct(TEMPLATE_FALLBACK);
 
-/* Per-type allowed sizes (Ace types allow all; STIHL keeps 5:3 aspect). */
+/* Per-type allowed sizes (a type may restrict SIZES via t.sizes). */
 function sizesForType(t) {
   if (t.sizes) return t.sizes.map(sizeById);
   return SIZES;

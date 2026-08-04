@@ -9,13 +9,42 @@
 
 const CHANGELOG = [
   {
-    version: "2.4.0",
+    version: "2.6.0",
     date: "August 2026",
     notes: [
       "New: Element sizes sliders in the editor — grow or shrink the photo, name, price, logo, and SKU footer on any sign. The layout re-fits itself automatically, so a bigger photo squeezes the text down instead of covering it, and nothing ever runs off the page.",
       "Slider settings are saved with each sign, so queued signs, batches, and reprints keep your adjustments.",
       "Looking up a new SKU goes back to the automatic layout by default — a “Keep these sizes” toggle under the sliders carries your adjustments over to the next product instead.",
       "New: at launch, saved batches are checked against current store prices. When prices moved, a banner offers to queue just the changed signs for reprint — and updates the batches to the new prices. Turn it off in Settings.",
+    ],
+  },
+  {
+    version: "2.5.0",
+    date: "July 2026",
+    notes: [
+      "Ace Sign Studio now checks before you print. If any queued sign has a price that hasn't been looked up in the last few days — or was never looked up at all — it says so and offers to refresh them first. A queue can sit for weeks and a saved batch can be months old, so this is the guard against reloading last season's sale and sending old prices straight to the shelf. You can still choose “Print anyway”.",
+      "The built-in updater is stricter about what it will install. It now only accepts an update published in this app's own release, so a bad or unexpected download can't be installed over it.",
+    ],
+  },
+  {
+    version: "2.4.1",
+    date: "July 2026",
+    notes: [
+      "Fixed SKU lookups being much slower in 2.4.0 than they were meant to be — slower, in fact, than 2.3.1. The faster lookup method 2.4.0 introduced was silently failing and waiting 15 seconds before falling back to the old slow way, on every single lookup. Looking up an item now takes about a fifth of a second, and “↻ Prices” on a 20-sign queue finishes in a couple of seconds instead of several minutes.",
+      "If that faster method ever stops working again, the app now notices after a few tries and goes straight to the reliable method instead of pausing on every lookup.",
+    ],
+  },
+  {
+    version: "2.4.0",
+    date: "July 2026",
+    notes: [
+      "Much faster SKU lookups. The app used to load a full acehardware.com page for every item number; it now keeps one signed-in session open and asks for just the price. Looking up a SKU is about a second instead of five, and “↻ Prices” on a 20-sign queue finishes in seconds rather than minutes.",
+      "Bulk add and the queue no longer bog down. Adding a long list of SKUs, changing copies, or reordering rows stays smooth on a big queue.",
+      "The app starts quicker: it opens straight to the gallery, and the parts only needed for printing load quietly in the background.",
+      "Printing a big queue no longer looks frozen — the “Sheet 3 of 8…” progress now actually updates while the PDF builds.",
+      "Typing a SKU and pressing Enter no longer looks the same item up twice.",
+      "Photos you drag in are resized before they are saved, so a big phone photo can't bloat your queue or lose it on restart.",
+      "The STIHL shelf signs and saw-chain finder, switched off since 2.3, have been removed. The download is about 2.5 MB smaller.",
     ],
   },
   {

@@ -6,7 +6,7 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="2.4.0"
+VERSION="2.6.0"
 # One-line summary shown in the in-app update banner for older versions.
 NOTES="New Element sizes sliders on every sign (the layout auto-fits so nothing overlaps), plus a launch check of saved batches that offers to reprint signs whose store price changed."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
