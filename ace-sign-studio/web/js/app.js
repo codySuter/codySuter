@@ -802,7 +802,7 @@ function setPreviewSVG(svg, size) {
   const meta = $("#previewMeta");
   if (meta) {
     let txt = `${size.label.replace(/"/g, "″")} — prints at exact size · shown at ${(scale * 100).toFixed(0)}%`;
-    if (size.cut) txt += " · cut on the dashed line, laminate, and it fits the 8.5×11 holder";
+    if (size.cut) txt += ` · cut on the dashed line, laminate, and it fits the ${size.w}×${size.h}″ holder`;
     if (!_elemDrag) txt += " · drag any element to resize it";
     meta.textContent = txt;
   }
@@ -1643,6 +1643,35 @@ async function exportQueue(print, opts) {
 }
 
 /* ---------------- bulk add ---------------- */
+/* Promo details the lookup can't supply — shown as small shared inputs
+   when the picked type needs them, applied to every SKU in the batch
+   ("everything in the list is 25% off"). */
+const BULK_EXTRAS = {
+  percent_off: [{ key: "percent", label: "% off", ph: "25" }],
+  bogo_percent: [{ key: "percent", label: "% off", ph: "50" }],
+  two_for: [{ key: "qty", label: "Qty", ph: "2", int: true }, { key: "price", label: "Bundle $", ph: "9.00" }],
+  instant_savings: [{ key: "savings", label: "Save $", ph: "10" }],
+  buy_get_off: [{ key: "qty", label: "Buy", ph: "2", int: true }, { key: "savings", label: "$ off", ph: "10" }],
+  your_choice: [{ key: "price", label: "Choice $", ph: "5.00" }],
+};
+
+function renderBulkExtras() {
+  const host = $("#bulkExtras");
+  const defs = BULK_EXTRAS[$("#bulkType").value] || [];
+  host.innerHTML = "";
+  host.style.display = defs.length ? "" : "none";
+  for (const d of defs) {
+    const lab = el("label", "bulk-extra-label", d.label);
+    const inp = el("input", "f-input bulk-extra-input");
+    inp.type = d.int ? "number" : "text";
+    if (d.int) { inp.min = "2"; inp.max = "9"; }
+    inp.placeholder = d.ph;
+    inp.dataset.bx = d.key;
+    lab.appendChild(inp);
+    host.appendChild(lab);
+  }
+}
+
 function initBulk() {
   const ta = $("#bulkSkus");
   const badge = $("#bulkCount");
@@ -1650,12 +1679,47 @@ function initBulk() {
     const n = parseBulkSkus(ta.value).length;
     badge.textContent = n ? `${n} SKU${n === 1 ? "" : "s"} detected` : "";
   });
+  // every sign type that works from a SKU is bulk-addable, grouped like
+  // the nav; sizes come from the registry so new ones appear on their own
+  const typeSel = $("#bulkType");
+  for (const g of [...new Set(SIGN_TYPES.map((t) => t.group))]) {
+    const grp = SIGN_TYPES.filter((t) => t.group === g && t.fields.some((f) => f.kind === "sku"));
+    if (!grp.length) continue;
+    const og = el("optgroup");
+    og.label = g;
+    for (const t of grp) {
+      const o = el("option", null, t.label);
+      o.value = t.id;
+      og.appendChild(o);
+    }
+    typeSel.appendChild(og);
+  }
+  typeSel.onchange = renderBulkExtras;
+  const sizeSel = $("#bulkSize");
+  for (const s of SIZES) {
+    const o = el("option", null, s.label.replace(/"$/, "″"));
+    o.value = s.id;
+    sizeSel.appendChild(o);
+  }
+  renderBulkExtras();
   $("#bulkAddBtn").onclick = async () => {
     const skus = parseBulkSkus(ta.value);
     if (!skus.length) return;
     const typeId = $("#bulkType").value;
     const sizeId = $("#bulkSize").value;
     const copies = clampCopies($("#bulkCopies").value);
+    // shared promo details must be filled before anything hits the queue —
+    // a blank one would bulk-add signs that can't print
+    const extras = {};
+    for (const d of BULK_EXTRAS[typeId] || []) {
+      const v = String($(`#bulkExtras [data-bx="${d.key}"]`).value || "").trim();
+      if (!v) {
+        $("#bulkReport").innerHTML = "";
+        $("#bulkReport").appendChild(el("div", "bulk-warn", `⚠ Fill in “${d.label}” first — it applies to every sign in this batch.`));
+        return;
+      }
+      extras[d.key] = d.int ? String(Math.max(2, Math.min(9, parseInt(v, 10) || 2))) : v;
+    }
     const prog = $("#bulkProgress");
     const fill = prog.querySelector("i");
     prog.classList.add("show");
@@ -1691,6 +1755,9 @@ function initBulk() {
             spec.price = si.onSale ? si.sale : "";
             if (!spec.price) needsNow.push(spec.sku);
           }
+          // shared promo details (percent/savings/qty — and for 2-for /
+          // Your Choice, the promo price replaces the looked-up price)
+          Object.assign(spec, extras);
           Queue.add(addType, sizeId, spec, copies);
           ok++;
         } else {

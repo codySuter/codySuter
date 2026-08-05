@@ -57,7 +57,9 @@ async function composeSheetSVG(page, showGuides) {
       inner += `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)})">${body}</g>`;
     }
     if (!page.dedicated) {
-      inner += `<rect x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" width="${(p.w * PPI).toFixed(2)}" height="${(p.h * PPI).toFixed(2)}" fill="none" stroke="#AAAAAA" stroke-width="0.75"/>`;
+      // same dashed cut-line style as the holder sizes' laminate guide
+      // (#AAAAAA, 0.6pt, dash 4/2) so every cut line in the app matches
+      inner += `<rect x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" width="${(p.w * PPI).toFixed(2)}" height="${(p.h * PPI).toFixed(2)}" fill="none" stroke="#AAAAAA" stroke-width="0.80" stroke-dasharray="5.33 2.67"/>`;
     }
   }
   if (showGuides) {
