@@ -1004,12 +1004,20 @@ function renderQueue() {
       const b = el("button", "q-btn", label);
       b.title = title;
       b.disabled = !!disabled;
-      b.onclick = (e) => { e.stopPropagation(); fn(); };
+      b.onclick = (e) => { e.stopPropagation(); fn(b); };
       actions.appendChild(b);
     };
     btn("▲", "Move up", () => Queue.move(q.uid, -1), idx === 0);
     btn("⧉", "Duplicate", () => Queue.duplicate(q.uid));
     btn("▼", "Move down", () => Queue.move(q.uid, 1), idx === Queue.items.length - 1);
+    btn("🗂", "Add this sign to a saved batch", (anchor) => {
+      showBatchPickMenu(anchor, (name) => {
+        const ok = Batches.addItems(name, [q]);
+        showToast(ok
+          ? `Added “${queueItemTitle(q)}” to batch “${name}”.`
+          : `Batch “${name}” no longer exists.`);
+      });
+    });
     btn("✕", "Remove", () => {
       const rem = Queue.remove(q.uid);
       if (rem) showToast(`Removed “${queueItemTitle(rem.item)}”.`, { undo: () => Queue.restore(rem.item, rem.index) });
@@ -1159,6 +1167,35 @@ async function refreshQueuePrices() {
   showToast(msg + ".");
 }
 
+/* ---------------- batch pick menu ----------------
+   Small anchored menu of saved batch names — used by the queue rail's 🗂
+   button to drop a single sign into an existing batch. */
+let _pickMenuEl = null;
+function closeBatchPickMenu() {
+  if (_pickMenuEl) { try { _pickMenuEl.remove(); } catch (e) {} _pickMenuEl = null; }
+}
+function showBatchPickMenu(anchor, onPick) {
+  closeBatchPickMenu();
+  const names = Batches.names();
+  const menu = el("div", "pick-menu");
+  menu.appendChild(el("div", "pick-head", "Add to batch"));
+  if (!names.length) {
+    menu.appendChild(el("div", "pick-empty", "No saved batches yet — use Batches → Save first."));
+  }
+  for (const n of names) {
+    const b = el("button", "pick-item", n);
+    b.onclick = () => { closeBatchPickMenu(); onPick(n); };
+    menu.appendChild(b);
+  }
+  document.body.appendChild(menu);
+  _pickMenuEl = menu;
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = Math.max(8, Math.min(window.innerHeight - menu.offsetHeight - 8, r.bottom + 4)) + "px";
+  menu.style.left = Math.max(8, r.right - menu.offsetWidth) + "px";
+  // any outside click dismisses; deferred so this opening click doesn't
+  setTimeout(() => document.addEventListener("click", closeBatchPickMenu, { once: true }), 0);
+}
+
 /* ---------------- named batches ---------------- */
 function openBatches() {
   const inp = $("#batchName");
@@ -1217,6 +1254,15 @@ function renderBatchList() {
         },
       });
     };
+    const addQ = el("button", "btn btn-secondary btn-sm", "＋ Queue");
+    addQ.title = "Add every sign currently in the queue to this batch";
+    addQ.disabled = !Queue.items.length;
+    addQ.onclick = () => {
+      const count = Queue.totalSigns();
+      if (!Batches.addItems(name, Queue.items)) return;
+      renderBatchList();
+      showToast(`Added ${count} sign${count === 1 ? "" : "s"} from the queue to batch “${name}”.`);
+    };
     const del = el("button", "q-btn", "✕");
     del.title = "Delete batch";
     del.onclick = () => {
@@ -1232,6 +1278,7 @@ function renderBatchList() {
     };
     row.appendChild(info);
     row.appendChild(load);
+    row.appendChild(addQ);
     row.appendChild(del);
     host.appendChild(row);
   }

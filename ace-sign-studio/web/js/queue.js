@@ -135,6 +135,20 @@ const Batches = {
     this.data[name] = { deletedAt: new Date().toISOString() };
     persistState();
   },
+  /* Append signs (queue rows, copies included) to an existing batch.
+     Fresh uids so the batch copies diverge cleanly from the live queue
+     rows (and from re-adding the same sign later); the savedAt bump makes
+     the enlarged batch win the newest-wins merge on the other computers. */
+  addItems(name, items) {
+    const b = this.data[name];
+    if (!b || !b.items || !items || !items.length) return false;
+    const copies = JSON.parse(JSON.stringify(items));
+    copies.forEach((q) => { q.uid = Queue._uid(); });
+    b.items = b.items.concat(copies);
+    b.savedAt = new Date().toISOString();
+    persistState();
+    return true;
+  },
 };
 
 /* Print history: a snapshot of every Print All / Save PDF / single-sign
