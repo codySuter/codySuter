@@ -75,7 +75,7 @@ const Sync = {
         showToast("Synced updates from another computer.");
       }
       if (changedRemote || got.missing) {
-        const put = await this.call({ op: "put", sha: got.sha || "", doc: merged });
+        const put = await this.call({ op: "put", sha: got.sha || "", doc: await shrinkSyncDoc(merged) });
         if (put.ok === false) throw new Error(put.error || "sync write failed");
         if (put.conflict) {
           // another PC wrote between our get and put — merge theirs in too
@@ -139,6 +139,55 @@ function mergeSyncDoc(remote) {
       by: String(Settings.get().syncName || "").trim(),
     },
   };
+}
+
+/* ---------- keep the pushed doc under GitHub's 1MB contents limit ----------
+   Custom photos live inside specs as data URIs (~200-400KB each after the
+   editor's downscale); a few of them would push the sync file past the
+   Contents API's 1MB ceiling and break every computer's sync reads. The
+   pushed copy re-encodes big data-URI photos to ~700px (fine for store
+   signage print) and, if the doc is somehow still too big, drops history
+   photos first and batch photos as a last resort. Local state is never
+   touched — this PC keeps its full-resolution originals. */
+const SYNC_DOC_BUDGET = 900000; // bytes, safety margin under GitHub's 1MB
+const SYNC_IMG_THRESHOLD = 80000;
+const _syncImgCache = new Map(); // original data URI -> shrunken data URI
+
+async function shrinkSyncDoc(doc) {
+  const out = JSON.parse(JSON.stringify(doc));
+  const eachSpec = (fn) => {
+    for (const n of Object.keys(out.batches || {})) {
+      for (const q of (out.batches[n] && out.batches[n].items) || []) fn(q.spec, "batch");
+    }
+    for (const h of out.history || []) {
+      for (const q of h.items || []) fn(q.spec, "history");
+    }
+  };
+  const big = [];
+  eachSpec((spec) => {
+    if (spec && typeof spec.image === "string" && spec.image.startsWith("data:") && spec.image.length > SYNC_IMG_THRESHOLD) {
+      big.push(spec);
+    }
+  });
+  for (const spec of big) {
+    let small = _syncImgCache.get(spec.image);
+    if (!small) {
+      try { small = await downscaleDataURL(spec.image, 700, 0.8); } catch (e) { small = spec.image; }
+      _syncImgCache.set(spec.image, small);
+    }
+    if (small && small.length < spec.image.length) spec.image = small;
+  }
+  if (JSON.stringify(out).length > SYNC_DOC_BUDGET) {
+    eachSpec((spec, where) => {
+      if (where === "history" && spec && typeof spec.image === "string" && spec.image.startsWith("data:")) spec.image = null;
+    });
+  }
+  if (JSON.stringify(out).length > SYNC_DOC_BUDGET) {
+    eachSpec((spec) => {
+      if (spec && typeof spec.image === "string" && spec.image.startsWith("data:")) spec.image = null;
+    });
+  }
+  return out;
 }
 
 /* Refresh whatever synced data is currently on screen. */

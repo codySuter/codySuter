@@ -24,6 +24,7 @@ const Settings = {
     syncRepo: "codysuter/ace-sign-sync", // private GitHub repo holding the sync data
     syncToken: "",            // token override — blank uses the token built into release builds
     syncName: "",             // this computer's name, shown on synced history
+    sizePresets: {},          // named Element-sizes slider layouts, {name: scaleMap}
   },
   get() { return this.data; },
   set(patch) { Object.assign(this.data, patch); persistState(); },

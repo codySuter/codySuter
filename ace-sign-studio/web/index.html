@@ -139,6 +139,13 @@
       <label class="f-label">Gallery template SKU</label>
       <input class="f-input" id="setTemplateSku">
       <div class="f-help">The product whose photo &amp; price fill the sign previews in the gallery (default 81995 — Ace Premium Wild Bird Food 20 lb). Looked up live at launch and cached.</div>
+      <label class="f-label">Backup</label>
+      <div class="f-row" style="align-items:center">
+        <button class="btn btn-secondary" id="backupExportBtn" style="flex:0 0 auto">Export backup</button>
+        <button class="btn btn-secondary" id="backupImportBtn" style="flex:0 0 auto">Import backup</button>
+        <span class="f-help" style="margin:0;flex:1">Queue, batches, history &amp; settings to a file. The sync token never leaves this computer.</span>
+      </div>
+      <input type="file" id="backupFile" accept="application/json,.json" style="display:none">
       <label class="f-label">Updates</label>
       <div class="f-row" style="align-items:center">
         <button class="btn btn-secondary" id="settingsUpdateBtn" style="flex:0 0 auto">Check for updates</button>
