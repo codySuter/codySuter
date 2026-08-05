@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.3.0"
+VERSION="3.4.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Bulk add now covers every SKU-based sign type with promo inputs, the 11x7 Sign Holder gets a proper laminate cut line so it fits its metal holder, and the 5.5x3.5 size is now the Magnet Sleeve."
+NOTES="Layout presets for the element-size sliders, one-click backup export/import, duplicate badges in the queue, and sync that stays healthy with photo-heavy batches."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"

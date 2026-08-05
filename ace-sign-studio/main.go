@@ -32,7 +32,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "3.3.0"
+var appVersion = "3.4.0"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -354,6 +354,12 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			writeJSON(w, map[string]any{"ok": true, "missing": true})
+			return
+		}
+		// the Contents API refuses files over 1MB with a "too_large" error —
+		// distinct from an auth 403, and actionable (3.4+ keeps the doc small)
+		if resp.StatusCode == http.StatusForbidden && strings.Contains(string(rb), "too_large") {
+			writeJSON(w, map[string]any{"ok": false, "error": "the sync data has outgrown GitHub's file limit — update every computer to the latest version, which keeps it small"})
 			return
 		}
 		if msg := authError(resp.StatusCode); msg != "" {

@@ -9,6 +9,16 @@
 
 const CHANGELOG = [
   {
+    version: "3.4.0",
+    date: "August 2026",
+    notes: [
+      "New: layout presets. Save a favorite Element-sizes arrangement (say, “big photo”) from the new Presets menu and apply it to any sign with one click.",
+      "New: backup. Settings → Backup exports everything — queue, batches, history, settings — to a file, and imports it back (with undo). Sync credentials never leave the computer.",
+      "Queued signs that duplicate the same SKU at the same size now show a “duplicate” badge, so bulk adds and batch loads can't sneak double prints past you.",
+      "Sync stays healthy with photo-heavy batches: custom photos are slimmed down in the shared copy so the store's sync data can never outgrow its storage limit. Your own computer keeps the full-quality photo.",
+    ],
+  },
+  {
     version: "3.3.0",
     date: "August 2026",
     notes: [

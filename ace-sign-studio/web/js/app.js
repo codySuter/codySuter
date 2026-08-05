@@ -48,6 +48,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("#exportAllBtn").onclick = () => exportQueue(false);
   $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
   initBulk();
+  initBackup();
   window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
   initSupport();
   fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => {
@@ -644,7 +645,12 @@ function buildScaleSliders(t, host) {
   const sc = App.spec.scale || (App.spec.scale = {});
   const head = el("div", "scale-head");
   head.appendChild(labelEl("Element sizes — the sign re-fits itself around your changes"));
+  const presets = el("button", "btn btn-ghost btn-sm", "Presets ▾");
+  presets.title = "Save this layout, or apply a saved one";
+  presets.onclick = (e) => { e.stopPropagation(); showPresetMenu(presets, t, host); };
+  head.appendChild(presets);
   const reset = el("button", "btn btn-ghost btn-sm", "Reset");
+  reset.id = "scaleResetBtn"; // distinct from the Presets button for lookups
   reset.title = "Back to the automatic layout";
   const updateReset = () => {
     reset.disabled = !defs.some((d) => sc[d.key] && sc[d.key] !== 1);
@@ -698,6 +704,64 @@ function buildScaleSliders(t, host) {
   keep.appendChild(document.createTextNode("Keep these sizes when a new SKU is looked up"));
   keep.title = "Off: a new product goes back to the automatic layout. On: your slider settings carry over.";
   wrap.appendChild(keep);
+}
+
+/* Layout presets: named Element-sizes arrangements ("big photo layout"),
+   saved in Settings and applicable to any sign. The menu lists saved
+   presets (click to apply, ✕ to delete) with a save row at the bottom. */
+function showPresetMenu(anchor, t, host) {
+  closeBatchPickMenu(); // shares the pick-menu chrome and singleton
+  const menu = el("div", "pick-menu");
+  menu.onclick = (e) => e.stopPropagation();
+  menu.appendChild(el("div", "pick-head", "Layout presets"));
+  const names = Object.keys(Settings.get().sizePresets || {}).sort();
+  if (!names.length) menu.appendChild(el("div", "pick-empty", "No presets yet — set the sliders, then save the layout below."));
+  for (const n of names) {
+    const row = el("div", "pick-row");
+    const b = el("button", "pick-item", n);
+    b.onclick = () => {
+      App.spec.scale = Object.assign({}, Settings.get().sizePresets[n]);
+      App.spec._scaleSku = String(App.spec.sku || "");
+      closeBatchPickMenu();
+      buildScaleSliders(t, host);
+      schedulePreview();
+      showToast(`Applied layout “${n}”.`);
+    };
+    const del = el("button", "q-btn", "✕");
+    del.title = "Delete this preset";
+    del.onclick = () => {
+      const presets = Object.assign({}, Settings.get().sizePresets);
+      delete presets[n];
+      Settings.set({ sizePresets: presets });
+      showPresetMenu(anchor, t, host);
+    };
+    row.appendChild(b);
+    row.appendChild(del);
+    menu.appendChild(row);
+  }
+  const saveRow = el("div", "pick-save");
+  const inp = el("input", "f-input");
+  inp.placeholder = "Save current as…";
+  const save = el("button", "btn btn-primary btn-sm", "Save");
+  save.onclick = () => {
+    const n = inp.value.trim();
+    if (!n) return;
+    const presets = Object.assign({}, Settings.get().sizePresets);
+    presets[n] = Object.assign({}, App.spec.scale || {});
+    Settings.set({ sizePresets: presets });
+    closeBatchPickMenu();
+    showToast(`Layout “${n}” saved — apply it to any sign from Presets.`);
+  };
+  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") save.onclick(); });
+  saveRow.appendChild(inp);
+  saveRow.appendChild(save);
+  menu.appendChild(saveRow);
+  document.body.appendChild(menu);
+  _pickMenuEl = menu;
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = Math.max(8, Math.min(window.innerHeight - menu.offsetHeight - 8, r.bottom + 4)) + "px";
+  menu.style.left = Math.max(8, r.right - menu.offsetWidth) + "px";
+  setTimeout(() => document.addEventListener("click", closeBatchPickMenu, { once: true }), 0);
 }
 
 /* A different product usually wants the automatic layout back: unless the
@@ -909,7 +973,7 @@ function syncScaleSliders() {
     const val = s.parentElement.querySelector(".scale-val");
     if (val && !s.disabled) val.textContent = pct + "%";
   });
-  const reset = $("#scaleWrap .btn");
+  const reset = $("#scaleResetBtn");
   if (reset) reset.disabled = !Object.keys(sc).some((k) => sc[k] && sc[k] !== 1);
 }
 
@@ -977,6 +1041,13 @@ function renderQueue() {
     return;
   }
   host.innerHTML = "";
+  // bulk add and batch loads make silent doubles easy — badge any SKU
+  // that appears more than once at the same size
+  const dupCounts = {};
+  for (const q of Queue.items) {
+    const sku = String(q.spec.sku || "").trim();
+    if (sku) dupCounts[`${sku}|${q.sizeId}`] = (dupCounts[`${sku}|${q.sizeId}`] || 0) + 1;
+  }
   Queue.items.forEach((q, idx) => {
     const item = el("div", "q-item" + (q.uid === App.editingUid ? " editing" : ""));
     item.title = "Click to edit this sign";
@@ -996,6 +1067,9 @@ function renderQueue() {
       sub.appendChild(el("span", "q-stale", "price unchecked"));
     }
     if (q.typeId === "was_now" && !String(q.spec.price || "").trim()) sub.appendChild(el("span", "q-warn", "needs Now price"));
+    if (String(q.spec.sku || "").trim() && dupCounts[`${String(q.spec.sku).trim()}|${q.sizeId}`] > 1) {
+      sub.appendChild(el("span", "q-warn", "duplicate"));
+    }
     info.appendChild(sub);
     main.onclick = () => startEditQueueItem(q.uid);
 
@@ -1845,6 +1919,88 @@ function openSettings() {
     }
     Sync.start(); // pick up sync repo/token changes immediately
     renderQueue();
+  };
+}
+
+/* ---------------- backup export / import ----------------
+   Everything worth keeping — queue, batches, history, settings — to a
+   plain JSON file and back. The sync token is deliberately excluded both
+   ways: it never travels in a backup file, and an import never clobbers
+   the one stored on this computer. */
+function buildBackupJSON() {
+  const settings = Object.assign({}, Settings.get());
+  delete settings.syncToken;
+  return JSON.stringify({
+    app: "AceSignStudio",
+    backupVersion: 1,
+    appVersion: window.__appVersion || "",
+    exportedAt: new Date().toISOString(),
+    settings,
+    queue: Queue.items,
+    batches: Batches.data,
+    history: History.data,
+  });
+}
+
+function exportBackup() {
+  const d = new Date();
+  const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([buildBackupJSON()], { type: "application/json" }));
+  a.download = `ace-sign-studio-backup-${stamp}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  showToast("Backup exported.");
+}
+
+/* Returns an error string, or null on success (with an undo toast). */
+function applyBackup(data) {
+  if (!data || typeof data !== "object" || data.app !== "AceSignStudio") {
+    return "that file isn't an Ace Sign Studio backup";
+  }
+  const prev = {
+    settings: JSON.parse(JSON.stringify(Settings.data)),
+    queue: Queue.items,
+    batches: Batches.data,
+    history: History.data,
+  };
+  const keepToken = Settings.data.syncToken;
+  if (data.settings && typeof data.settings === "object") {
+    Object.assign(Settings.data, data.settings);
+    Settings.data.syncToken = keepToken;
+  }
+  Batches.data = data.batches && typeof data.batches === "object" ? data.batches : {};
+  History.data = Array.isArray(data.history) ? data.history : [];
+  Queue.replaceAll(Array.isArray(data.queue) ? data.queue : []); // persists + re-renders
+  Sync.start();
+  showToast(`Backup restored${data.exportedAt ? ` (saved ${fmtBatchDate(data.exportedAt)})` : ""} — queue, batches, history & settings replaced.`, {
+    undo: () => {
+      Object.assign(Settings.data, prev.settings);
+      Batches.data = prev.batches;
+      History.data = prev.history;
+      Queue.replaceAll(prev.queue);
+      Sync.start();
+    },
+  });
+  return null;
+}
+
+function initBackup() {
+  $("#backupExportBtn").onclick = exportBackup;
+  $("#backupImportBtn").onclick = () => $("#backupFile").click();
+  $("#backupFile").onchange = () => {
+    const f = $("#backupFile").files && $("#backupFile").files[0];
+    $("#backupFile").value = "";
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      let err;
+      try { err = applyBackup(JSON.parse(r.result)); }
+      catch (e) { err = "couldn't read that file as JSON"; }
+      if (err) showToast(`Import failed — ${err}.`);
+      else $("#settingsModal").classList.remove("show");
+    };
+    r.readAsText(f);
   };
 }
 
