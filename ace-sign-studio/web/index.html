@@ -81,22 +81,10 @@
         <div class="bulk-inner">
           <textarea id="bulkSkus" placeholder="Paste SKUs from anywhere — one per line, comma separated, or a whole spreadsheet column. Runs of 4+ digits are detected."></textarea>
           <div class="bulk-meta">
-            <select class="f-select" id="bulkType" style="flex:1">
-              <option value="regular">Regular Price</option>
-              <option value="sale">Sale</option>
-              <option value="was_now">Was / Now</option>
-              <option value="final_sale">Final Sale</option>
-              <option value="large_text">Large Text</option>
-            </select>
-            <select class="f-select" id="bulkSize" style="flex:1">
-              <option value="letter-l">Full Page 11×8.5″</option>
-              <option value="pallet-l">Pallet Holder 11×8.5″</option>
-              <option value="holder-11x7">Sign Holder 11×7″</option>
-              <option value="counter-7x5">Counter 7×5″</option>
-              <option value="card-6x4">Card 6×4″</option>
-              <option value="shelf-5x3">Shelf 5×3″</option>
-            </select>
+            <select class="f-select" id="bulkType" style="flex:1"></select>
+            <select class="f-select" id="bulkSize" style="flex:1"></select>
           </div>
+          <div class="bulk-meta bulk-extras" id="bulkExtras" style="display:none"></div>
           <div class="bulk-meta">
             <label class="bulk-copies-label">Copies <input type="number" id="bulkCopies" class="f-input bulk-copies" min="1" max="99" value="1"></label>
             <span class="bulk-count" id="bulkCount"></span>

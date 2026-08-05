@@ -9,6 +9,16 @@
 
 const CHANGELOG = [
   {
+    version: "3.3.0",
+    date: "August 2026",
+    notes: [
+      "Bulk add now covers every sign type that works from a SKU — all twelve, grouped like the sidebar. Types that need promo details (percent off, BOGO %, 2-for, instant savings, buy-2-get, your choice) show small inputs that apply to the whole list, and the app won't add signs until they're filled.",
+      "The 11×7 Sign Holder size now prints with the same dashed cut line as the Pallet Holder sizes: cut on the line, laminate, and the finished sign actually fits the 11×7 metal holder (cut at exactly 11×7, the laminate edge made it too big).",
+      "Every cut line in the app now uses that same dashed style — including the sign outlines on multi-sign sheets.",
+      "The 5.5×3.5″ size is now labeled “Magnet Sleeve”.",
+    ],
+  },
+  {
     version: "3.2.0",
     date: "August 2026",
     notes: [

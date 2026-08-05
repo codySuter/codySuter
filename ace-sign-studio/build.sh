@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.2.0"
+VERSION="3.3.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Add signs to an existing batch: a new button on every queued sign drops it into a saved batch, and batches can swallow the whole queue in one click."
+NOTES="Bulk add now covers every SKU-based sign type with promo inputs, the 11x7 Sign Holder gets a proper laminate cut line so it fits its metal holder, and the 5.5x3.5 size is now the Magnet Sleeve."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
