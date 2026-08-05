@@ -50,7 +50,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   initBulk();
   window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
   initSupport();
-  fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => { window.__appVersion = h.version; window.__appHost = h.host; }).catch(() => {});
+  fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => {
+    window.__appVersion = h.version;
+    window.__appHost = h.host;
+    window.__builtinSync = !!h.builtinSync;
+    maybeOfferSync();
+  }).catch(() => {});
   Sync.start();
   $$(".modal-back").forEach((mb) => {
     mb.addEventListener("click", (e) => { if (e.target === mb) mb.classList.remove("show"); });
@@ -1232,6 +1237,28 @@ function renderBatchList() {
   }
 }
 
+/* ---------------- one-click sync opt-in ----------------
+   Release builds carry the store's sync connection, so a PC that hasn't
+   decided yet gets a launch banner: Turn on (named after the computer)
+   or dismiss for good on this PC. Settings can change either later. */
+function maybeOfferSync() {
+  const s = Settings.get();
+  if (!window.__builtinSync || s.syncOn || s.syncOfferDismissed) return;
+  const bar = $("#syncOfferBar");
+  if (!bar) return;
+  $("#syncOfferOn").onclick = () => {
+    Settings.set({ syncOn: true, syncName: String(s.syncName || window.__appHost || "").trim() });
+    bar.classList.remove("show");
+    Sync.start();
+    showToast("Sync is on — saved batches and print history are now shared with the store.");
+  };
+  $("#syncOfferDismiss").onclick = () => {
+    Settings.set({ syncOfferDismissed: true });
+    bar.classList.remove("show");
+  };
+  bar.classList.add("show");
+}
+
 /* ---------------- launch batch scan: prices + ended sales ----------------
    At launch, every saved batch is checked two ways:
    1. Price changes on Regular/Sale/Large Text signs with a SKU (the same
@@ -1671,6 +1698,7 @@ function openSettings() {
   $("#setPrintStoreLine").checked = !!s.printStoreLine;
   $("#setCutGuides").checked = !!s.cutGuides;
   $("#setBatchPriceCheck").checked = !!s.batchPriceCheck;
+  $("#setSyncOn").checked = !!s.syncOn;
   $("#setSyncRepo").value = s.syncRepo || "";
   $("#setSyncToken").value = s.syncToken || "";
   $("#setSyncName").value = s.syncName || "";
@@ -1688,7 +1716,8 @@ function openSettings() {
       printStoreLine: $("#setPrintStoreLine").checked,
       cutGuides: $("#setCutGuides").checked,
       batchPriceCheck: $("#setBatchPriceCheck").checked,
-      syncRepo: $("#setSyncRepo").value.trim(),
+      syncOn: $("#setSyncOn").checked,
+      syncRepo: $("#setSyncRepo").value.trim() || "codysuter/ace-sign-sync",
       syncToken: $("#setSyncToken").value.trim(),
       syncName: $("#setSyncName").value.trim(),
       margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),

@@ -9,6 +9,14 @@
 
 const CHANGELOG = [
   {
+    version: "3.1.0",
+    date: "August 2026",
+    notes: [
+      "Sync now works out of the box — the store's sync connection is built into the app. On each computer, just click “Turn on” in the banner at launch (or tick the box in Settings). No repos, no tokens, nothing to paste.",
+      "The computer's name fills in automatically from Windows; change it in Settings if you want friendlier names like “Front Desk”.",
+    ],
+  },
+  {
     version: "3.0.0",
     date: "August 2026",
     notes: [

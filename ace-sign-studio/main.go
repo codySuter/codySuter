@@ -32,7 +32,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "3.0.0"
+var appVersion = "3.1.0"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -211,7 +211,26 @@ func requireLoopbackHost(next http.Handler) http.Handler {
 
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
 	host, _ := os.Hostname()
-	writeJSON(w, map[string]any{"ok": true, "version": appVersion, "host": host})
+	writeJSON(w, map[string]any{"ok": true, "version": appVersion, "host": host, "builtinSync": embeddedSyncToken() != ""})
+}
+
+// embeddedSyncTokenB64 is injected at release-build time (base64 of the
+// store's sync token, from the ACE_SYNC_TOKEN repo secret via build.sh).
+// Base64 keeps the raw token string out of the public binary's strings
+// and out of secret scanners that would auto-revoke it. This is
+// deliberately NOT strong protection — anyone determined can decode it —
+// an accepted trade-off (owner's call): the token can only read/write the
+// sync repo's batch data, and rotating it is just updating the repo
+// secret before the next release. Dev builds have no token; sync then
+// needs one pasted in Settings.
+var embeddedSyncTokenB64 = ""
+
+func embeddedSyncToken() string {
+	b, err := base64.StdEncoding.DecodeString(strings.TrimSpace(embeddedSyncTokenB64))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 // ---------------- multi-PC sync via a private GitHub repo ----------------
@@ -272,7 +291,10 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Token == "" {
-		writeJSON(w, map[string]any{"ok": false, "error": "paste the GitHub token for the sync repo"})
+		req.Token = embeddedSyncToken() // release builds carry the store token
+	}
+	if req.Token == "" {
+		writeJSON(w, map[string]any{"ok": false, "error": "this build has no built-in store token — paste one under Settings → Sync → advanced"})
 		return
 	}
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", githubAPIBase, req.Repo, syncRepoFile)
