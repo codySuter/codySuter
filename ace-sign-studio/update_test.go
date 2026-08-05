@@ -276,3 +276,22 @@ func TestFetchManifestRejectsMissingVersion(t *testing.T) {
 		t.Error("a manifest without a version should be rejected")
 	}
 }
+
+// A manifest that parses but carries no checksum must not install — the
+// SHA-256 is the only integrity check on the binary we are about to run.
+func TestApplyUpdateRejectsMissingChecksum(t *testing.T) {
+	newUpdateServer(t, "2.5.0", []byte("NEW BINARY"), false)
+	exe := fakeExe(t, "OLD BINARY")
+
+	m, err := fetchManifest()
+	if err != nil {
+		t.Fatalf("fetchManifest: %v", err)
+	}
+	m.SHA256 = ""
+	if err := applyUpdateTo(m, exe); err == nil {
+		t.Fatal("expected an error for a manifest without a checksum")
+	}
+	if got, _ := os.ReadFile(exe); string(got) != "OLD BINARY" {
+		t.Errorf("exe was modified despite the missing checksum: %q", got)
+	}
+}

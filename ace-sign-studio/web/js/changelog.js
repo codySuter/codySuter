@@ -9,6 +9,19 @@
 
 const CHANGELOG = [
   {
+    version: "3.5.0",
+    date: "August 2026",
+    notes: [
+      "The ✉ Support button is gone — if something's wrong, just tell Cody directly.",
+      "Printed PDFs now match the preview exactly for spaced-out lettering (SKU digits under barcodes, FINAL SALE, BUY ONE GET ONE and friends) — they used to print slightly narrower than the screen showed.",
+      "Savings amounts print exactly as entered: a $7.50 instant savings no longer rounds up to “SAVE $8”.",
+      "Cut guides actually print now. The little margin ticks used to sit in the printer's unprintable edge; they've moved just inside it, they only appear where a full straightedge cut is safe, and the dashed sign outlines now obey the Cut guides setting too.",
+      "Full-page signs' gray border moved inside the printable area, and signs packed on a shared sheet can no longer spill over a neighbor when a very long product name won't fit.",
+      "Sharing batches between computers is safer: two computers adding signs to the same saved batch around the same time both keep their signs, accepted price updates from the launch banner now reach the other computers, and long-deleted batches stop cluttering the sync data.",
+      "Steadier under load and a batch of smaller fixes: big queues (100+ signs) redraw much faster, double-clicking “Look Up & Add All” can't add everything twice, a slow lookup can no longer overwrite a sign you've since opened for editing, and installing an update is more robust end to end.",
+    ],
+  },
+  {
     version: "3.4.0",
     date: "August 2026",
     notes: [

@@ -32,13 +32,30 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "3.4.0"
+var appVersion = "3.5.0"
 
 var (
 	heartbeatMu   sync.Mutex
 	lastHeartbeat time.Time
 	everPinged    bool
 )
+
+// boundPort is the port the server actually bound (which differs from -port
+// after a fallback to a random port). The self-update relaunch passes it to
+// the child so the new instance comes back on the same origin the UI knows.
+var (
+	boundPortMu sync.Mutex
+	boundPort   int
+)
+
+func currentBoundPort() int {
+	boundPortMu.Lock()
+	defer boundPortMu.Unlock()
+	return boundPort
+}
+
+// stateWriteMu serializes writes of state.json (see handleState).
+var stateWriteMu sync.Mutex
 
 const defaultPort = 8347
 
@@ -70,23 +87,28 @@ func main() {
 	mux.HandleFunc("/api/sync/github", handleSyncGithub)
 	mux.HandleFunc("/api/update/check", handleUpdateCheck)
 	mux.HandleFunc("/api/update/apply", handleUpdateApply)
-	mux.HandleFunc("/api/support", handleSupport)
 	mux.HandleFunc("/__ping", handlePing)
 
 	cleanupOldUpdate() // remove a prior exe left by a self-update
 
+	updated := os.Getenv("ACE_UPDATED") == "1"
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
-	if err != nil && *port != 0 && os.Getenv("ACE_UPDATED") == "1" {
+	if err != nil && *port != 0 && updated {
 		// Just relaunched by a self-update: wait for the outgoing instance to
-		// release the port rather than focusing it.
-		for i := 0; i < 20 && err != nil; i++ {
+		// release the port rather than focusing it. Its exit is bounded (the
+		// browser teardown is capped at 3s), but give it a generous margin —
+		// a premature give-up here is how an update ends with no app running.
+		for i := 0; i < 100 && err != nil; i++ {
 			time.Sleep(300 * time.Millisecond)
 			ln, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
 		}
 	}
 	if err != nil && *port != 0 {
-		// Port taken — if it's another Ace Sign Studio, just focus it.
-		if isRunningInstance(*port) {
+		// Port taken — if it's another Ace Sign Studio, just focus it. Never
+		// take this branch right after a self-update: the instance still on
+		// the port is the dying one, and "focusing" it would leave the user
+		// with no app once it exits. Fall through to a random port instead.
+		if !updated && isRunningInstance(*port) {
 			log.Printf("Ace Sign Studio already running on port %d — opening it", *port)
 			if !*noBrowser {
 				openAppWindow(fmt.Sprintf("http://127.0.0.1:%d", *port))
@@ -99,6 +121,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("listen: %v", err)
 	}
+	boundPortMu.Lock()
+	boundPort = ln.Addr().(*net.TCPAddr).Port
+	boundPortMu.Unlock()
 	url := fmt.Sprintf("http://%s", ln.Addr().String())
 	log.Printf("[pid %d] Ace Sign Studio %s serving at %s", os.Getpid(), appVersion, url)
 
@@ -286,7 +311,12 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Repo = strings.TrimSpace(req.Repo)
 	req.Token = strings.TrimSpace(req.Token)
-	if !syncRepoRe.MatchString(req.Repo) {
+	// The regex alone still matches "." and ".." segments, which GitHub's API
+	// would path-normalize — letting a crafted request aim the embedded token
+	// at other api.github.com paths. Real owners/repos are never dot-only.
+	owner, repoName, _ := strings.Cut(req.Repo, "/")
+	if !syncRepoRe.MatchString(req.Repo) ||
+		owner == "." || owner == ".." || repoName == "." || repoName == ".." {
 		writeJSON(w, map[string]any{"ok": false, "error": "sync repo must look like owner/repo (e.g. codysuter/ace-sign-sync)"})
 		return
 	}
@@ -575,6 +605,12 @@ func handleState(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
+		// Serialized: concurrent saves (two windows on one server, or an
+		// autosave overlapping a beacon flush) would otherwise interleave on
+		// the shared tmp file and could rename a half-written state.json —
+		// the file holding the entire queue and settings — into place.
+		stateWriteMu.Lock()
+		defer stateWriteMu.Unlock()
 		tmp := path + ".tmp"
 		if err := os.WriteFile(tmp, data, 0o644); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

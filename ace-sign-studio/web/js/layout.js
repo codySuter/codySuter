@@ -110,26 +110,56 @@ function packQueue(queueItems, opts) {
   return { pages, margin, gap };
 }
 
-/* Margin-tick cut guides: for every unique cut coordinate, short ticks in
-   the page margins (top/bottom for vertical cuts, left/right for horizontal),
-   so a straightedge can line up without marking the signs themselves. */
+/* Margin-tick cut guides: short ticks in the page margins (top/bottom for
+   vertical cuts, left/right for horizontal), so a straightedge can line up
+   without marking the signs themselves.
+
+   Two constraints shape them:
+   - Every tick is clamped into the printable band. The printer lays no
+     toner within ≈0.25" of the paper edge, and the old ticks lived almost
+     entirely in that dead zone — at the default margin only a ~1.5mm stub
+     printed, and at tighter margins nothing did.
+   - A margin tick advertises a full-length straightedge cut, so it is only
+     emitted when that cut passes through no sign's interior. Rows of
+     different widths otherwise produce ticks that would slice a wider
+     sign in another row. (The dashed per-sign outlines still mark the
+     row-local cuts.) */
 function cutGuides(page, pageW, pageH) {
   if (page.dedicated) return [];
+  const EDGE = 0.26; // stay outside the printer's ≈0.25" non-printable edge
   const xs = new Set(), ys = new Set();
   for (const p of page.items) {
     xs.add(+p.x.toFixed(3)); xs.add(+(p.x + p.w).toFixed(3));
     ys.add(+p.y.toFixed(3)); ys.add(+(p.y + p.h).toFixed(3));
   }
-  const lines = [];
   const minX = Math.min(...[...xs]), maxX = Math.max(...[...xs]);
   const minY = Math.min(...[...ys]), maxY = Math.max(...[...ys]);
-  for (const x of xs) {
-    lines.push({ x1: x, y1: Math.max(0.08, minY - 0.28), x2: x, y2: Math.max(0.1, minY - 0.06) });
-    lines.push({ x1: x, y1: Math.min(pageH - 0.1, maxY + 0.06), x2: x, y2: Math.min(pageH - 0.08, maxY + 0.28) });
+  const safeX = [...xs].filter((x) => page.items.every((p) => x <= p.x + 1e-6 || x >= p.x + p.w - 1e-6));
+  const safeY = [...ys].filter((y) => page.items.every((p) => y <= p.y + 1e-6 || y >= p.y + p.h - 1e-6));
+  // A tick runs from just clear of the packed block toward the paper edge,
+  // clamped to the printable band; keep at least a 0.04" visible stroke.
+  const beforeTick = (edge) => {
+    const outer = Math.max(EDGE, edge - 0.28);
+    let inner = edge - 0.06;
+    if (inner - outer < 0.04) inner = Math.min(edge - 0.02, outer + 0.04);
+    return inner > outer ? [outer, inner] : null;
+  };
+  const afterTick = (edge, limit) => {
+    const outer = Math.min(limit - EDGE, edge + 0.28);
+    let inner = edge + 0.06;
+    if (outer - inner < 0.04) inner = Math.max(edge + 0.02, outer - 0.04);
+    return outer > inner ? [inner, outer] : null;
+  };
+  const lines = [];
+  const top = beforeTick(minY), bottom = afterTick(maxY, pageH);
+  for (const x of safeX) {
+    if (top) lines.push({ x1: x, y1: top[0], x2: x, y2: top[1] });
+    if (bottom) lines.push({ x1: x, y1: bottom[0], x2: x, y2: bottom[1] });
   }
-  for (const y of ys) {
-    lines.push({ x1: Math.max(0.08, minX - 0.28), y1: y, x2: Math.max(0.1, minX - 0.06), y2: y });
-    lines.push({ x1: Math.min(pageW - 0.1, maxX + 0.06), y1: y, x2: Math.min(pageW - 0.08, maxX + 0.28), y2: y });
+  const left = beforeTick(minX), right = afterTick(maxX, pageW);
+  for (const y of safeY) {
+    if (left) lines.push({ x1: left[0], y1: y, x2: left[1], y2: y });
+    if (right) lines.push({ x1: right[0], y1: y, x2: right[1], y2: y });
   }
   return lines;
 }

@@ -39,29 +39,45 @@ function yieldToPaint() {
 }
 
 /* Compose one sheet SVG (inches → 96dpi px) with nested sign SVGs. */
+let _sheetClipSeq = 0;
 async function composeSheetSVG(page, showGuides) {
   const pw = page.landscape ? PAGE_H : PAGE_W;
   const ph = page.landscape ? PAGE_W : PAGE_H;
   const W = pw * PPI, H = ph * PPI;
   let inner = `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`;
+  let defs = "";
+  const clipBase = ++_sheetClipSeq; // ids must be unique across the sheet previews living in one document
 
+  let idx = 0;
   for (const p of page.items) {
     const q = p.item.q;
     const rot = p.item.rot;
     const svg = await renderQueueItemSVG(q);
     const body = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
     const tx = p.x * PPI, ty = p.y * PPI;
+    // Stripping the sign's <svg> wrapper also strips the viewBox clipping
+    // the standalone preview relies on — an overflowing renderer (a long
+    // unbreakable name, a wide unit label) would paint over the neighboring
+    // sign. Re-clip each sign to its own slot (in its local, pre-rotation
+    // frame; svg2pdf honors clip paths).
+    const cw = (rot ? p.h : p.w) * PPI, ch = (rot ? p.w : p.h) * PPI;
+    const cid = `shclip${clipBase}x${idx++}`;
+    defs += `<clipPath id="${cid}"><rect x="0" y="0" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}"/></clipPath>`;
+    const clipped = `<g clip-path="url(#${cid})">${body}</g>`;
     if (rot) {
-      inner += `<g transform="translate(${(tx + p.w * PPI).toFixed(2)},${ty.toFixed(2)}) rotate(90)">${body}</g>`;
+      inner += `<g transform="translate(${(tx + p.w * PPI).toFixed(2)},${ty.toFixed(2)}) rotate(90)">${clipped}</g>`;
     } else {
-      inner += `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)})">${body}</g>`;
+      inner += `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)})">${clipped}</g>`;
     }
-    if (!page.dedicated) {
+    if (!page.dedicated && showGuides) {
       // same dashed cut-line style as the holder sizes' laminate guide
-      // (#AAAAAA, 0.6pt, dash 4/2) so every cut line in the app matches
+      // (#AAAAAA, 0.6pt, dash 4/2) so every cut line in the app matches.
+      // Gated on the same "Cut guides" setting as the margin ticks — these
+      // outlines are cut lines too.
       inner += `<rect x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" width="${(p.w * PPI).toFixed(2)}" height="${(p.h * PPI).toFixed(2)}" fill="none" stroke="#AAAAAA" stroke-width="0.80" stroke-dasharray="5.33 2.67"/>`;
     }
   }
+  if (defs) inner = `<defs>${defs}</defs>` + inner;
   if (showGuides) {
     for (const l of cutGuides(page, pw, ph)) {
       inner += `<line x1="${(l.x1 * PPI).toFixed(2)}" y1="${(l.y1 * PPI).toFixed(2)}" x2="${(l.x2 * PPI).toFixed(2)}" y2="${(l.y2 * PPI).toFixed(2)}" stroke="#9A9A9A" stroke-width="0.8"/>`;

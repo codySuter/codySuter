@@ -23,8 +23,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+// updateMu serializes the download-verify-swap sequence (and the launch-time
+// cleanup of leftover update files). Without it, two concurrent applies stage
+// into the same .new file and one can rename a half-written download into
+// place after the other verified it.
+var updateMu sync.Mutex
 
 // updateManifestURL points at the manifest published beside the exe on the
 // stable GitHub Release (CI uploads both on every green build — the exe is
@@ -187,6 +194,11 @@ func handleUpdateCheck(w http.ResponseWriter, _ *http.Request) {
 }
 
 func handleUpdateApply(w http.ResponseWriter, _ *http.Request) {
+	if !updateMu.TryLock() {
+		writeJSON(w, map[string]any{"ok": false, "error": "an update is already in progress"})
+		return
+	}
+	defer updateMu.Unlock()
 	m, err := fetchManifest()
 	if err != nil {
 		writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
@@ -251,20 +263,23 @@ func applyUpdateTo(m *updateManifest, exe string) error {
 	if !updateURLAllowed(m.URL, updateManifestURL()) {
 		return fmt.Errorf("update download URL is not from the expected release location")
 	}
+	if m.SHA256 == "" {
+		// build.sh always stamps the checksum; a manifest without one is not
+		// something we should execute.
+		return fmt.Errorf("update manifest has no checksum — refusing to install")
+	}
 	newPath := exe + ".new"
 	if err := downloadFile(m.URL, newPath); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
-	if m.SHA256 != "" {
-		sum, err := fileSHA256(newPath)
-		if err != nil {
-			os.Remove(newPath)
-			return err
-		}
-		if !strings.EqualFold(sum, m.SHA256) {
-			os.Remove(newPath)
-			return fmt.Errorf("checksum mismatch — download may be corrupt")
-		}
+	sum, err := fileSHA256(newPath)
+	if err != nil {
+		os.Remove(newPath)
+		return err
+	}
+	if !strings.EqualFold(sum, m.SHA256) {
+		os.Remove(newPath)
+		return fmt.Errorf("checksum mismatch — download may be corrupt")
 	}
 	_ = os.Chmod(newPath, 0o755)
 
@@ -291,18 +306,35 @@ func relaunchAndExit() {
 	if exe != "" {
 		// Relaunch with the same CLI args, and mark it so it waits for this
 		// process to release the port instead of treating us as a running
-		// instance to focus.
-		cmd := exec.Command(exe, os.Args[1:]...)
+		// instance to focus. The actually-bound port is passed explicitly:
+		// if this instance fell back to a random port, replaying the
+		// original flags would have the child waiting on a port that will
+		// never free (flag parsing takes the last -port, so the append wins).
+		args := os.Args[1:]
+		if p := currentBoundPort(); p > 0 {
+			args = append(append([]string{}, args...), fmt.Sprintf("-port=%d", p))
+		}
+		cmd := exec.Command(exe, args...)
 		cmd.Dir = filepath.Dir(exe)
 		cmd.Env = append(os.Environ(), "ACE_UPDATED=1")
 		_ = cmd.Start()
 	}
 	flushDiskCache()
-	shutdownBrowser()
+	// Shut the lookup browser down, but never let a wedged browser (or an
+	// in-flight lookup holding browserMu for tens of seconds) delay the
+	// exit: the relaunched instance is waiting for this process to release
+	// the port, and gives up long before a slow teardown would finish.
+	done := make(chan struct{})
+	go func() { shutdownBrowser(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+	}
 	os.Exit(0)
 }
 
-// cleanupOldUpdate removes the previous exe left behind by a self-update.
+// cleanupOldUpdate removes leftovers from a prior self-update: the renamed
+// previous exe (.old) and any download orphaned by a crash mid-update (.new).
 func cleanupOldUpdate() {
 	exe, err := os.Executable()
 	if err != nil {
@@ -311,10 +343,18 @@ func cleanupOldUpdate() {
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
 	}
-	// Retry briefly: the just-exited old process may still hold a lock.
+	os.Remove(exe + ".new")
+	// Retry briefly: the just-exited old process may still hold a lock. A
+	// missing file is done, not a reason to keep retrying, and each attempt
+	// holds updateMu so the loop can never delete the .old backup out from
+	// under an in-progress swap (which would leave no exe if the second
+	// rename then failed).
 	go func() {
 		for i := 0; i < 10; i++ {
-			if os.Remove(exe+".old") == nil {
+			updateMu.Lock()
+			err := os.Remove(exe + ".old")
+			updateMu.Unlock()
+			if err == nil || os.IsNotExist(err) {
 				return
 			}
 			time.Sleep(500 * time.Millisecond)
@@ -339,6 +379,12 @@ func downloadFile(url, dest string) error {
 		return err
 	}
 	_, err = io.Copy(f, resp.Body)
+	if err == nil {
+		// The file is about to be renamed over the running exe; without a
+		// sync, a power cut can commit the rename while the data blocks are
+		// still unflushed, leaving a truncated binary as the app.
+		err = f.Sync()
+	}
 	closeErr := f.Close()
 	if err != nil {
 		os.Remove(dest)

@@ -129,7 +129,13 @@ const Batches = {
       .sort((a, b) => String(this.data[b].savedAt || "").localeCompare(String(this.data[a].savedAt || "")));
   },
   save(name) {
-    this.data[name] = { items: JSON.parse(JSON.stringify(Queue.items)), savedAt: new Date().toISOString() };
+    // Full save: wholesale-authoritative in the sync merge. Stamping every
+    // item's addedAt to the savedAt means none of them can be "rescued"
+    // into a copy that a later full save deliberately replaced.
+    const at = new Date().toISOString();
+    const items = JSON.parse(JSON.stringify(Queue.items));
+    items.forEach((q) => { q.addedAt = at; });
+    this.data[name] = { items, savedAt: at };
     persistState();
   },
   remove(name) {
@@ -138,15 +144,19 @@ const Batches = {
   },
   /* Append signs (queue rows, copies included) to an existing batch.
      Fresh uids so the batch copies diverge cleanly from the live queue
-     rows (and from re-adding the same sign later); the savedAt bump makes
-     the enlarged batch win the newest-wins merge on the other computers. */
+     rows (and from re-adding the same sign later). Appends deliberately do
+     NOT bump savedAt: they travel through sync via their addedAt stamps
+     (mergeSyncDoc rescues appends newer than the winning side's last full
+     save), so two computers appending to the same batch in the same sync
+     window both keep their signs instead of newest-savedAt silently
+     dropping one side's. */
   addItems(name, items) {
     const b = this.data[name];
     if (!b || !b.items || !items || !items.length) return false;
+    const at = new Date().toISOString();
     const copies = JSON.parse(JSON.stringify(items));
-    copies.forEach((q) => { q.uid = Queue._uid(); });
+    copies.forEach((q) => { q.uid = Queue._uid(); q.addedAt = at; });
     b.items = b.items.concat(copies);
-    b.savedAt = new Date().toISOString();
     persistState();
     return true;
   },
@@ -196,7 +206,11 @@ function queueItemTitle(q) {
    and re-inlines the product photo. The cache key includes the settings
    that affect artwork, so toggling them invalidates correctly. */
 const _itemSVGCache = new Map();
-const ITEM_SVG_CACHE_MAX = 80;
+// The floor covers small queues; sizing to the live queue matters past ~80
+// items — a fixed cap smaller than the queue thrashes on every sequential
+// render pass (item 1 evicted by the time the pass wraps), turning each
+// copies-click into a full re-render of every thumbnail.
+function _itemSVGCacheMax() { return Math.max(80, Queue.items.length + 16); }
 function _itemSVGKey(q) {
   const s = Settings.get();
   return `${q.uid}|${q._rev || 0}|${q.typeId}|${q.sizeId}|${s.printStoreLine ? s.storeLine : ""}`;
@@ -204,7 +218,7 @@ function _itemSVGKey(q) {
 async function renderQueueItemSVG(qOrItem) {
   const q = qOrItem.q || qOrItem;
   const key = q.uid ? _itemSVGKey(q) : null;
-  if (key && _itemSVGCache.has(key)) return _cacheTouch(_itemSVGCache, key, ITEM_SVG_CACHE_MAX);
+  if (key && _itemSVGCache.has(key)) return _cacheTouch(_itemSVGCache, key, _itemSVGCacheMax());
   const spec = Object.assign({}, q.spec);
   const hide = spec.hide;
   delete spec.hide;
@@ -213,7 +227,7 @@ async function renderQueueItemSVG(qOrItem) {
   const p = renderSignSVG(q.typeId, spec, q.sizeId);
   if (key) {
     _itemSVGCache.set(key, p);
-    while (_itemSVGCache.size > ITEM_SVG_CACHE_MAX) _itemSVGCache.delete(_itemSVGCache.keys().next().value);
+    while (_itemSVGCache.size > _itemSVGCacheMax()) _itemSVGCache.delete(_itemSVGCache.keys().next().value);
     p.catch(() => _itemSVGCache.delete(key)); // a failed render must not stick
   }
   return p;

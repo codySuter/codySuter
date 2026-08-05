@@ -50,7 +50,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   initBulk();
   initBackup();
   window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
-  initSupport();
   fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => {
     window.__appVersion = h.version;
     window.__appHost = h.host;
@@ -556,7 +555,7 @@ function buildEditorFields(t) {
         schedulePreview();
       };
       e2.onchange = () => { App.spec.endDate = e2.value; App.batchEnd = e2.value; schedulePreview(); };
-      clr.onclick = () => { s.value = ""; e2.value = ""; App.spec.startDate = ""; App.spec.endDate = ""; schedulePreview(); };
+      clr.onclick = () => { s.value = ""; e2.value = ""; App.spec.startDate = ""; App.spec.endDate = ""; App.batchStart = ""; App.batchEnd = ""; schedulePreview(); };
       row.appendChild(s); row.appendChild(e2); row.appendChild(clr);
       host.appendChild(row);
       continue;
@@ -954,12 +953,18 @@ function startElemDrag(e, d) {
   };
   const up = () => {
     window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
     _elemDrag = null;
     badge.remove();
     hideDragHint();
   };
   window.addEventListener("pointermove", move);
+  // pointercancel too: a touch/pen interruption never delivers pointerup,
+  // which would leave the badge stuck and this pointermove handler attached
+  // (still resizing elements on every cursor move) forever.
   window.addEventListener("pointerup", up, { once: true });
+  window.addEventListener("pointercancel", up, { once: true });
 }
 
 /* Push spec.scale back into the slider row that matches each key. */
@@ -1490,7 +1495,9 @@ function showBatchPriceBar(changed, ended, endedNoSkuCount) {
   ended = ended || [];
   const all = changed.concat(ended);
   const batches = [...new Set(all.map((c) => c.name))];
-  const bList = batches.slice(0, 3).map((b) => `“${b}”`).join(", ") + (batches.length > 3 ? ` +${batches.length - 3} more` : "");
+  // esc() matters: batch names are free text and arrive from other computers
+  // via sync — this string lands in innerHTML below.
+  const bList = batches.slice(0, 3).map((b) => `“${esc(b)}”`).join(", ") + (batches.length > 3 ? ` +${batches.length - 3} more` : "");
   // a sign saved in several batches counts (and prints) once
   const uniq = (list) => new Set(list.map((c) => `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`)).size;
   const nChanged = uniq(changed), nEnded = uniq(ended);
@@ -1513,21 +1520,43 @@ function showBatchPriceBar(changed, ended, endedNoSkuCount) {
       Queue.add(u.typeId, u.sizeId, u.spec, u.copies || 1);
       added++;
     };
+    // The banner can sit unclicked while a sync merge (or backup import)
+    // replaces Batches.data — mutating the object references captured at
+    // scan time would then write into orphaned copies and silently change
+    // nothing. Re-resolve each row by batch name + item uid at click time,
+    // and bump savedAt on every touched batch so the accepted updates win
+    // the newest-wins merge on the other computers.
+    const resolveStored = (c) => {
+      const b = Batches.data[c.name];
+      if (!b || !b.items) return null;
+      return b.items.find((q) => q && q.uid === c.stored.uid) || null;
+    };
+    const touched = new Set();
     for (const c of changed) {
       // write the new price/type into the stored batch item; the rev bump
       // keeps a later "Load batch" from serving the old price out of the
       // rendered-SVG cache (batch items keep their uid when reloaded)
-      c.stored.typeId = c.updated.typeId;
-      c.stored.spec = c.updated.spec;
-      Queue._bumpRev(c.stored);
+      const stored = resolveStored(c);
+      if (stored) {
+        stored.typeId = c.updated.typeId;
+        stored.spec = c.updated.spec;
+        Queue._bumpRev(stored);
+        touched.add(c.name);
+      }
       queueOnce(c.updated);
     }
     for (const c of ended) {
       // the batch keeps the promo sign (it may run again) — just remember
       // the offer was taken so it doesn't repeat every launch
-      c.stored.spec._endedOffered = todayISO();
+      const stored = resolveStored(c);
+      if (stored) {
+        stored.spec._endedOffered = todayISO();
+        touched.add(c.name);
+      }
       queueOnce(c.updated);
     }
+    const at = new Date().toISOString();
+    for (const name of touched) Batches.data[name].savedAt = at;
     persistState();
     bar.classList.remove("show");
     const notes = [];
@@ -1777,8 +1806,12 @@ function initBulk() {
   }
   renderBulkExtras();
   $("#bulkAddBtn").onclick = async () => {
+    const btn = $("#bulkAddBtn");
+    if (btn.disabled) return; // a run is in flight — a second click would add everything twice
     const skus = parseBulkSkus(ta.value);
     if (!skus.length) return;
+    btn.disabled = true;
+    try {
     const typeId = $("#bulkType").value;
     const sizeId = $("#bulkSize").value;
     const copies = clampCopies($("#bulkCopies").value);
@@ -1850,6 +1883,9 @@ function initBulk() {
     badge.textContent = `Added ${ok} of ${skus.length}`;
     if (ok) ta.value = "";
     renderBulkReport(failed, needsNow);
+    } finally {
+      btn.disabled = false;
+    }
   };
 }
 
