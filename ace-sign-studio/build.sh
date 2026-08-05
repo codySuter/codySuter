@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.8.0"
+VERSION="3.8.1"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Every sign now prints with its laminate cut line — exactly 1/8 inch inside its size all the way around, so the sealed laminate border brings each cut piece back to true size."
+NOTES="Full Page signs print edge-to-edge again (no cut line); the 1/8-inch laminate cut guide stays on all the cut-out sizes."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
