@@ -246,18 +246,24 @@ func marshalDiskCache() ([]byte, string) {
 
 // getSession returns a shared HTTP client whose cookie jar has been warmed on
 // a real product page, which is what authorizes the storefront API calls.
-func getSession(forceRefresh bool) *http.Client {
+// The warm-up runs while holding sessionMu — every concurrent lookup queues
+// behind it — so it is bounded by the caller's deadline (and an 8s cap of its
+// own) rather than the client's full 20s timeout: a stalling site must not
+// hold the lock past the lookup budget that the fallback chain promises.
+func getSession(ctx context.Context, forceRefresh bool) *http.Client {
 	sessionMu.Lock()
 	defer sessionMu.Unlock()
 	if session == nil || forceRefresh {
 		jar, _ := cookiejar.New(nil)
 		session = &http.Client{Jar: jar, Timeout: 20 * time.Second}
-		req, _ := http.NewRequest("GET", warmupProductURL, nil)
+		wctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		req, _ := http.NewRequestWithContext(wctx, "GET", warmupProductURL, nil)
 		setBrowserHeaders(req, "")
 		if resp, err := session.Do(req); err == nil {
 			io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 			resp.Body.Close()
 		}
+		cancel()
 	}
 	return session
 }
@@ -312,7 +318,7 @@ func fetchStorePrice(ctx context.Context, sku, store string, diag *[]string) (pr
 			*diag = append(*diag, "Store API lookup ran out of time")
 			return
 		}
-		c := getSession(attempt > 0)
+		c := getSession(ctx, attempt > 0)
 		u := storefrontAPI + url.PathEscape(sku) + "?purchaseLocation=" + url.QueryEscape(store)
 		resp, err := siteGetCtx(ctx, c, u, "application/json")
 		if err != nil {
@@ -524,7 +530,7 @@ func offerPrice(v any) string {
 }
 
 func fetchProductPage(ctx context.Context, pageURL string, diag *[]string) (string, string, bool) {
-	c := getSession(false)
+	c := getSession(ctx, false)
 	resp, err := siteGetCtx(ctx, c, pageURL, "")
 	if err != nil {
 		*diag = append(*diag, "Product page request failed: "+err.Error())
@@ -734,7 +740,10 @@ func assembleResult(res *LookupResult, sku, finalURL string, page *pageProduct, 
 	if res.Price == "" && res.ListPrice != "" {
 		*diag = append(*diag, "Store-specific price unavailable — using site price. Double-check the price on acehardware.com")
 	}
-	res.OK = res.Name != "" || res.Price != "" || res.ListPrice != ""
+	// SalePrice counts: the warm-tab path treats a sale-price-only payload as
+	// a success, and discarding it here would burn the whole HTTP fallback
+	// only to report "no product data" with a price in hand.
+	res.OK = res.Name != "" || res.Price != "" || res.ListPrice != "" || res.SalePrice != ""
 }
 
 // lookupForceHTTP disables the browser path (ACE_LOOKUP_MODE=http), for
@@ -746,7 +755,7 @@ func lookupForceHTTP() bool {
 // searchForProduct runs a site search and returns the first product page URL.
 func searchForProduct(ctx context.Context, q string) (string, []string) {
 	diag := []string{}
-	c := getSession(false)
+	c := getSession(ctx, false)
 	u := baseSite + "/search?query=" + url.QueryEscape(q)
 	resp, err := siteGetCtx(ctx, c, u, "")
 	if err != nil {
@@ -890,7 +899,14 @@ func fetchImageCached(raw string) ([]byte, string, error) {
 		if err != nil {
 			return nil, "", false
 		}
+		// No usable content type means the .ct sidecar write was lost (crash
+		// between the two writes): serving an explicit empty Content-Type
+		// suppresses browser sniffing and the photo renders broken forever.
+		// Treat it as a miss so the re-download rewrites both files.
 		ctype, _ := os.ReadFile(base + ".ct")
+		if len(ctype) == 0 {
+			return nil, "", false
+		}
 		return data, string(ctype), true
 	}
 	if data, ctype, ok := readCached(); ok {
@@ -933,7 +949,9 @@ func fetchImageCached(raw string) ([]byte, string, error) {
 	if ctype == "" {
 		ctype = "image/jpeg"
 	}
-	_ = os.WriteFile(base, data, 0o644)
+	// Content type first: readCached treats data-without-.ct as a miss, so
+	// this order keeps a reader that races the two writes self-correcting.
 	_ = os.WriteFile(base+".ct", []byte(ctype), 0o644)
+	_ = os.WriteFile(base, data, 0o644)
 	return data, ctype, nil
 }

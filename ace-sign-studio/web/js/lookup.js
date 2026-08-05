@@ -44,7 +44,11 @@ function attachAutoLookup(inputEl, statusEl, onResult) {
     statusEl.innerHTML = `<span class="spin"></span> Looking up ${esc(q)}…`;
     try {
       const res = await lookupProductAPI(q, force === true);
-      if (res._stale) return;
+      // Stale by sequence, or stale by editor rebuild: clicking a queued row
+      // blurs this input (starting a lookup for the *old* product) and then
+      // rebuilds the editor — if this input is no longer in the document,
+      // onResult would write the old product onto whatever spec is now open.
+      if (res._stale || !inputEl.isConnected) return;
       if (res.ok) {
         const si = saleInfo(res);
         statusEl.className = "lookup-status ok";

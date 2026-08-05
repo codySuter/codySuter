@@ -1,4 +1,4 @@
-# Ace Sign Studio 2.4
+# Ace Sign Studio
 
 One app for every sign in the store
 ([download the Windows .exe](https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/AceSignStudio.exe)).
@@ -85,14 +85,6 @@ Replaces and unifies the three older tools:
   Settings → Updates adds an on-demand **Check for updates** button and a
   user-facing **version history** (`web/js/changelog.js` — add an entry per
   release).
-- **Support & feedback**: a ✉ Support button files a bug report or feature
-  request to csuter@snydersace.net. Bug reports auto-attach diagnostics
-  (app version, OS, store #, current sign/queue, the last lookup log, and
-  recent errors) to speed up troubleshooting. Every report is also saved
-  to `%APPDATA%\AceSignStudio\support`. Delivery: SMTP if configured
-  (ACE_SMTP_HOST/USER/PASS/FROM[/PORT]), otherwise it opens a prefilled
-  email in the user's mail client; a Copy report button is the manual
-  fallback.
 - Queue, settings and saved batches persist to
   `%APPDATA%\AceSignStudio\state.json` (Windows) so nothing is lost
   between launches.

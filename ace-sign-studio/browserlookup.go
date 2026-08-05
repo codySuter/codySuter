@@ -431,6 +431,19 @@ func lookupViaBrowser(startURL string, isSearch bool, knownSKU, store string, di
 
 	// Serialize lookups onto the shared browser; make each a fresh tab.
 	browserMu.Lock()
+	// The idle watcher may have shut the browser down in the window between
+	// ensureBrowser returning and the lock above — proceeding on the dead
+	// base context would fail instantly and (worse) count against the
+	// warm-tab circuit breaker for a failure that isn't the warm path's.
+	if base.Err() != nil {
+		browserMu.Unlock()
+		base, err = ensureBrowser()
+		if err != nil {
+			*diag = append(*diag, "Browser lookup unavailable: "+err.Error())
+			return nil, "", "", "", false
+		}
+		browserMu.Lock()
+	}
 	defer browserMu.Unlock()
 
 	// Fast path: a plain item number needs nothing but the storefront API,

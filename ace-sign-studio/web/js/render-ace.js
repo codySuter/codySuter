@@ -50,7 +50,19 @@ function elemScale(spec, key) {
 function svgText(x, y, text, family, size, fill, opts) {
   const o = opts || {};
   const anchor = o.anchor || "middle";
-  const ls = o.letterSpacing ? ` letter-spacing="${o.letterSpacing}"` : "";
+  let ls = "";
+  if (o.letterSpacing) {
+    // Tracked text also gets textLength (the measured width including the
+    // tracking): svg2pdf ignores letter-spacing entirely and derives its
+    // character spacing from textLength alone, so without this every
+    // tracked line prints narrower than the preview (and anything
+    // positioned off its width — like Final Sale's asterisk — drifts).
+    // Browsers honor textLength too, so preview and PDF stay identical.
+    const lsPx = parseFloat(o.letterSpacing) || 0;
+    const str = String(text);
+    const tl = textWidth(str, family, size) + lsPx * Math.max(0, str.length - 1);
+    ls = ` letter-spacing="${o.letterSpacing}" textLength="${tl.toFixed(2)}"`;
+  }
   return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-family="${family}" font-size="${size.toFixed(2)}" fill="${fill}" text-anchor="${anchor}"${ls}>${esc(text)}</text>`;
 }
 
@@ -61,7 +73,13 @@ function roundRect(x, y, w, h, r, fill, stroke, sw) {
 /* ---------- shared sign chrome ---------- */
 
 function signFrame(W, H) {
-  const m = Math.max(10, Math.min(W, H) * 0.028);
+  // Page-scale signs print as a dedicated sheet with no packing margin, so
+  // their frame must clear the printer's ≈0.25" non-printable edge on its
+  // own — 0.028·816px = 0.238" leaves the whole border in the dead zone.
+  // Smaller signs sit inside the sheet's 0.375" packing margin and keep the
+  // proportional look.
+  let m = Math.max(10, Math.min(W, H) * 0.028);
+  if (Math.min(W, H) >= 800) m = Math.max(27, m);
   const r = Math.min(W, H) > 500 ? 8 : 6;
   return {
     margin: m,
@@ -419,9 +437,15 @@ AceRenderers.regular = (spec, W, H) =>
   productSignTemplate(spec, W, H, String(spec.price || "").trim() ? 0.38 : 0, (cx, top, availW, availH) => {
     const mp = moneyParts(spec.price);
     let S = Math.min(availH * 0.82, 200);
+    // The unit label shares the cents column, so the fit must budget for
+    // whichever is wider — a wide unit ("per gallon") otherwise extends
+    // past the frame on a width-limited price.
     const measure = (s) =>
       textWidth("$", "RobotoBlack", s * 0.55) + textWidth(mp.d, "RobotoBlack", s) +
-      (mp.c ? textWidth(mp.c, "RobotoBlack", s * 0.45) : 0) + s * 0.08;
+      Math.max(
+        mp.c ? textWidth(mp.c, "RobotoBlack", s * 0.45) : 0,
+        spec.unit ? textWidth(String(spec.unit), "RobotoBold", s * 0.16) : 0
+      ) + s * 0.08;
     if (measure(S) > availW) S *= availW / measure(S);
     const w = measure(S);
     const x0 = cx - w / 2;
@@ -571,7 +595,10 @@ AceRenderers.instant_savings = (spec, W, H) =>
     const saveSize = Math.max(13, availH * (hasPrice ? 0.15 : 0.24));
     const blockH = availH * 0.4;
     const regSize = Math.max(8, availH * 0.085);
-    const parts = [rw * 1.4, saveSize * 1.35];
+    // The SAVE row is as tall as its red amount block (amtS·1.1 below), not
+    // just the SAVE word — budgeting the smaller value pushed the stack's
+    // bottom row out of the price area.
+    const parts = [rw * 1.4, Math.max(saveSize * 1.35, saveSize * 1.55 * 1.1)];
     if (hasPrice) parts.push(blockH);
     if (s.regPrice) parts.push(regSize * 1.5);
     const st = stack(top, availH, parts, 0.035);
@@ -579,7 +606,10 @@ AceRenderers.instant_savings = (spec, W, H) =>
     let m = rewardsLine(cx, y + rw, rw);
     y += rw * 1.4 + st.gap;
     // SAVE $X INSTANTLY — SAVE/INSTANTLY stacked left of red $ block
-    const amt = "$" + String(Math.round(parseFloat(String(s.savings || "0").replace(/[^0-9.]/g, "")) || 0));
+    // Never round a savings amount: "$7.50 off" printed as "SAVE $8" is a
+    // customer-facing overstatement of the offer. Whole dollars stay bare.
+    const sv = parseFloat(String(s.savings || "0").replace(/[^0-9.]/g, "")) || 0;
+    const amt = "$" + (Number.isInteger(sv) ? String(sv) : sv.toFixed(2));
     const saveW = Math.max(textWidth("SAVE", "RobotoBlack", saveSize), textWidth("INSTANTLY", "RobotoBlack", saveSize * 0.52));
     const amtS = saveSize * 1.55;
     const amtW = textWidth(amt, "RobotoBlack", amtS) + amtS * 0.36;
@@ -689,7 +719,10 @@ AceRenderers.buy_get_off = (spec, W, H) =>
     let y = st.start;
     let m = svgText(cx, y + lineSize, `BUY ${q} GET`, "RobotoBlack", lineSize, INK, { letterSpacing: "1" });
     y += lineSize * 1.25 + st.gap;
-    const amt = "$" + String(Math.round(parseFloat(String(s.savings || "0").replace(/[^0-9.]/g, "")) || 0));
+    // Never round a savings amount: "$7.50 off" printed as "SAVE $8" is a
+    // customer-facing overstatement of the offer. Whole dollars stay bare.
+    const sv = parseFloat(String(s.savings || "0").replace(/[^0-9.]/g, "")) || 0;
+    const amt = "$" + (Number.isInteger(sv) ? String(sv) : sv.toFixed(2));
     let S = blockH * 0.62;
     const compute = (sz) => {
       const aW = textWidth(amt, "RobotoBlack", sz);

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -206,5 +207,20 @@ func TestStaticCacheRevalidates(t *testing.T) {
 	h.ServeHTTP(rec3, req3)
 	if rec3.Code != http.StatusOK {
 		t.Errorf("stale ETag = %d, want a fresh 200", rec3.Code)
+	}
+}
+
+// "." and ".." pass the owner/repo regex but would be path-normalized by
+// GitHub's API, aiming the embedded token at arbitrary api.github.com paths.
+func TestSyncGithubRejectsDotSegmentRepo(t *testing.T) {
+	for _, repo := range []string{"../..", "./x", "x/..", "../x", "x/."} {
+		body := fmt.Sprintf(`{"op":"get","repo":%q,"token":"tok"}`, repo)
+		req := httptest.NewRequest(http.MethodPost, "/api/sync/github", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		handleSyncGithub(rec, req)
+		if !strings.Contains(rec.Body.String(), "owner/repo") {
+			t.Errorf("repo %q was not rejected: %s", repo, rec.Body.String())
+		}
 	}
 }

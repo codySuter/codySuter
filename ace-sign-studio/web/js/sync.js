@@ -62,10 +62,8 @@ const Sync = {
     return resp.json();
   },
 
-  async sync(attempt) {
-    if (!this.enabled() || this._busy) return;
-    this._busy = true;
-    try {
+  // One get→merge→put cycle; sync() wraps it with the busy guard.
+  async _cycle(attempt) {
       const got = await this.call({ op: "get" });
       if (got.ok === false) throw new Error(got.error || "sync failed");
       const { changedLocal, changedRemote, merged } = mergeSyncDoc(got.missing ? null : got.doc);
@@ -78,14 +76,23 @@ const Sync = {
         const put = await this.call({ op: "put", sha: got.sha || "", doc: await shrinkSyncDoc(merged) });
         if (put.ok === false) throw new Error(put.error || "sync write failed");
         if (put.conflict) {
-          // another PC wrote between our get and put — merge theirs in too
-          this._busy = false;
-          if (!attempt) return this.sync(1);
+          // another PC wrote between our get and put — merge theirs in too.
+          // One retry, inside this same invocation: recursing after clearing
+          // _busy would let a poll tick start a second concurrent sync()
+          // while the retry is mid-flight.
+          if (!attempt) return await this._cycle(1);
           return; // twice in a row: let the next poll settle it
         }
       }
       this.lastSync = new Date();
       this.lastError = null;
+  },
+
+  async sync() {
+    if (!this.enabled() || this._busy) return;
+    this._busy = true;
+    try {
+      await this._cycle(0);
     } catch (e) {
       this.lastError = friendlyError(e);
     } finally {
@@ -97,22 +104,56 @@ const Sync = {
 
 /* Merge the remote doc into local Batches/History (in place) and report
    which sides changed. Timestamps decide per batch name; uids dedupe
-   history. Runs fine against null (no remote file yet). */
+   history. Runs fine against null (no remote file yet).
+
+   Batch semantics: a full save (or delete) is wholesale-authoritative —
+   newest savedAt/deletedAt wins the whole value. Appends are finer-grained:
+   items carry an addedAt stamp and do NOT bump savedAt, and the merge
+   rescues the losing side's items that were appended after the winning
+   side's last full save. That way two computers appending to the same batch
+   in the same sync window both keep their signs, while a stale copy can
+   never resurrect items that a newer full save deliberately removed. */
 function mergeSyncDoc(remote) {
   let changedLocal = false, changedRemote = false;
 
-  // ---- batches: per-name newest-wins, tombstones included ----
+  // ---- batches: per-name newest-wins + append rescue, tombstones included ----
   const stampOf = (b) => Math.max(Date.parse((b && b.savedAt) || 0) || 0, Date.parse((b && b.deletedAt) || 0) || 0);
+  const tombCutoff = Date.now() - 60 * 86400000;
+  const isDeadTombstone = (b) => b && !b.items && (Date.parse(b.deletedAt || 0) || 0) < tombCutoff;
   const rb = (remote && remote.batches && typeof remote.batches === "object") ? remote.batches : {};
   const lb = Batches.data;
   const mergedB = {};
   for (const n of new Set([...Object.keys(lb), ...Object.keys(rb)])) {
     const l = lb[n], r = rb[n];
-    if (!r) { mergedB[n] = l; changedRemote = true; continue; }
-    if (!l) { mergedB[n] = r; changedLocal = true; continue; }
-    if (stampOf(l) === stampOf(r)) { mergedB[n] = l; continue; }
-    if (stampOf(l) > stampOf(r)) { mergedB[n] = l; changedRemote = true; }
-    else { mergedB[n] = r; changedLocal = true; }
+    let winner;
+    if (!r) { winner = l; changedRemote = true; }
+    else if (!l) { winner = r; changedLocal = true; }
+    else {
+      const newer = stampOf(l) >= stampOf(r) ? l : r;
+      const older = newer === l ? r : l;
+      winner = newer;
+      if (newer.items && older.items) {
+        // Rescue the older side's genuinely-new appends. addedAt of an item
+        // the newer save could have seen is ≤ its savedAt, so this can only
+        // pick up appends the newer side never knew about.
+        const have = new Set(newer.items.map((q) => q && q.uid));
+        const saveStamp = Date.parse(newer.savedAt || 0) || 0;
+        const rescued = older.items.filter((q) =>
+          q && q.uid && !have.has(q.uid) && (Date.parse(q.addedAt || 0) || 0) > saveStamp);
+        if (rescued.length) winner = Object.assign({}, newer, { items: newer.items.concat(rescued) });
+      }
+      const uidsOf = (b) => (b.items || []).map((q) => q && q.uid).join("\n");
+      if (stampOf(l) > stampOf(r) || uidsOf(winner) !== uidsOf(r)) changedRemote = true;
+      if (stampOf(r) > stampOf(l) || uidsOf(winner) !== uidsOf(l)) changedLocal = true;
+    }
+    // Expired tombstones fall out of the doc here — without this, the local
+    // 60-day prune is undone by the next merge and the sync doc accumulates
+    // one dead key per deleted batch name forever.
+    if (isDeadTombstone(winner)) {
+      if (r) changedRemote = true;
+      continue;
+    }
+    mergedB[n] = winner;
   }
   Batches.data = mergedB;
 

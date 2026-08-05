@@ -239,10 +239,13 @@ function downscaleDataURL(dataURL, maxEdge, quality) {
   });
 }
 
-/* Natural size of a data-URI image. */
+/* Natural size of a data-URI image. Bounded like _dataURICache: the keys
+   are entire data URIs (hundreds of KB each), so an uncapped map retains
+   every photo string a long bulk-add session ever rendered. */
 const _imgSizeCache = new Map();
+const IMG_SIZE_CACHE_MAX = 60;
 function imageSize(dataURI) {
-  if (_imgSizeCache.has(dataURI)) return _imgSizeCache.get(dataURI);
+  if (_imgSizeCache.has(dataURI)) return _cacheTouch(_imgSizeCache, dataURI, IMG_SIZE_CACHE_MAX);
   const p = new Promise((res) => {
     const im = new Image();
     im.onload = () => res({ w: im.naturalWidth || 1, h: im.naturalHeight || 1 });
@@ -250,5 +253,6 @@ function imageSize(dataURI) {
     im.src = dataURI;
   });
   _imgSizeCache.set(dataURI, p);
+  while (_imgSizeCache.size > IMG_SIZE_CACHE_MAX) _imgSizeCache.delete(_imgSizeCache.keys().next().value);
   return p;
 }

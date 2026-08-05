@@ -98,26 +98,43 @@ jobs:
             dist/version.json
           if-no-files-found: error
 
+      - name: Validate the update manifest
+        if: github.event_name != 'pull_request'
+        # Installed copies parse this file to self-update; publishing a
+        # syntactically broken one kills self-update fleet-wide with a
+        # green build. Fail here instead.
+        run: jq -e .version ../dist/version.json
+
       - name: Publish EXE + update manifest to a Release (stable download link)
         if: github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Create the release with no assets so it publishes immediately,
-          # then upload the files to it. Passing assets to `gh release
-          # create` goes through a hidden draft phase — create draft,
-          # upload, publish — and if that last publish silently fails the
-          # release is stuck as an unlisted draft with a dead download URL
-          # (which happened once: the run was green, the download 404'd).
-          # Stale drafts from such failures don't match the tag lookup, so
-          # sweep them by name first.
-          gh release delete ace-sign-studio-windows --yes --cleanup-tag || true
+          # Update the existing release in place with --clobber instead of
+          # delete-then-recreate: the old dance left a window (seconds per
+          # push — indefinite if the re-create failed) where the download
+          # URL and the self-update manifest 404'd for every installed copy.
+          # The release is created without assets only if it doesn't exist
+          # yet — passing assets to `gh release create` goes through a
+          # hidden draft phase that once stranded the release as an unlisted
+          # draft with a dead download URL. Stale drafts from such past
+          # failures don't match the tag lookup, so sweep them by name.
           gh api repos/${GITHUB_REPOSITORY}/releases --paginate \
             --jq '.[] | select(.draft and .tag_name == "ace-sign-studio-windows") | .id' |
             while read -r id; do gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/$id"; done
-          gh release create ace-sign-studio-windows \
-            --title "Ace Sign Studio for Windows" \
-            --notes "Latest Windows build. Download **AceSignStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**. Installed copies self-update from this release via version.json." \
-            --target "$GITHUB_SHA"
-          gh release upload ace-sign-studio-windows ../dist/AceSignStudio.exe ../dist/version.json
+          if ! gh release view ace-sign-studio-windows >/dev/null 2>&1; then
+            gh release create ace-sign-studio-windows \
+              --title "Ace Sign Studio for Windows" \
+              --notes "Latest Windows build. Download **AceSignStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**. Installed copies self-update from this release via version.json." \
+              --target "$GITHUB_SHA"
+          fi
+          # Exe first, manifest second: the manifest must never advertise a
+          # build whose exe isn't uploaded yet. A client updating in the
+          # brief exe-swap window gets a checksum mismatch (a clean, retried
+          # error) rather than installing a torn download.
+          gh release upload ace-sign-studio-windows ../dist/AceSignStudio.exe --clobber
+          gh release upload ace-sign-studio-windows ../dist/version.json --clobber
+          # Keep the release's tag pointing at the commit that built it.
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/ace-sign-studio-windows" \
+            -f sha="$GITHUB_SHA" -F force=true || true

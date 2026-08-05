@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.4.0"
+VERSION="3.5.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Layout presets for the element-size sliders, one-click backup export/import, duplicate badges in the queue, and sync that stays healthy with photo-heavy batches."
+NOTES="Printed PDFs now match the preview exactly, cut guides actually print, batch sync is safer between computers, self-update is sturdier, and the Support button is retired."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
@@ -21,15 +21,20 @@ if [ -n "$ACE_SYNC_TOKEN" ]; then
 fi
 mkdir -p ../dist
 
+# JSON string escaping for the manifest fields. Without it, one straight
+# quote (or backslash) in NOTES ships a syntactically invalid version.json
+# and every installed copy's self-update check fails until the next release.
+json_str() { printf %s "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+
 emit_manifest() {
   exe_path="$1"; exe_name="$2"
   sha=$(sha256sum "$exe_path" | cut -d' ' -f1)
   cat > ../dist/version.json <<JSON
 {
-  "version": "$VERSION",
-  "url": "$DL_BASE/$exe_name",
+  "version": "$(json_str "$VERSION")",
+  "url": "$(json_str "$DL_BASE/$exe_name")",
   "sha256": "$sha",
-  "notes": "$NOTES"
+  "notes": "$(json_str "$NOTES")"
 }
 JSON
   echo "wrote ../dist/version.json ($VERSION, sha256 $sha)"
