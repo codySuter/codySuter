@@ -491,7 +491,7 @@ AceRenderers.sale = (spec, W, H) => {
 /* Percent off — red block "00% OFF" (optionally "UP TO"). */
 AceRenderers.percent_off = (spec, W, H) =>
   productSignTemplate(spec, W, H, 0.44, (cx, top, availW, availH, s) => {
-    const pct = String(parseInt(s.percent, 10) || 0);
+    const pct = String(s.percent || "").trim() ? String(parseInt(s.percent, 10) || 0) : "__";
     let m = "";
     let y = top;
     let blockAvail = availH;
@@ -544,7 +544,7 @@ AceRenderers.bogo_free = (spec, W, H) =>
 /* BOGO percent — BUY ONE / GET ONE + red block "00% OFF". */
 AceRenderers.bogo_percent = (spec, W, H) =>
   productSignTemplate(spec, W, H, 0.5, (cx, top, availW, availH, s) => {
-    const pct = String(parseInt(s.percent, 10) || 0);
+    const pct = String(s.percent || "").trim() ? String(parseInt(s.percent, 10) || 0) : "__";
     const lineSize = Math.min(availH * 0.15, availW / 7.5);
     const blockH = availH * 0.5;
     const st = stack(top, availH, [lineSize * 1.2, lineSize * 1.2, blockH], 0.04);
@@ -609,7 +609,9 @@ AceRenderers.instant_savings = (spec, W, H) =>
     // Never round a savings amount: "$7.50 off" printed as "SAVE $8" is a
     // customer-facing overstatement of the offer. Whole dollars stay bare.
     const sv = parseFloat(String(s.savings || "0").replace(/[^0-9.]/g, "")) || 0;
-    const amt = "$" + (Number.isInteger(sv) ? String(sv) : sv.toFixed(2));
+    const amt = String(s.savings || "").trim()
+      ? "$" + (Number.isInteger(sv) ? String(sv) : sv.toFixed(2))
+      : "$__"; // half-typed sign should look unfinished, not like a $0 offer
     const saveW = Math.max(textWidth("SAVE", "RobotoBlack", saveSize), textWidth("INSTANTLY", "RobotoBlack", saveSize * 0.52));
     const amtS = saveSize * 1.55;
     const amtW = textWidth(amt, "RobotoBlack", amtS) + amtS * 0.36;
@@ -722,7 +724,9 @@ AceRenderers.buy_get_off = (spec, W, H) =>
     // Never round a savings amount: "$7.50 off" printed as "SAVE $8" is a
     // customer-facing overstatement of the offer. Whole dollars stay bare.
     const sv = parseFloat(String(s.savings || "0").replace(/[^0-9.]/g, "")) || 0;
-    const amt = "$" + (Number.isInteger(sv) ? String(sv) : sv.toFixed(2));
+    const amt = String(s.savings || "").trim()
+      ? "$" + (Number.isInteger(sv) ? String(sv) : sv.toFixed(2))
+      : "$__"; // half-typed sign should look unfinished, not like a $0 offer
     let S = blockH * 0.62;
     const compute = (sz) => {
       const aW = textWidth(amt, "RobotoBlack", sz);
@@ -766,7 +770,7 @@ AceRenderers.under_amount = async (spec, W, H) => {
     const catSize = Math.min(r * 0.17, (r * 1.55 / Math.max(1, textWidth(cat, "RobotoBlack", 100))) * 100);
     m += svgText(cx, cy - r * 0.42, cat, "RobotoBlack", catSize, "#fff", { letterSpacing: "1" });
     m += svgText(cx, cy - r * 0.42 + catSize * 1.3, "UNDER", "RobotoBlack", catSize * 0.9, "#fff", { letterSpacing: "2" });
-    const amt = "$" + String(Math.round(parseFloat(String(s.price || "0").replace(/[^0-9.]/g, "")) || 0));
+    const amt = String(s.price || "").trim() ? "$" + String(Math.round(parseFloat(String(s.price).replace(/[^0-9.]/g, "")) || 0)) : "$__";
     const aS = Math.min(r * 0.72, (r * 1.4 / Math.max(1, textWidth(amt, "RobotoBlack", 100))) * 100);
     m += svgText(cx, cy + r * 0.5, amt, "RobotoBlack", aS, "#fff");
     return { markup: m, h: availH };

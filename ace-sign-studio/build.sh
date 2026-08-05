@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.6.0"
+VERSION="3.7.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="A cleaner, roomier layout: compact sidebar, tidier editor with a Fine-tune section, one size dropdown, a simpler print queue with drag-to-reorder, and Settings split into everyday vs. advanced."
+NOTES="Batch price check report, a calmer look with red saved for what matters, one print pathway, smarter queue badges, unfinished signs show blanks instead of \$0, and a Copy diagnostics button."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"

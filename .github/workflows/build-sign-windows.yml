@@ -53,6 +53,12 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Sync merge unit tests
+        # The multi-computer merge semantics (concurrent appends, removal
+        # authority, tombstone expiry) are pure logic — test them without a
+        # browser so a regression fails fast.
+        run: node e2e/unit-merge.mjs
+
       - name: E2E suite (real binary + mock acehardware.com)
         run: |
           cd e2e
