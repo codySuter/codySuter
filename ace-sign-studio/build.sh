@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.1.0"
+VERSION="3.2.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Sync between store computers now works out of the box — click Turn on when the app opens and saved batches and print history stay identical on every PC."
+NOTES="Add signs to an existing batch: a new button on every queued sign drops it into a saved batch, and batches can swallow the whole queue in one click."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"

@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.2.0",
+    date: "August 2026",
+    notes: [
+      "New: add signs to an existing batch. The 🗂 button on any queued sign drops it into a saved batch you pick, and each batch in the Batches window has a “＋ Queue” button that adds everything currently in the queue.",
+    ],
+  },
+  {
     version: "3.1.0",
     date: "August 2026",
     notes: [
