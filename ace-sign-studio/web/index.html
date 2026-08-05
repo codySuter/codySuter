@@ -87,6 +87,19 @@
   </aside>
 </div>
 
+<!-- Batch price check report -->
+<div class="modal-back" id="priceCheckModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Batch price check</h3><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div id="priceCheckBody"></div>
+      <div class="actions" style="position:static;background:none">
+        <button class="btn btn-primary" id="priceCheckQueueBtn" style="display:none">＋ Queue updated signs</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Bulk add by SKU -->
 <div class="modal-back" id="bulkModal">
   <div class="modal">
@@ -152,6 +165,11 @@
             <span class="f-help" style="margin:0;flex:1">Queue, batches, history &amp; settings to a file. The sync token never leaves this computer.</span>
           </div>
           <input type="file" id="backupFile" accept="application/json,.json" style="display:none">
+          <label class="f-label">Diagnostics</label>
+          <div class="f-row" style="align-items:center">
+            <button class="btn btn-secondary" id="copyDiagBtn" style="flex:0 0 auto">Copy diagnostics</button>
+            <span class="f-help" style="margin:0;flex:1">Copies version, settings and the last lookup log to paste into a message when something's off. No tokens included.</span>
+          </div>
         </div>
       </details>
       <label class="f-label">Updates</label>
@@ -198,7 +216,7 @@
 <!-- Saved batches -->
 <div class="modal-back" id="batchModal">
   <div class="modal">
-    <div class="modal-head"><h3>Saved batches</h3><button class="modal-close">✕</button></div>
+    <div class="modal-head"><h3>Saved batches</h3><button class="btn btn-ghost btn-sm" id="priceCheckBtn" style="margin-left:auto" title="Check every saved batch against today's store prices">✓ Check prices</button><button class="modal-close" style="margin-left:0">✕</button></div>
     <div class="modal-body">
       <label class="f-label">Save the current queue as a batch</label>
       <div class="f-row">

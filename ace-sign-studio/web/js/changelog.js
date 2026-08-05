@@ -9,6 +9,18 @@
 
 const CHANGELOG = [
   {
+    version: "3.7.0",
+    date: "August 2026",
+    notes: [
+      "New: batch price check. Batches → “✓ Check prices” checks every saved batch against today's store prices and shows what moved, what went on or off sale, and one button to queue the replacements — the launch banner as a deliberate report you can run before the ad change.",
+      "A calmer look: red is saved for the main button on each panel and the signs themselves; sliders, toggles and highlights use the brand grays now, so the important things stand out again.",
+      "One way to print: the queue. Printing or saving a single sign straight from the editor still works — it's behind the ⋯ next to Add to Queue.",
+      "Half-finished signs look unfinished instead of wrong: an empty savings or percent shows “$__”/“__%” in the preview rather than “SAVE $0”.",
+      "Queue rows show one badge — the most important thing about that sign (needs a Now price, then duplicate, then stale price) instead of stacking pills.",
+      "Settings → Advanced has a “Copy diagnostics” button — one click copies version, settings and the last lookup log to paste into a message when something's off. Nothing is sent anywhere.",
+    ],
+  },
+  {
     version: "3.6.0",
     date: "August 2026",
     notes: [

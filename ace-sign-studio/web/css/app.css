@@ -137,7 +137,7 @@ label.f-label:first-child{margin-top:0}
 .f-input,.f-select,.f-textarea{
   width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;background:#fff;outline:none;
 }
-.f-input:focus,.f-select:focus,.f-textarea:focus{border-color:var(--ace-red)}
+.f-input:focus,.f-select:focus,.f-textarea:focus{border-color:var(--gray-11)}
 .f-textarea{resize:vertical;min-height:64px}
 .f-row{display:flex;gap:10px}
 .f-row>*{flex:1;min-width:0}
@@ -154,7 +154,7 @@ label.f-label:first-child{margin-top:0}
   font-weight:700;color:var(--text-3);font-size:13px;pointer-events:none;
 }
 .f-check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;margin-top:10px;cursor:pointer}
-.f-check input{accent-color:var(--ace-red);width:15px;height:15px}
+.f-check input{accent-color:var(--ink);width:15px;height:15px}
 .f-help{font-size:11px;color:var(--text-3);margin-top:4px;line-height:1.35}
 
 .lookup-status{font-size:12px;margin-top:6px;min-height:16px;font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -177,7 +177,7 @@ label.f-label:first-child{margin-top:0}
   border:1.5px dashed var(--gray-5);border-radius:8px;padding:10px;display:flex;align-items:center;gap:10px;
   cursor:pointer;background:var(--surface-alt);min-height:64px;
 }
-.img-drop:hover{border-color:var(--ace-red)}
+.img-drop:hover{border-color:var(--gray-11)}
 .img-drop img{max-height:52px;max-width:88px;border-radius:4px;background:#fff}
 .img-drop .img-note{font-size:11.5px;color:var(--text-2);line-height:1.35}
 .img-drop .img-clear{margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:15px}
@@ -189,7 +189,7 @@ label.f-label:first-child{margin-top:0}
   font-weight:700;cursor:pointer;color:var(--text-2);
 }
 .size-chip:hover{border-color:var(--gray-11)}
-.size-chip.active{background:var(--ace-red);border-color:var(--ace-red);color:#fff}
+.size-chip.active{background:var(--ink);border-color:var(--ink);color:#fff}
 
 /* element size sliders */
 .scale-head{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
@@ -197,7 +197,7 @@ label.f-label:first-child{margin-top:0}
 .scale-row{display:flex;align-items:center;gap:10px;margin-top:7px}
 .scale-row.off{opacity:.45}
 .scale-name{flex:0 0 92px;font-size:12.5px;font-weight:700;color:var(--text-2)}
-.scale-slider{flex:1;min-width:0;accent-color:var(--ace-red);cursor:pointer;margin:0}
+.scale-slider{flex:1;min-width:0;accent-color:var(--gray-11);cursor:pointer;margin:0}
 .scale-slider[disabled]{cursor:not-allowed}
 .scale-val{flex:0 0 46px;text-align:right;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-3)}
 
@@ -308,7 +308,7 @@ label.f-label:first-child{margin-top:0}
 .q-item .q-more:hover{background:var(--surface-alt)}
 .q-item.dragging{opacity:.45}
 .q-item.drag-over{border-color:var(--ace-red);box-shadow:0 -2px 0 0 var(--ace-red)}
-.q-item .q-btn:hover{color:var(--ace-red)}
+.q-item .q-btn:hover{color:var(--ink)}
 .q-item .q-btn[disabled]{opacity:.28;cursor:default}
 .q-item .q-btn[disabled]:hover{color:var(--text-3)}
 .q-stale{background:var(--warning-bg);color:var(--warning);border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:900;margin-left:5px;white-space:nowrap}
@@ -323,7 +323,7 @@ label.f-label:first-child{margin-top:0}
   width:20px;height:20px;border:1px solid var(--border);background:#fff;border-radius:5px;cursor:pointer;
   font-size:12px;line-height:1;color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;flex:none;
 }
-.q-step:hover{border-color:var(--ace-red);color:var(--ace-red)}
+.q-step:hover{border-color:var(--gray-11);color:var(--ink)}
 .q-step[disabled]{opacity:.35;cursor:default}
 .q-step[disabled]:hover{border-color:var(--border);color:var(--text-2)}
 
@@ -348,6 +348,13 @@ label.f-label:first-child{margin-top:0}
 .queue-foot{border-top:1px solid var(--border);padding:11px 12px;display:flex;flex-direction:column;gap:8px}
 .queue-foot .row{display:flex;gap:8px}
 
+/* Price check report */
+.pc-allgood{font-size:13px;font-weight:700;color:var(--success);padding:6px 0}
+.pc-group{border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:var(--surface-alt)}
+.pc-batch{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;color:var(--text-2);margin-bottom:4px}
+.pc-row{font-size:12.5px;padding:3px 0;display:flex;justify-content:space-between;gap:10px}
+.pc-row .pc-price{color:var(--text-2);white-space:nowrap}
+
 /* Fine-tune section in the editor: power controls behind one summary. */
 .fine-tune{border:1px solid var(--border);border-radius:8px;margin-top:14px;background:var(--surface-alt)}
 .fine-tune>summary{
@@ -371,7 +378,7 @@ label.f-label:first-child{margin-top:0}
   width:100%;min-height:64px;font-family:'Roboto Mono',Consolas,monospace;font-size:12px;
   border:1.5px solid var(--border);border-radius:7px;padding:7px 9px;outline:none;background:#fff;
 }
-.bulk-inner textarea:focus{border-color:var(--ace-red)}
+.bulk-inner textarea:focus{border-color:var(--gray-11)}
 /* bulk add lives in a modal now — give the paste box room and skip the
    box-in-box padding */
 .modal .bulk-inner{padding:0}
@@ -391,7 +398,7 @@ label.f-label:first-child{margin-top:0}
 .bulk-count{font-size:11px;font-weight:700;color:var(--text-2)}
 .bulk-progress{height:5px;border-radius:3px;background:var(--gray-1);overflow:hidden;display:none;margin-top:7px}
 .bulk-progress.show{display:block}
-.bulk-progress i{display:block;height:100%;background:var(--ace-red);width:0;transition:width .2s}
+.bulk-progress i{display:block;height:100%;background:var(--gray-11);width:0;transition:width .2s}
 
 /* ============ Modals ============ */
 .modal-back{
@@ -452,7 +459,7 @@ label.f-label:first-child{margin-top:0}
 .batch-name{font-size:13px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .batch-sub{font-size:11px;color:var(--text-3);font-weight:500;margin-top:1px}
 .batch-row .q-btn{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:14px;padding:2px 4px}
-.batch-row .q-btn:hover{color:var(--ace-red)}
+.batch-row .q-btn:hover{color:var(--ink)}
 
 /* ============ Bulk add: copies + failure report ============ */
 .bulk-copies-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--text-2);flex:none}

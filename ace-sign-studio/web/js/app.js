@@ -43,6 +43,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("#refreshPricesBtn").onclick = refreshQueuePrices;
   $("#batchesBtn").onclick = openBatches;
   $("#historyBtn").onclick = openHistory;
+  $("#priceCheckBtn").onclick = runPriceCheckReport;
+  initDiagnostics();
   $("#printAllBtn").onclick = () => exportQueue(true);
   $("#exportAllBtn").onclick = () => exportQueue(false);
   $("#sheetBox").addEventListener("toggle", () => { if ($("#sheetBox").open) renderSheetPreviews(); });
@@ -342,8 +344,7 @@ function showEditor(typeId) {
           <div class="card-body" style="padding-top:0">
             <div class="actions" style="margin-top:0">
               <button class="btn btn-primary" id="addQueueBtn">＋ Add to Queue</button>
-              <button class="btn btn-secondary" id="printOneBtn">Print</button>
-              <button class="btn btn-secondary" id="pdfOneBtn">PDF</button>
+              <button class="btn btn-ghost" id="editorMoreBtn" title="Print or save just this sign">⋯</button>
             </div>
             <div class="msg" id="editorMsg"></div>
           </div>
@@ -378,7 +379,10 @@ function showEditor(typeId) {
     updateEditMode();
     showMsg("editorMsg", "ok", "Edit cancelled — the button adds a new sign again.");
   };
-  $("#printOneBtn").onclick = async () => {
+  // Printing lives in the queue — one pathway, one primary action per
+  // panel. The single-sign shortcuts stay reachable behind ⋯ for the
+  // "just this one, right now" case.
+  const printOne = async () => {
     const err = validateSpec(t, App.spec);
     if (err) return showMsg("editorMsg", "err", err);
     showMsg("editorMsg", "ok", "Preparing print…");
@@ -389,7 +393,7 @@ function showEditor(typeId) {
       showMsg("editorMsg", "ok", "Sent to the print dialog.");
     } catch (e) { showMsg("editorMsg", "err", "Print failed: " + friendlyError(e) + "."); }
   };
-  $("#pdfOneBtn").onclick = async () => {
+  const pdfOne = async () => {
     const err = validateSpec(t, App.spec);
     if (err) return showMsg("editorMsg", "err", err);
     showMsg("editorMsg", "ok", "Building PDF…");
@@ -399,6 +403,25 @@ function showEditor(typeId) {
       History.record("pdf", [editorHistoryItem(t)]);
       showMsg("editorMsg", "ok", "PDF saved.");
     } catch (e) { showMsg("editorMsg", "err", "PDF failed: " + friendlyError(e) + "."); }
+  };
+  $("#editorMoreBtn").onclick = (e) => {
+    e.stopPropagation();
+    const anchor = $("#editorMoreBtn");
+    closeBatchPickMenu();
+    const menu = el("div", "pick-menu");
+    const entry = (label, fn) => {
+      const b = el("button", "pick-item", label);
+      b.onclick = (ev) => { ev.stopPropagation(); closeBatchPickMenu(); fn(); };
+      menu.appendChild(b);
+    };
+    entry("🖨 Print just this sign", printOne);
+    entry("Save this sign as a PDF", pdfOne);
+    document.body.appendChild(menu);
+    _pickMenuEl = menu;
+    const r = anchor.getBoundingClientRect();
+    menu.style.top = Math.max(8, Math.min(window.innerHeight - menu.offsetHeight - 8, r.bottom + 4)) + "px";
+    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + "px";
+    setTimeout(() => document.addEventListener("click", closeBatchPickMenu, { once: true }), 0);
   };
   updateEditMode();
   schedulePreview();
@@ -1089,17 +1112,21 @@ function renderQueue() {
     info.appendChild(el("div", "q-title", queueItemTitle(q)));
     const sub = el("div", "q-sub");
     sub.appendChild(document.createTextNode(`${typeById(q.typeId) ? typeById(q.typeId).label : q.typeId} · ${size.w}×${size.h}″`));
+    // One badge slot per row, highest-priority wins — three stacked pills
+    // on a 300px row read as noise, and "needs Now price" (can't print
+    // right) always outranks "duplicate" (prints twice) outranks "stale
+    // price" (worth re-checking).
     const age = priceAgeDays(q.spec);
-    if (age != null && age > 3) sub.appendChild(el("span", "q-stale", `price ${age}d old`));
+    let badge = null;
+    if (q.typeId === "was_now" && !String(q.spec.price || "").trim()) badge = ["q-warn", "needs Now price"];
+    else if (String(q.spec.sku || "").trim() && dupCounts[`${String(q.spec.sku).trim()}|${q.sizeId}`] > 1) badge = ["q-warn", "duplicate"];
+    else if (age != null && age > 3) badge = ["q-stale", `price ${age}d old`];
     else if (age == null && PRICE_REFRESH_TYPES[q.typeId] && String(q.spec.sku || "").trim()) {
       // pre-2.1 items carry no lookup timestamp — call that out rather
       // than silently skipping the badge on the stalest signs of all
-      sub.appendChild(el("span", "q-stale", "price unchecked"));
+      badge = ["q-stale", "price unchecked"];
     }
-    if (q.typeId === "was_now" && !String(q.spec.price || "").trim()) sub.appendChild(el("span", "q-warn", "needs Now price"));
-    if (String(q.spec.sku || "").trim() && dupCounts[`${String(q.spec.sku).trim()}|${q.sizeId}`] > 1) {
-      sub.appendChild(el("span", "q-warn", "duplicate"));
-    }
+    if (badge) sub.appendChild(el("span", badge[0], badge[1]));
     info.appendChild(sub);
     main.onclick = () => startEditQueueItem(q.uid);
 
@@ -1472,6 +1499,21 @@ function todayISO() {
 
 async function scanBatchPricesAtLaunch() {
   if (!Settings.get().batchPriceCheck) return;
+  // a crash-loop / quick relaunch shouldn't hammer acehardware.com —
+  // skip only if a scan finished within the last 30 minutes
+  try {
+    const last = Date.parse(localStorage.getItem(BATCH_SCAN_KEY) || "");
+    if (!isNaN(last) && Date.now() - last < 30 * 60000) return;
+  } catch (e) {}
+  const r = await scanBatchPrices();
+  if (r && (r.changed.length || r.ended.length)) showBatchPriceBar(r.changed, r.ended, r.endedNoSku.length);
+}
+
+/* Check every saved batch's signs against today's store prices. Shared by
+   the launch banner and the on-demand Price check report. Returns
+   {changed, ended, endedNoSku, checked} — or null when there was nothing
+   to check or no lookup answered (offline). */
+async function scanBatchPrices() {
   const today = todayISO();
   // ended = the sale ran out before today; a sale ending today still counts
   const isEnded = (q) =>
@@ -1486,13 +1528,7 @@ async function scanBatchPricesAtLaunch() {
       else if (isEnded(q)) (sku ? endedTargets : endedNoSku).push({ name, q });
     }
   }
-  if (!priceTargets.length && !endedTargets.length) return;
-  // a crash-loop / quick relaunch shouldn't hammer acehardware.com —
-  // skip only if a scan finished within the last 30 minutes
-  try {
-    const last = Date.parse(localStorage.getItem(BATCH_SCAN_KEY) || "");
-    if (!isNaN(last) && Date.now() - last < 30 * 60000) return;
-  } catch (e) {}
+  if (!priceTargets.length && !endedTargets.length) return null;
 
   const skus = [...new Set(priceTargets.concat(endedTargets).map((t) => String(t.q.spec.sku).trim()))];
   const bySku = new Map();
@@ -1507,7 +1543,7 @@ async function scanBatchPricesAtLaunch() {
     await runOne();
   };
   await Promise.all(Array.from({ length: Math.min(3, skus.length) }, runOne));
-  if (!bySku.size) return;
+  if (!bySku.size) return null;
   try { localStorage.setItem(BATCH_SCAN_KEY, new Date().toISOString()); } catch (e) {}
 
   // apply to copies first — the stored batches only change if the user accepts
@@ -1552,7 +1588,7 @@ async function scanBatchPricesAtLaunch() {
       updated: { typeId: si.onSale ? "sale" : "regular", sizeId: t.q.sizeId, spec, copies: t.q.copies },
     });
   }
-  if (changed.length || ended.length) showBatchPriceBar(changed, ended, endedNoSku.length);
+  return { changed, ended, endedNoSku, checked: bySku.size };
 }
 
 function showBatchPriceBar(changed, ended, endedNoSkuCount) {
@@ -1577,61 +1613,122 @@ function showBatchPriceBar(changed, ended, endedNoSkuCount) {
   }
   $("#batchPriceText").innerHTML = txt;
   $("#batchPriceQueueBtn").onclick = () => {
-    const seen = new Set();
-    let added = 0;
-    const queueOnce = (u) => {
-      const key = `${u.typeId}|${u.sizeId}|${u.spec.sku}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      Queue.add(u.typeId, u.sizeId, u.spec, u.copies || 1);
-      added++;
-    };
-    // The banner can sit unclicked while a sync merge (or backup import)
-    // replaces Batches.data — mutating the object references captured at
-    // scan time would then write into orphaned copies and silently change
-    // nothing. Re-resolve each row by batch name + item uid at click time,
-    // and bump savedAt on every touched batch so the accepted updates win
-    // the newest-wins merge on the other computers.
-    const resolveStored = (c) => {
-      const b = Batches.data[c.name];
-      if (!b || !b.items) return null;
-      return b.items.find((q) => q && q.uid === c.stored.uid) || null;
-    };
-    const touched = new Set();
-    for (const c of changed) {
-      // write the new price/type into the stored batch item; the rev bump
-      // keeps a later "Load batch" from serving the old price out of the
-      // rendered-SVG cache (batch items keep their uid when reloaded)
-      const stored = resolveStored(c);
-      if (stored) {
-        stored.typeId = c.updated.typeId;
-        stored.spec = c.updated.spec;
-        Queue._bumpRev(stored);
-        touched.add(c.name);
-      }
-      queueOnce(c.updated);
-    }
-    for (const c of ended) {
-      // the batch keeps the promo sign (it may run again) — just remember
-      // the offer was taken so it doesn't repeat every launch
-      const stored = resolveStored(c);
-      if (stored) {
-        stored.spec._endedOffered = todayISO();
-        touched.add(c.name);
-      }
-      queueOnce(c.updated);
-    }
-    const at = new Date().toISOString();
-    for (const name of touched) Batches.data[name].savedAt = at;
-    persistState();
+    applyBatchPriceChanges(changed, ended);
     bar.classList.remove("show");
-    const notes = [];
-    if (changed.length) notes.push("the batches now carry the new prices");
-    if (ended.length) notes.push("ended promos stay in their batches for next time");
-    showToast(`Queued ${added} replacement sign${added === 1 ? "" : "s"} — ${notes.join("; ")}.`);
   };
   $("#batchPriceDismiss").onclick = () => bar.classList.remove("show");
   bar.classList.add("show");
+}
+
+/* Accept a price scan's findings: queue one replacement per unique sign,
+   write new prices/types into the stored batches, and stamp ended promos
+   so they aren't re-offered. Shared by the launch banner and the Price
+   check report. */
+function applyBatchPriceChanges(changed, ended) {
+  const seen = new Set();
+  let added = 0;
+  const queueOnce = (u) => {
+    const key = `${u.typeId}|${u.sizeId}|${u.spec.sku}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    Queue.add(u.typeId, u.sizeId, u.spec, u.copies || 1);
+    added++;
+  };
+  // The banner/report can sit unclicked while a sync merge (or backup
+  // import) replaces Batches.data — mutating the object references
+  // captured at scan time would then write into orphaned copies and
+  // silently change nothing. Re-resolve each row by batch name + item uid
+  // at click time, and bump savedAt on every touched batch so the accepted
+  // updates win the newest-wins merge on the other computers.
+  const resolveStored = (c) => {
+    const b = Batches.data[c.name];
+    if (!b || !b.items) return null;
+    return b.items.find((q) => q && q.uid === c.stored.uid) || null;
+  };
+  const touched = new Set();
+  for (const c of changed) {
+    // write the new price/type into the stored batch item; the rev bump
+    // keeps a later "Load batch" from serving the old price out of the
+    // rendered-SVG cache (batch items keep their uid when reloaded)
+    const stored = resolveStored(c);
+    if (stored) {
+      stored.typeId = c.updated.typeId;
+      stored.spec = c.updated.spec;
+      Queue._bumpRev(stored);
+      touched.add(c.name);
+    }
+    queueOnce(c.updated);
+  }
+  for (const c of ended) {
+    // the batch keeps the promo sign (it may run again) — just remember
+    // the offer was taken so it doesn't repeat every launch
+    const stored = resolveStored(c);
+    if (stored) {
+      stored.spec._endedOffered = todayISO();
+      touched.add(c.name);
+    }
+    queueOnce(c.updated);
+  }
+  const at = new Date().toISOString();
+  for (const name of touched) Batches.data[name].savedAt = at;
+  persistState();
+  const notes = [];
+  if (changed.length) notes.push("the batches now carry the new prices");
+  if (ended.length) notes.push("ended promos stay in their batches for next time");
+  showToast(`Queued ${added} replacement sign${added === 1 ? "" : "s"} — ${notes.join("; ")}.`);
+  return added;
+}
+
+/* On-demand price check across all saved batches — the launch banner as a
+   deliberate, reviewable report. Opened from the Batches modal. */
+async function runPriceCheckReport() {
+  const modal = $("#priceCheckModal");
+  const body = $("#priceCheckBody");
+  const queueBtn = $("#priceCheckQueueBtn");
+  queueBtn.style.display = "none";
+  body.innerHTML = `<div class="f-help" style="font-size:12.5px"><span class="spin"></span> Checking saved batches against today's store prices…</div>`;
+  modal.classList.add("show");
+  const r = await scanBatchPrices();
+  if (!modal.classList.contains("show")) return; // closed while checking
+  if (!r) {
+    body.innerHTML = `<div class="f-help" style="font-size:12.5px">Nothing to check — no saved batch has signs with a SKU (or the store site didn't answer; try again in a minute).</div>`;
+    return;
+  }
+  const { changed, ended, endedNoSku, checked } = r;
+  if (!changed.length && !ended.length) {
+    body.innerHTML = `<div class="pc-allgood">✓ All ${checked} checked sign${checked === 1 ? "" : "s"} match today's store prices.</div>` +
+      (endedNoSku.length ? `<div class="f-help">${endedNoSku.length} ended promo${endedNoSku.length === 1 ? " has" : "s have"} no SKU — open their batch to rebuild by hand.</div>` : "");
+    return;
+  }
+  const money = (v) => (String(v || "").trim() ? "$" + String(v).trim() : "—");
+  const byBatch = new Map();
+  for (const c of changed) { if (!byBatch.has(c.name)) byBatch.set(c.name, []); byBatch.get(c.name).push({ c, kind: "changed" }); }
+  for (const c of ended) { if (!byBatch.has(c.name)) byBatch.set(c.name, []); byBatch.get(c.name).push({ c, kind: "ended" }); }
+  let html = `<div class="f-help" style="margin-bottom:8px">${checked} SKU${checked === 1 ? "" : "s"} checked. Queue the replacements below — price changes update the batches too.</div>`;
+  for (const [name, rows] of byBatch) {
+    html += `<div class="pc-group"><div class="pc-batch">🗂 ${esc(name)}</div>`;
+    for (const { c, kind } of rows) {
+      const title = esc(queueItemTitle(c.updated));
+      if (kind === "changed") {
+        const flip = c.stored.typeId !== c.updated.typeId
+          ? (c.updated.typeId === "sale" ? " · now on sale" : " · sale over")
+          : "";
+        html += `<div class="pc-row">${title} <span class="pc-price">${esc(money(c.stored.spec.price))} → <b>${esc(money(c.updated.spec.price))}</b>${flip}</span></div>`;
+      } else {
+        html += `<div class="pc-row">${title} <span class="pc-price">promo ended — back to <b>${esc(money(c.updated.spec.price))}</b></span></div>`;
+      }
+    }
+    html += `</div>`;
+  }
+  if (endedNoSku.length) {
+    html += `<div class="f-help">${endedNoSku.length} more ended promo${endedNoSku.length === 1 ? " has" : "s have"} no SKU — open their batch to rebuild by hand.</div>`;
+  }
+  body.innerHTML = html;
+  queueBtn.style.display = "";
+  queueBtn.onclick = () => {
+    applyBatchPriceChanges(changed, ended);
+    modal.classList.remove("show");
+  };
 }
 
 /* ---------------- print history ---------------- */
@@ -1844,6 +1941,50 @@ function renderBulkExtras() {
     lab.appendChild(inp);
     host.appendChild(lab);
   }
+}
+
+/* Copy-diagnostics: with the Support feature gone, this is the one way to
+   pull version/settings/lookup state off a store PC when something's off.
+   Clipboard only — no email, no files, no tokens. */
+const _recentErrors = [];
+function initDiagnostics() {
+  const note = (kind, msg) => {
+    _recentErrors.push(`${new Date().toISOString()} ${kind}: ${String(msg).slice(0, 300)}`);
+    if (_recentErrors.length > 20) _recentErrors.shift();
+  };
+  window.addEventListener("error", (e) => note("error", e.message || e.type));
+  window.addEventListener("unhandledrejection", (e) => note("rejection", (e.reason && (e.reason.message || e.reason)) || "unknown"));
+  $("#copyDiagBtn").onclick = async () => {
+    const s = Object.assign({}, Settings.get());
+    delete s.syncToken; // never leaves the computer
+    const lines = [
+      `Ace Sign Studio ${window.__appVersion || "?"} on ${window.__appHost || "?"}`,
+      `Generated ${new Date().toISOString()}`,
+      `Queue: ${Queue.totalSigns()} sign(s) in ${Queue.items.length} row(s) · Batches: ${Batches.names().length} · History: ${History.data.length}`,
+      `Sync: ${Sync.enabled() ? "on" : "off"}${Sync.lastSync ? ` · last synced ${Sync.lastSync.toISOString()}` : ""}${Sync.lastError ? ` · last error: ${Sync.lastError}` : ""}`,
+      "",
+      "Settings: " + JSON.stringify(s),
+      "",
+      "Last lookup log:",
+      ...(typeof lastDiagnostics !== "undefined" && lastDiagnostics.length ? lastDiagnostics.map((d, i) => `  ${i + 1}. ${d}`) : ["  (no lookup this session)"]),
+      "",
+      "Recent errors:",
+      ...(_recentErrors.length ? _recentErrors.map((e) => "  " + e) : ["  (none)"]),
+    ];
+    const text = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Diagnostics copied — paste into a message to Cody.");
+    } catch (e) {
+      const ta = el("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); showToast("Diagnostics copied."); }
+      catch (_) { showToast("Couldn't copy automatically."); }
+      ta.remove();
+    }
+  };
 }
 
 function initBulk() {

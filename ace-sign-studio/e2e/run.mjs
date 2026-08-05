@@ -338,7 +338,8 @@ async function run() {
     await page.waitForSelector("#editorFields");
     await fill('[data-field="name"]', "STORE USE LADDERS");
     const dl2 = page.waitForEvent("download", { timeout: 60000 });
-    await page.click("#pdfOneBtn");
+    await page.click("#editorMoreBtn");
+    await page.click('.pick-menu button:has-text("PDF")');
     const d2 = await dl2;
     ok("editor PDF button downloads", statSync(await d2.path()).size > 2000);
 
