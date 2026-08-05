@@ -18,6 +18,8 @@
   <div class="spacer"></div>
   <div class="store-line" id="storeLineTop">Snyder's Ace Hardware · Media, PA</div>
   <button class="icon-btn" id="homeBtn" title="All sign types">⌂ Home</button>
+  <button class="icon-btn" id="batchesBtn" title="Save or load a named set of signs">🗂 Batches</button>
+  <button class="icon-btn" id="historyBtn" title="What was printed, with one-click restore">🕘 History</button>
   <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
 </header>
 
@@ -64,35 +66,16 @@
       <h2>Print Queue</h2>
       <span class="queue-count" id="queueCount">0</span>
       <div class="mini">
+        <button class="mini-btn" id="bulkOpenBtn" title="Paste a list of SKUs and add them all at once">＋ Bulk add</button>
         <button class="mini-btn" id="refreshPricesBtn" title="Re-check store prices for queued signs">↻ Prices</button>
-        <button class="mini-btn" id="batchesBtn" title="Save or load a named set of signs">Batches</button>
-        <button class="mini-btn" id="historyBtn" title="What was printed, with one-click restore">History</button>
         <button class="mini-btn" id="clearQueueBtn">Clear</button>
       </div>
     </div>
     <div class="queue-scroll">
       <div id="queueItems"></div>
-      <div class="queue-section-label">Sheet layout</div>
-      <div class="sheet-previews" id="sheetPreviews"></div>
-      <div class="queue-stats" id="queueStats"></div>
-      <details class="bulk-box">
-        <summary>Bulk add by SKU</summary>
-        <div class="bulk-inner">
-          <textarea id="bulkSkus" placeholder="Paste SKUs from anywhere — one per line, comma separated, or a whole spreadsheet column. Runs of 4+ digits are detected."></textarea>
-          <div class="bulk-meta">
-            <select class="f-select" id="bulkType" style="flex:1"></select>
-            <select class="f-select" id="bulkSize" style="flex:1"></select>
-          </div>
-          <div class="bulk-meta bulk-extras" id="bulkExtras" style="display:none"></div>
-          <div class="bulk-meta">
-            <label class="bulk-copies-label">Copies <input type="number" id="bulkCopies" class="f-input bulk-copies" min="1" max="99" value="1"></label>
-            <span class="bulk-count" id="bulkCount"></span>
-            <button class="btn btn-primary btn-sm" id="bulkAddBtn" style="margin-left:auto">Look Up &amp; Add All</button>
-          </div>
-          <div class="bulk-progress" id="bulkProgress"><i></i></div>
-          <div class="bulk-report" id="bulkReport"></div>
-          <div class="f-help">Items on sale switch to a Sale sign automatically.</div>
-        </div>
+      <details class="sheet-box" id="sheetBox">
+        <summary><span class="queue-section-label">Sheet layout</span><span class="queue-stats" id="queueStats"></span></summary>
+        <div class="sheet-previews" id="sheetPreviews"></div>
       </details>
     </div>
     <div class="queue-foot">
@@ -104,16 +87,36 @@
   </aside>
 </div>
 
+<!-- Bulk add by SKU -->
+<div class="modal-back" id="bulkModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Bulk add by SKU</h3><button class="modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="bulk-inner">
+        <textarea id="bulkSkus" placeholder="Paste SKUs from anywhere — one per line, comma separated, or a whole spreadsheet column. Runs of 4+ digits are detected."></textarea>
+        <div class="bulk-meta">
+          <select class="f-select" id="bulkType" style="flex:1"></select>
+          <select class="f-select" id="bulkSize" style="flex:1"></select>
+        </div>
+        <div class="bulk-meta bulk-extras" id="bulkExtras" style="display:none"></div>
+        <div class="bulk-meta">
+          <label class="bulk-copies-label">Copies <input type="number" id="bulkCopies" class="f-input bulk-copies" min="1" max="99" value="1"></label>
+          <span class="bulk-count" id="bulkCount"></span>
+          <button class="btn btn-primary btn-sm" id="bulkAddBtn" style="margin-left:auto">Look Up &amp; Add All</button>
+        </div>
+        <div class="bulk-progress" id="bulkProgress"><i></i></div>
+        <div class="bulk-report" id="bulkReport"></div>
+        <div class="f-help">Items on sale switch to a Sale sign automatically.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Settings -->
 <div class="modal-back" id="settingsModal">
   <div class="modal">
     <div class="modal-head"><h3>Settings</h3><button class="modal-close">✕</button></div>
     <div class="modal-body">
-      <label class="f-label">Ace store number (acehardware.com purchase location)</label>
-      <input class="f-input" id="setStore">
-      <div class="f-help">Snyder's Ace Hardware is 12180 — this drives store-specific pricing.</div>
-      <label class="f-label">Store line</label>
-      <input class="f-input" id="setStoreLine">
       <label class="f-check"><input type="checkbox" id="setPrintStoreLine"> Print the store line at the bottom of signs</label>
       <label class="f-check"><input type="checkbox" id="setCutGuides"> Cut guides on multi-sign sheets</label>
       <label class="f-check"><input type="checkbox" id="setBatchPriceCheck"> At launch, check saved batches for price changes and offer reprints</label>
@@ -123,28 +126,34 @@
         <input class="f-input" id="setSyncName" placeholder="This computer's name (e.g. Front Desk)">
       </div>
       <div class="f-help">Works out of the box — the store's sync connection is built into the app. The print queue stays per-computer; save it as a batch to hand it to another PC.</div>
-      <details class="bulk-box" style="margin-top:6px">
-        <summary>Sync connection (advanced)</summary>
+      <div class="f-help" id="syncStatus" style="font-weight:600"></div>
+      <details class="bulk-box" id="advancedSettings" style="margin-top:8px">
+        <summary>Advanced — store, printer &amp; sync setup</summary>
         <div class="bulk-inner">
+          <label class="f-label">Ace store number (acehardware.com purchase location)</label>
+          <input class="f-input" id="setStore">
+          <div class="f-help">Snyder's Ace Hardware is 12180 — this drives store-specific pricing.</div>
+          <label class="f-label">Store line</label>
+          <input class="f-input" id="setStoreLine">
+          <label class="f-label">Sheet packing margin (inches)</label>
+          <input class="f-input" id="setMargin" type="number" step="0.025" min="0.25" max="0.6">
+          <div class="f-help">Keep at 0.375″ or more for the Brother MFC-L9160CDN (≈0.25″ non-printable edge).</div>
+          <label class="f-label">Gallery template SKU</label>
+          <input class="f-input" id="setTemplateSku">
+          <div class="f-help">The product whose photo &amp; price fill the sign previews in the gallery (default 81995 — Ace Premium Wild Bird Food 20 lb). Looked up live at launch and cached.</div>
+          <label class="f-label">Sync connection</label>
           <input class="f-input" id="setSyncRepo" placeholder="codysuter/ace-sign-sync" autocomplete="off">
           <input class="f-input" id="setSyncToken" type="password" placeholder="Token override — blank uses the built-in store token" autocomplete="off" style="margin-top:6px">
           <div class="f-help">The private GitHub repo holding the sync data, plus an optional token override (needed only on builds without a built-in token).</div>
+          <label class="f-label">Backup</label>
+          <div class="f-row" style="align-items:center">
+            <button class="btn btn-secondary" id="backupExportBtn" style="flex:0 0 auto">Export backup</button>
+            <button class="btn btn-secondary" id="backupImportBtn" style="flex:0 0 auto">Import backup</button>
+            <span class="f-help" style="margin:0;flex:1">Queue, batches, history &amp; settings to a file. The sync token never leaves this computer.</span>
+          </div>
+          <input type="file" id="backupFile" accept="application/json,.json" style="display:none">
         </div>
       </details>
-      <div class="f-help" id="syncStatus" style="font-weight:600"></div>
-      <label class="f-label">Sheet packing margin (inches)</label>
-      <input class="f-input" id="setMargin" type="number" step="0.025" min="0.25" max="0.6">
-      <div class="f-help">Keep at 0.375″ or more for the Brother MFC-L9160CDN (≈0.25″ non-printable edge).</div>
-      <label class="f-label">Gallery template SKU</label>
-      <input class="f-input" id="setTemplateSku">
-      <div class="f-help">The product whose photo &amp; price fill the sign previews in the gallery (default 81995 — Ace Premium Wild Bird Food 20 lb). Looked up live at launch and cached.</div>
-      <label class="f-label">Backup</label>
-      <div class="f-row" style="align-items:center">
-        <button class="btn btn-secondary" id="backupExportBtn" style="flex:0 0 auto">Export backup</button>
-        <button class="btn btn-secondary" id="backupImportBtn" style="flex:0 0 auto">Import backup</button>
-        <span class="f-help" style="margin:0;flex:1">Queue, batches, history &amp; settings to a file. The sync token never leaves this computer.</span>
-      </div>
-      <input type="file" id="backupFile" accept="application/json,.json" style="display:none">
       <label class="f-label">Updates</label>
       <div class="f-row" style="align-items:center">
         <button class="btn btn-secondary" id="settingsUpdateBtn" style="flex:0 0 auto">Check for updates</button>

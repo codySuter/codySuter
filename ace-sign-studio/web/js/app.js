@@ -26,7 +26,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   await restoreState();
   renderQueue();
   ensureFontsLoaded().then(() => {
-    buildNavThumbs();
     buildGalleryThumbs();
   });
   // Warm the PDF font cache and libraries once the startup burst is over —
@@ -46,6 +45,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("#historyBtn").onclick = openHistory;
   $("#printAllBtn").onclick = () => exportQueue(true);
   $("#exportAllBtn").onclick = () => exportQueue(false);
+  $("#sheetBox").addEventListener("toggle", () => { if ($("#sheetBox").open) renderSheetPreviews(); });
   $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
   initBulk();
   initBackup();
@@ -167,7 +167,10 @@ async function applyUpdate(btn, bar) {
   }
 }
 
-/* ---------------- nav ---------------- */
+/* ---------------- nav ----------------
+   Compact text list. The home gallery is the illustrated menu (big cards
+   with live previews); repeating thumbnails and descriptions here just
+   duplicated it in miniature and ate a third of the window's width. */
 function buildNav() {
   const nav = $("#nav");
   nav.innerHTML = "";
@@ -179,8 +182,8 @@ function buildNav() {
     return s;
   };
   const home = sec("Ace Sign Studio");
-  const homeBtn = el("button", "nav-item");
-  homeBtn.innerHTML = `<div class="nav-thumb">🏠</div><div><div class="nav-label">All sign types</div><div class="nav-note">Gallery & previews</div></div>`;
+  const homeBtn = el("button", "nav-item", "⌂ All sign types");
+  homeBtn.title = "Gallery & previews";
   homeBtn.onclick = showGallery;
   homeBtn.id = "nav-home";
   home.appendChild(homeBtn);
@@ -188,9 +191,9 @@ function buildNav() {
   for (const g of groups) {
     const s = sec(g);
     for (const t of SIGN_TYPES.filter((x) => x.group === g)) {
-      const b = el("button", "nav-item");
+      const b = el("button", "nav-item", t.label);
       b.dataset.type = t.id;
-      b.innerHTML = `<div class="nav-thumb" id="thumb-${t.id}"></div><div><div class="nav-label">${esc(t.label)}</div><div class="nav-note">${esc(t.note || "")}</div></div>`;
+      b.title = t.note || "";
       b.onclick = () => showEditor(t.id);
       s.appendChild(b);
     }
@@ -216,12 +219,6 @@ async function typeThumbSVG(t, boxW, boxH) {
   }
 }
 
-async function buildNavThumbs() {
-  for (const t of SIGN_TYPES) {
-    const holder = $(`#thumb-${t.id}`);
-    if (holder) holder.innerHTML = await typeThumbSVG(t, 50, 34);
-  }
-}
 
 /* Load the gallery template product (default SKU 81995): cached copy first,
    then a live lookup so previews show the real store photo and price. */
@@ -272,8 +269,6 @@ async function loadTemplateProduct() {
 function refreshTypeThumbs() {
   ensureFontsLoaded().then(async () => {
     for (const t of SIGN_TYPES) {
-      const holder = $(`#thumb-${t.id}`);
-      if (holder) holder.innerHTML = await typeThumbSVG(t, 50, 34);
       const g = $(`#g-prev-${t.id}`);
       if (g) g.innerHTML = await typeThumbSVG(t, 190, 100);
     }
@@ -462,20 +457,45 @@ function validateSpec(t, spec) {
   return null;
 }
 
+/* One dropdown instead of nine chips wrapping into three rows — the chips
+   spent most of the preview header on the eight sizes NOT in use. */
 function buildSizeChips(t) {
   const wrap = $("#sizeChips");
   wrap.innerHTML = "";
-  for (const s of sizesForType(t)) {
-    const c = el("button", "size-chip" + (s.id === App.sizeId ? " active" : ""), s.label.replace(/"$/, "″"));
-    c.onclick = () => { App.sizeId = s.id; buildSizeChips(t); schedulePreview(); };
-    wrap.appendChild(c);
+  const sizes = sizesForType(t);
+  if (!sizes.some((s) => s.id === App.sizeId)) App.sizeId = sizes[0].id;
+  const sel = el("select", "f-select size-select");
+  sel.id = "sizeSelect";
+  sel.title = "Physical sign size — the preview is print-exact";
+  for (const s of sizes) {
+    const o = el("option", null, s.label.replace(/"$/, "″"));
+    o.value = s.id;
+    if (s.id === App.sizeId) o.selected = true;
+    sel.appendChild(o);
   }
+  sel.onchange = () => { App.sizeId = sel.value; schedulePreview(); };
+  wrap.appendChild(sel);
 }
 
 function buildEditorFields(t) {
   const host = $("#editorFields");
   host.innerHTML = "";
+  // Progressive disclosure: the daily flow is SKU → price fills in → Add to
+  // Queue. Power controls (unit, barcode/QR, show-on-sign toggles, element
+  // sliders) live in one collapsed section that remembers whether the user
+  // works with it open.
+  const fine = el("details", "fine-tune");
+  fine.id = "fineTune";
+  try { fine.open = localStorage.getItem("acesignstudio.finetune") === "open"; } catch (e) {}
+  fine.addEventListener("toggle", () => {
+    try { localStorage.setItem("acesignstudio.finetune", fine.open ? "open" : ""); } catch (e) {}
+  });
+  fine.appendChild(el("summary", null, "Fine-tune this sign — layout, barcode & extras"));
+  const fineBody = el("div", "fine-body");
+  fine.appendChild(fineBody);
+  const FINE_KEYS = { unit: 1, barcode: 1, qr: 1 };
   for (const f of t.fields) {
+    const dest = FINE_KEYS[f.key] ? fineBody : host;
     if (f.kind === "sku") {
       host.appendChild(labelEl(f.label));
       const inp = inputEl("text", App.spec.sku || "", "e.g. 7135975 — or paste a product URL");
@@ -569,10 +589,10 @@ function buildEditorFields(t) {
       cb.onchange = () => { App.spec[f.key] = cb.checked; schedulePreview(); };
       lab.appendChild(cb);
       lab.appendChild(document.createTextNode(f.label));
-      host.appendChild(lab);
+      dest.appendChild(lab);
       continue;
     }
-    host.appendChild(labelEl(f.label));
+    dest.appendChild(labelEl(f.label));
     let wrap = null, inp;
     if (f.kind === "money") {
       wrap = el("div", "prefix-wrap");
@@ -594,11 +614,14 @@ function buildEditorFields(t) {
     }
     inp.dataset.field = f.key;
     inp.addEventListener("input", () => { App.spec[f.key] = inp.value; schedulePreview(); });
-    if (wrap) { wrap.appendChild(inp); host.appendChild(wrap); }
-    else host.appendChild(inp);
+    if (wrap) { wrap.appendChild(inp); dest.appendChild(wrap); }
+    else dest.appendChild(inp);
   }
-  buildToggleChips(t, host);
-  buildScaleSliders(t, host);
+  buildToggleChips(t, fineBody);
+  buildScaleSliders(t, fineBody);
+  // Only offer the section when it has something in it (e.g. Text Only has
+  // no toggles, sliders, or extras).
+  if (fineBody.childNodes.length) host.appendChild(fine);
 }
 
 function buildToggleChips(t, host) {
@@ -1042,9 +1065,11 @@ function renderQueue() {
     host.innerHTML = `<div class="queue-empty">Queue is empty.<br>Build a sign and hit <b>＋ Add to Queue</b> — mix any types and sizes, then print them all at once.</div>`;
     $("#sheetPreviews").innerHTML = "";
     $("#queueStats").textContent = "";
+    $("#sheetBox").style.display = "none";
     updateQueueButtons();
     return;
   }
+  $("#sheetBox").style.display = "";
   host.innerHTML = "";
   // bulk add and batch loads make silent doubles easy — badge any SKU
   // that appears more than once at the same size
@@ -1078,33 +1103,40 @@ function renderQueue() {
     info.appendChild(sub);
     main.onclick = () => startEditQueueItem(q.uid);
 
+    // One ⋯ menu instead of five icon buttons per row — eight interactive
+    // targets per sign read as noise and the glyphs needed tooltips to
+    // decode. Reordering is drag-and-drop (with menu entries as fallback).
     const actions = el("div", "q-actions");
-    const btn = (label, title, fn, disabled) => {
-      const b = el("button", "q-btn", label);
-      b.title = title;
-      b.disabled = !!disabled;
-      b.onclick = (e) => { e.stopPropagation(); fn(b); };
-      actions.appendChild(b);
-    };
-    btn("▲", "Move up", () => Queue.move(q.uid, -1), idx === 0);
-    btn("⧉", "Duplicate", () => Queue.duplicate(q.uid));
-    btn("▼", "Move down", () => Queue.move(q.uid, 1), idx === Queue.items.length - 1);
-    btn("🗂", "Add this sign to a saved batch", (anchor) => {
-      showBatchPickMenu(anchor, (name) => {
-        const ok = Batches.addItems(name, [q]);
-        showToast(ok
-          ? `Added “${queueItemTitle(q)}” to batch “${name}”.`
-          : `Batch “${name}” no longer exists.`);
-      });
-    });
-    btn("✕", "Remove", () => {
-      const rem = Queue.remove(q.uid);
-      if (rem) showToast(`Removed “${queueItemTitle(rem.item)}”.`, { undo: () => Queue.restore(rem.item, rem.index) });
-    });
+    const more = el("button", "q-btn q-more", "⋯");
+    more.title = "More actions";
+    more.onclick = (e) => { e.stopPropagation(); showQueueItemMenu(more, q, idx); };
+    actions.appendChild(more);
     main.appendChild(thumb);
     main.appendChild(info);
     main.appendChild(actions);
     item.appendChild(main);
+
+    item.draggable = true;
+    item.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/x-queue-uid", q.uid);
+      e.dataTransfer.effectAllowed = "move";
+      item.classList.add("dragging");
+    });
+    item.addEventListener("dragend", () => item.classList.remove("dragging"));
+    item.addEventListener("dragover", (e) => {
+      if (![...e.dataTransfer.types].includes("text/x-queue-uid")) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      item.classList.add("drag-over");
+    });
+    item.addEventListener("dragleave", () => item.classList.remove("drag-over"));
+    item.addEventListener("drop", (e) => {
+      const uid = e.dataTransfer.getData("text/x-queue-uid");
+      item.classList.remove("drag-over");
+      if (!uid || uid === q.uid) return;
+      e.preventDefault();
+      Queue.moveTo(uid, idx);
+    });
 
     const copies = el("div", "q-copy-row");
     copies.onclick = (e) => e.stopPropagation();
@@ -1249,6 +1281,40 @@ async function refreshQueuePrices() {
 /* ---------------- batch pick menu ----------------
    Small anchored menu of saved batch names — used by the queue rail's 🗂
    button to drop a single sign into an existing batch. */
+/* Per-row ⋯ menu on queued signs: duplicate / add-to-batch / reorder /
+   remove, sharing the pick-menu chrome (and its one-at-a-time state). */
+function showQueueItemMenu(anchor, q, idx) {
+  closeBatchPickMenu();
+  const menu = el("div", "pick-menu");
+  const item = (label, fn, disabled) => {
+    const b = el("button", "pick-item", label);
+    b.disabled = !!disabled;
+    b.onclick = (e) => { e.stopPropagation(); closeBatchPickMenu(); fn(); };
+    menu.appendChild(b);
+  };
+  item("⧉ Duplicate", () => Queue.duplicate(q.uid));
+  item("🗂 Add to a saved batch…", () => {
+    showBatchPickMenu(anchor, (name) => {
+      const ok = Batches.addItems(name, [q]);
+      showToast(ok
+        ? `Added “${queueItemTitle(q)}” to batch “${name}”.`
+        : `Batch “${name}” no longer exists.`);
+    });
+  });
+  item("▲ Move up", () => Queue.move(q.uid, -1), idx === 0);
+  item("▼ Move down", () => Queue.move(q.uid, 1), idx === Queue.items.length - 1);
+  item("✕ Remove", () => {
+    const rem = Queue.remove(q.uid);
+    if (rem) showToast(`Removed “${queueItemTitle(rem.item)}”.`, { undo: () => Queue.restore(rem.item, rem.index) });
+  });
+  document.body.appendChild(menu);
+  _pickMenuEl = menu;
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = Math.max(8, Math.min(window.innerHeight - menu.offsetHeight - 8, r.bottom + 4)) + "px";
+  menu.style.left = Math.max(8, r.right - menu.offsetWidth) + "px";
+  setTimeout(() => document.addEventListener("click", closeBatchPickMenu, { once: true }), 0);
+}
+
 let _pickMenuEl = null;
 function closeBatchPickMenu() {
   if (_pickMenuEl) { try { _pickMenuEl.remove(); } catch (e) {} _pickMenuEl = null; }
@@ -1628,6 +1694,11 @@ async function renderSheetPreviews() {
   const nKinds = Queue.items.length;
   const kindsNote = nSigns !== nKinds ? ` (${nKinds} unique)` : "";
   stats.textContent = `${nSigns} sign${nSigns === 1 ? "" : "s"}${kindsNote} → ${packed.pages.length} sheet${packed.pages.length === 1 ? "" : "s"} (optimized layout, straight cuts)`;
+  // The summary line above carries the decision-making info; composing the
+  // page thumbnails is only worth it while the section is open (a toggle
+  // listener re-runs this when it opens).
+  const box = $("#sheetBox");
+  if (box && !box.open) return packed;
   await ensureFontsLoaded();
   for (let i = 0; i < packed.pages.length && i < 8; i++) {
     const page = packed.pages[i];
@@ -1776,6 +1847,7 @@ function renderBulkExtras() {
 }
 
 function initBulk() {
+  $("#bulkOpenBtn").onclick = () => $("#bulkModal").classList.add("show");
   const ta = $("#bulkSkus");
   const badge = $("#bulkCount");
   ta.addEventListener("input", () => {

@@ -9,6 +9,17 @@
 
 const CHANGELOG = [
   {
+    version: "3.6.0",
+    date: "August 2026",
+    notes: [
+      "A cleaner, roomier layout. The left sidebar is now a compact list (the home gallery is still the illustrated menu), so the editor and preview get the space.",
+      "The editor shows just the everyday fields; the power controls — element sizes, show/hide toggles, barcode & QR, unit — live in one “Fine-tune this sign” section that stays open if you use it.",
+      "One size dropdown instead of nine size buttons above the preview.",
+      "A simpler print queue: drag signs to reorder them, and each sign has one ⋯ menu for duplicate / add-to-batch / remove. Batches and History moved up to the top bar, Bulk add is a proper window with more room to paste, and the sheet layout previews tuck behind their summary line.",
+      "Settings now separates the everyday switches from the set-once setup (store number, printer margin, sync connection, backup) under Advanced.",
+    ],
+  },
+  {
     version: "3.5.0",
     date: "August 2026",
     notes: [

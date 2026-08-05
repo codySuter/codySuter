@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.5.0"
+VERSION="3.6.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Printed PDFs now match the preview exactly, cut guides actually print, batch sync is safer between computers, self-update is sturdier, and the Support button is retired."
+NOTES="A cleaner, roomier layout: compact sidebar, tidier editor with a Fine-tune section, one size dropdown, a simpler print queue with drag-to-reorder, and Settings split into everyday vs. advanced."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
