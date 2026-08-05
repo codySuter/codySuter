@@ -108,8 +108,8 @@ const SIGN_TYPES = [
     sample: { name: "Clark+Kensington Paint Gallons", qty: 2, savings: "10" },
   },
   {
-    id: "was_now", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "Was / Now",
-    note: "Clearance — this unit only",
+    id: "was_now", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "This Unit Only Clearance",
+    note: "Was/now price — no returns",
     fields: [
       F.sku, F.name, F.detail,
       Object.assign({}, F.regPrice, { label: "Was price", optional: false }),

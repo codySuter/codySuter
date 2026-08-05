@@ -645,10 +645,11 @@ AceRenderers.was_now = (spec, W, H) =>
     const showChip = s.unitOnly !== false;
     const chipSize = Math.max(10, availH * 0.115);
     const wasSize = Math.max(11, availH * 0.155);
-    const blockH = availH * (showChip ? 0.46 : 0.54);
+    const noteSize = Math.max(8.5, availH * 0.072);
+    const blockH = availH * (showChip ? 0.42 : 0.5);
     const parts = [];
     if (showChip) parts.push(chipSize * 1.52);
-    parts.push(wasSize * 1.3, blockH);
+    parts.push(wasSize * 1.3, blockH, noteSize * 1.5);
     const st = stack(top, availH, parts, 0.05);
     let y = st.start;
     let m = "";
@@ -668,6 +669,9 @@ AceRenderers.was_now = (spec, W, H) =>
     y += wSz * 1.3 + st.gap;
     const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { pre: "NOW " });
     m += blk.markup;
+    y += blk.h + st.gap;
+    // Clearance terms, same fine-print style as Final Sale's note.
+    m += svgText(cx, y + noteSize, "No returns", "RobotoBold", noteSize, GRAY11);
     return { markup: m, h: availH };
   });
 
