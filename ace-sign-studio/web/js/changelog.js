@@ -9,6 +9,15 @@
 
 const CHANGELOG = [
   {
+    version: "3.8.0",
+    date: "August 2026",
+    notes: [
+      "Every sign now prints with its laminate cut line, drawn exactly 1/8 inch inside the sign's size all the way around — an 11×7 holder sign cuts at 10.75×6.75, a 5×3 shelf sign at 4.75×2.75, and so on. Cut on the dashed line, laminate, and the 1/8-inch sealed border brings the piece back to its exact size.",
+      "The sign artwork is designed for the cut area now, not squeezed into it — holder signs (which always had a cut line) get slightly crisper text out of this too.",
+      "On shared sheets, use the margin ticks first to separate the signs, then trim each one on its own dashed line.",
+    ],
+  },
+  {
     version: "3.7.0",
     date: "August 2026",
     notes: [
