@@ -69,13 +69,11 @@ async function composeSheetSVG(page, showGuides) {
     } else {
       inner += `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)})">${clipped}</g>`;
     }
-    if (!page.dedicated && showGuides) {
-      // same dashed cut-line style as the holder sizes' laminate guide
-      // (#AAAAAA, 0.6pt, dash 4/2) so every cut line in the app matches.
-      // Gated on the same "Cut guides" setting as the margin ticks — these
-      // outlines are cut lines too.
-      inner += `<rect x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" width="${(p.w * PPI).toFixed(2)}" height="${(p.h * PPI).toFixed(2)}" fill="none" stroke="#AAAAAA" stroke-width="0.80" stroke-dasharray="5.33 2.67"/>`;
-    }
+    // No per-placement outline: every sign now carries its own dashed
+    // laminate cut line (1/8" inside its nominal edge, from withCutGuide),
+    // so an outline at the nominal boundary would just be a second,
+    // wrong-place rectangle. The margin ticks still mark the shared
+    // nominal edges for the first rough separation cuts.
   }
   if (defs) inner = `<defs>${defs}</defs>` + inner;
   if (showGuides) {

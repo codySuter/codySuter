@@ -393,30 +393,34 @@ function stack(top, availH, partHeights, gapFrac) {
   return { start: y, gap };
 }
 
-/* Wrap a rendered sign with the laminate cut guide: the design is scaled
-   into the cut area and a light dashed rounded rect marks the cut line on
-   the full-size page — a direct port of the legacy draw_with_cut_guide
-   (gray #AAAAAA, 0.6pt, dash 4/2, radius 8, CUT_MARGIN inset). */
+/* Wrap a sign rendered at the CUT dimensions with its laminate cut guide:
+   the artwork sits centered on the nominal-size page and a light dashed
+   rounded rect marks the cut line (gray #AAAAAA, 0.6pt, dash 4/2 — the
+   legacy draw_with_cut_guide style). The body is NOT scaled: it is
+   rendered natively at (W−2c)×(H−2c), so typography keeps its proportions
+   instead of being squeezed the way the legacy tool did. */
 function withCutGuide(svg, Win, Hin, cutIn) {
   const W = Win * PPI, H = Hin * PPI, c = cutIn * PPI;
   const k = PPI / 72; // pt → px
   const body = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
-  const sx = (W - 2 * c) / W, sy = (H - 2 * c) / H;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
     `<rect width="${W}" height="${H}" fill="#ffffff"/>` +
-    `<g transform="translate(${c.toFixed(2)},${c.toFixed(2)}) scale(${sx.toFixed(5)},${sy.toFixed(5)})">${body}</g>` +
+    `<g transform="translate(${c.toFixed(2)},${c.toFixed(2)})">${body}</g>` +
     `<rect x="${c.toFixed(2)}" y="${c.toFixed(2)}" width="${(W - 2 * c).toFixed(2)}" height="${(H - 2 * c).toFixed(2)}" rx="${(8 * k).toFixed(2)}" fill="none" stroke="#AAAAAA" stroke-width="${(0.6 * k).toFixed(2)}" stroke-dasharray="${(4 * k).toFixed(2)} ${(2 * k).toFixed(2)}"/>` +
     `</svg>`;
 }
 
-/* Render a sign type at a registered size, applying the size's cut guide
-   when it has one. The single entry point used by previews, thumbnails,
-   sheets, and PDFs. */
+/* Render a sign type at a registered size. Every size carries a cut inset
+   (1/8" laminate seal all around): the artwork renders at the cut
+   dimensions and is wrapped with the dashed cut line on the nominal-size
+   page. The single entry point used by previews, thumbnails, sheets, and
+   PDFs. */
 async function renderSignSVG(typeId, spec, sizeId) {
   const t = typeById(typeId);
   const size = sizeById(sizeId);
-  const svg = await t.render(spec, size.w, size.h);
-  return size.cut ? withCutGuide(svg, size.w, size.h, size.cut) : svg;
+  if (!size.cut) return t.render(spec, size.w, size.h);
+  const svg = await t.render(spec, size.w - 2 * size.cut, size.h - 2 * size.cut);
+  return withCutGuide(svg, size.w, size.h, size.cut);
 }
 
 /* ---------- logo ---------- */

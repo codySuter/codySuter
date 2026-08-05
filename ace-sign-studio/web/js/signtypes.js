@@ -5,24 +5,25 @@
    ============================================================ */
 "use strict";
 
-/* PALLET_CUT: dashed cut-guide inset for holder sizes — the legacy tool's
-   CUT_MARGIN of 22pt. Print, cut on the dashed line, laminate; the sealed
-   laminate edge brings the piece back to ≤ the nominal size so it slides
-   into its holder. Used by the Pallet Holder sizes and the 11×7 Sign
-   Holder (cut exactly to 11×7, a laminated sign no longer fits the metal
-   holder — the inset is what makes the finished piece fit). */
-const PALLET_CUT = 22 / 72;
+/* SEAL_CUT: every sign is cut 1/8" inside its nominal size, all the way
+   around. Print, cut on the dashed line, laminate; the 1/8" laminate seal
+   border around the cut piece brings the finished sign back to exactly its
+   nominal size — so it fits its holder/sleeve and the sealed edge never
+   gets trimmed open. (Replaces the legacy 22pt CUT_MARGIN the holder sizes
+   used; the artwork now renders natively at the cut dimensions instead of
+   being squeezed into them.) */
+const SEAL_CUT = 0.125;
 
 const SIZES = [
-  { id: "letter-l",  w: 11,  h: 8.5, label: 'Full Page 11×8.5"' },
-  { id: "letter-p",  w: 8.5, h: 11,  label: 'Full Page 8.5×11"' },
-  { id: "pallet-l",  w: 11,  h: 8.5, cut: PALLET_CUT, label: 'Pallet Holder 11×8.5"' },
-  { id: "pallet-p",  w: 8.5, h: 11,  cut: PALLET_CUT, label: 'Pallet Holder 8.5×11"' },
-  { id: "holder-11x7", w: 11, h: 7,  cut: PALLET_CUT, label: 'Sign Holder 11×7"' },
-  { id: "counter-7x5", w: 7,  h: 5,  label: 'Counter 7×5"' },
-  { id: "card-6x4",  w: 6,   h: 4,   label: 'Card 6×4"' },
-  { id: "shelf-5x3", w: 5,   h: 3,   label: 'Shelf 5×3"' },
-  { id: "shelf-55x35", w: 5.5, h: 3.5, label: 'Magnet Sleeve 5.5×3.5"' },
+  { id: "letter-l",  w: 11,  h: 8.5, cut: SEAL_CUT, label: 'Full Page 11×8.5"' },
+  { id: "letter-p",  w: 8.5, h: 11,  cut: SEAL_CUT, label: 'Full Page 8.5×11"' },
+  { id: "pallet-l",  w: 11,  h: 8.5, cut: SEAL_CUT, label: 'Pallet Holder 11×8.5"' },
+  { id: "pallet-p",  w: 8.5, h: 11,  cut: SEAL_CUT, label: 'Pallet Holder 8.5×11"' },
+  { id: "holder-11x7", w: 11, h: 7,  cut: SEAL_CUT, label: 'Sign Holder 11×7"' },
+  { id: "counter-7x5", w: 7,  h: 5,  cut: SEAL_CUT, label: 'Counter 7×5"' },
+  { id: "card-6x4",  w: 6,   h: 4,   cut: SEAL_CUT, label: 'Card 6×4"' },
+  { id: "shelf-5x3", w: 5,   h: 3,   cut: SEAL_CUT, label: 'Shelf 5×3"' },
+  { id: "shelf-55x35", w: 5.5, h: 3.5, cut: SEAL_CUT, label: 'Magnet Sleeve 5.5×3.5"' },
 ];
 const sizeById = (id) => SIZES.find((s) => s.id === id) || SIZES[0];
 
