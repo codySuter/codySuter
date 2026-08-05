@@ -5,18 +5,20 @@
    ============================================================ */
 "use strict";
 
-/* SEAL_CUT: every sign is cut 1/8" inside its nominal size, all the way
-   around. Print, cut on the dashed line, laminate; the 1/8" laminate seal
-   border around the cut piece brings the finished sign back to exactly its
-   nominal size — so it fits its holder/sleeve and the sealed edge never
-   gets trimmed open. (Replaces the legacy 22pt CUT_MARGIN the holder sizes
-   used; the artwork now renders natively at the cut dimensions instead of
-   being squeezed into them.) */
+/* SEAL_CUT: every cut-and-laminate size is cut 1/8" inside its nominal
+   size, all the way around. Print, cut on the dashed line, laminate; the
+   1/8" laminate seal border around the cut piece brings the finished sign
+   back to exactly its nominal size — so it fits its holder/sleeve and the
+   sealed edge never gets trimmed open. (Replaces the legacy 22pt
+   CUT_MARGIN the holder sizes used; the artwork renders natively at the
+   cut dimensions instead of being squeezed into them.) The two Full Page
+   sizes are the exception: they print edge-to-edge as a whole sheet and
+   are never cut, so they carry no cut guide. */
 const SEAL_CUT = 0.125;
 
 const SIZES = [
-  { id: "letter-l",  w: 11,  h: 8.5, cut: SEAL_CUT, label: 'Full Page 11×8.5"' },
-  { id: "letter-p",  w: 8.5, h: 11,  cut: SEAL_CUT, label: 'Full Page 8.5×11"' },
+  { id: "letter-l",  w: 11,  h: 8.5, label: 'Full Page 11×8.5"' },
+  { id: "letter-p",  w: 8.5, h: 11,  label: 'Full Page 8.5×11"' },
   { id: "pallet-l",  w: 11,  h: 8.5, cut: SEAL_CUT, label: 'Pallet Holder 11×8.5"' },
   { id: "pallet-p",  w: 8.5, h: 11,  cut: SEAL_CUT, label: 'Pallet Holder 8.5×11"' },
   { id: "holder-11x7", w: 11, h: 7,  cut: SEAL_CUT, label: 'Sign Holder 11×7"' },

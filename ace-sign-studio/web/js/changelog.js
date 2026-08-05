@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.8.1",
+    date: "August 2026",
+    notes: [
+      "Full Page signs print edge-to-edge again — no cut line. The 1/8-inch laminate cut guide stays on all the sizes you actually cut out (holders, counter, card, shelf, magnet sleeve).",
+    ],
+  },
+  {
     version: "3.8.0",
     date: "August 2026",
     notes: [
