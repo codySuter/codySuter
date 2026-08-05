@@ -99,6 +99,14 @@ const Queue = {
     this._touch();
     return snap;
   },
+  /* Drop a row at an absolute position (drag-and-drop reorder). */
+  moveTo(uid, index) {
+    const i = this.items.findIndex((q) => q.uid === uid);
+    if (i < 0) return;
+    const [it] = this.items.splice(i, 1);
+    this.items.splice(Math.max(0, Math.min(index, this.items.length)), 0, it);
+    this._touch();
+  },
   replaceAll(items) {
     this.items = JSON.parse(JSON.stringify(items || []));
     this.items.forEach((q) => { if (!q.copies) q.copies = 1; });

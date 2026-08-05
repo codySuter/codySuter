@@ -139,6 +139,7 @@ async function run() {
     // ================= barcode toggle =================
     console.log("→ Code 128 barcode toggle");
     const rectsBefore = await page.$$eval("#signHolder svg rect", (r) => r.length);
+    await page.evaluate(() => { document.querySelector("#fineTune").open = true; }); // barcode lives in the fine-tune section
     await page.check('.f-check:has-text("barcode") input');
     await page.waitForFunction(
       (n) => document.querySelectorAll("#signHolder svg rect").length > n + 20,
@@ -154,8 +155,9 @@ async function run() {
     await page.waitForSelector(".q-item");
     ok("sign lands in the queue", (await page.$$(".q-item")).length === 1);
     ok("queue badge counts physical signs", (await page.textContent("#queueCount")) === "1");
+    await page.evaluate(() => { document.querySelector("#sheetBox").open = true; });
     await page.waitForSelector(".sheet-thumb svg", { timeout: 20000 });
-    ok("sheet layout preview renders", true);
+    ok("sheet layout preview renders when the section is opened", true);
 
     // ================= edit a queued sign =================
     console.log("→ Edit a queued sign");
@@ -198,7 +200,8 @@ async function run() {
     await page.click("#addQueueBtn");
     await page.waitForFunction(() => Queue.items.length === 2);
     const orderBefore = await page.$$eval(".q-item .q-title", (n) => n.map((x) => x.textContent));
-    await page.click('.q-item:first-child button[title="Move down"]');
+    await page.click('.q-item:first-child button[title="More actions"]');
+    await page.click('.pick-menu button:has-text("Move down")');
     await page.waitForFunction(
       (was) => document.querySelector(".q-item .q-title").textContent !== was,
       orderBefore[0]
@@ -209,7 +212,8 @@ async function run() {
 
     // ================= remove + undo =================
     console.log("→ Undo (remove, clear)");
-    await page.click('.q-item:first-child button[title="Remove"]');
+    await page.click('.q-item:first-child button[title="More actions"]');
+    await page.click('.pick-menu button:has-text("Remove")');
     await page.waitForFunction(() => Queue.items.length === 1);
     await page.click(".toast-undo");
     await page.waitForFunction(() => Queue.items.length === 2);
@@ -249,7 +253,8 @@ async function run() {
     await page.click("#clearQueueBtn");
     await page.waitForFunction(() => Queue.items.length === 0);
     await waitToastGone();
-    await page.click(".bulk-box summary");
+    await page.click("#bulkOpenBtn");
+    await page.waitForSelector("#bulkModal.show");
     await fill("#bulkSkus", "3000003 2000002 4040404");
     await fill("#bulkCopies", "2");
     await page.click("#bulkAddBtn");
@@ -272,6 +277,7 @@ async function run() {
     ok("Was/Now bulk flags the missing Now price", (await page.textContent(".bulk-warn")).includes("Now price"));
     ok("WAS auto-fills from the shelf price", await page.evaluate(() =>
       Queue.items.some((q) => q.typeId === "was_now" && q.spec.regPrice === "129.00" && !q.spec.price)));
+    await page.click("#bulkModal .modal-close");
     ok("queue row shows the needs-Now badge", !!(await page.$(".q-warn")));
 
     // ================= price refresh =================

@@ -78,30 +78,30 @@ await page.waitForSelector("#editorFields");
 await sleep(600);
 await shot("03-editor-instant-savings");
 
-// element sizes / presets popover if present
-const presets = await page.$("#presetBtn, .preset-btn, [id*='reset']");
-await page.evaluate(() => { const d = document.querySelector("details.scale-box, details"); if (d) d.open = true; });
+// fine-tune section open
+await page.evaluate(() => { const d = document.querySelector("#fineTune"); if (d) d.open = true; });
 await sleep(400);
-await shot("04-editor-details-open");
+await shot("04-editor-finetune-open");
+await page.evaluate(() => { const d = document.querySelector("#fineTune"); if (d) d.open = false; });
 
 // queue rail state
 await page.click('.nav-item[data-type="regular"]');
 await sleep(500);
 await shot("05-queue-rail");
 
-// bulk add (a <details> inside the queue rail)
-await page.evaluate(() => { document.querySelector(".bulk-box").open = true; });
+// bulk add modal
+await page.click("#bulkOpenBtn");
 await sleep(500);
 await shot("07-bulk-add-open");
-await page.evaluate(() => { document.querySelector(".bulk-box").open = false; });
+await page.click("#bulkModal .modal-close");
 
-// scroll the queue rail to show sheet layout previews
-await page.evaluate(() => { const s = document.querySelector(".queue-scroll"); if (s) s.scrollTop = s.scrollHeight; });
-await sleep(400);
-await shot("06-queue-rail-bottom");
-await page.evaluate(() => { const s = document.querySelector(".queue-scroll"); if (s) s.scrollTop = 0; });
+// sheet layout previews open
+await page.evaluate(() => { const d = document.querySelector("#sheetBox"); if (d) d.open = true; });
+await sleep(800);
+await shot("06-queue-rail-sheets");
+await page.evaluate(() => { const d = document.querySelector("#sheetBox"); if (d) d.open = false; });
 
-// batches modal
+// batches modal (button now in the top app bar)
 await page.click("#batchesBtn"); await sleep(500); await shot("08-batches");
 await page.click("#batchModal .modal-close");
 
