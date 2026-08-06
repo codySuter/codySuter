@@ -2123,7 +2123,7 @@ function renderBulkReport(failed, needsNow) {
   }
   if (needsNow.length) {
     host.appendChild(el("div", "bulk-warn",
-      `⚠ ${needsNow.length} Was/Now sign${needsNow.length === 1 ? "" : "s"} added without a Now price — click them in the queue to set it.`));
+      `⚠ ${needsNow.length} This Unit Only Clearance sign${needsNow.length === 1 ? "" : "s"} added without a Now price — click them in the queue to set it.`));
   }
 }
 

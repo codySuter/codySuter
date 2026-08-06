@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.8.2",
+    date: "August 2026",
+    notes: [
+      "The Was / Now sign is now called “This Unit Only Clearance”, and every one of them prints “No returns” at the bottom — same fine print as the Final Sale sign.",
+    ],
+  },
+  {
     version: "3.8.1",
     date: "August 2026",
     notes: [

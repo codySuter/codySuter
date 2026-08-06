@@ -313,7 +313,7 @@ async function run() {
     ok("export blocked while a sign needs its Now price", (await page.textContent(".toast")).includes("incomplete"));
     await waitToastGone();
     // fix it through the click-to-edit flow
-    await page.click('.q-item:has-text("Was / Now") .q-main');
+    await page.click('.q-item:has-text("This Unit Only Clearance") .q-main');
     await page.waitForSelector("#editBanner", { state: "visible" });
     await fill('[data-field="price"]', "89.99");
     await page.click("#addQueueBtn");
