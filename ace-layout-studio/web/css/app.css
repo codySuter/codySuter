@@ -270,6 +270,24 @@ body {
 #inWidth, #inDepth { width: 64px; flex: 0 0 auto; }
 #inWidthPreset { flex: 1 1 auto; }
 
+.mini {
+  font: 700 12px var(--font);
+  padding: 6px 7px;
+  background: #fff;
+  border: 1px solid var(--gray-md);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mini:hover { border-color: var(--ace-red); }
+.scale-readout {
+  flex: 1 1 auto;
+  text-align: center;
+  font: 600 12px var(--font);
+  color: var(--gray-dk);
+  font-variant-numeric: tabular-nums;
+}
+
 .seg { display: flex; gap: 0; }
 .seg button {
   flex: 1 1 0;
@@ -314,6 +332,8 @@ body {
 .dim-halo.editable { cursor: pointer; pointer-events: all; }
 .marquee { fill: rgba(212,0,41,.07); stroke: var(--ace-red); stroke-width: 1; stroke-dasharray: 4 3; }
 .ghost-rect { stroke: var(--ace-red); stroke-width: 1.5; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; fill: rgba(212,0,41,.08); }
+.label-preview { font-family: var(--font); font-weight: 700; fill: var(--ace-red); }
+#ghost { pointer-events: none; }
 
 /* ---------- modal ---------- */
 .modal {

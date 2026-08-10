@@ -20,11 +20,22 @@ needed).
   **Extend** presses on a panel and drags along the aisle to stamp out
   flush matching panels (with a live ghost preview and count), and
   **Erase** removes units on click or drag-across. Esc returns to Select.
+  The Label tool also drags to auto-number a run — see below.
 - **Snap placement**: everything snaps to a 1" grid and to the edges and
   centers of nearby units, so sections butt flush into runs and endcaps
   seat square against them. Hold **Alt** to move freely.
 - **Location codes**: double-click any unit (or press Enter with it
   selected) and type its code — it's drawn on the unit, rotated to match.
+- **Auto-numbering**: type one code, then with the Label tool press on
+  that unit and drag along the run — every unit the drag crosses gets the
+  next code in sequence (`01R01` → `01R02`, `01R03`…), previewed live in
+  red before you release. Zero padding is preserved (`A09` → `A10`), and a
+  trailing enumerator letter steps too (`BAY-C` → `BAY-D`) while ordinary
+  words are left alone.
+- **Per-label rotation & sizing**: turn any label 90° at a time with
+  **Shift+R** (or ⟲ Turn) and resize its text with **[** / **]** — set per
+  unit, applied across the whole selection at once, and carried through
+  PNG/print export.
 - **Adjustable to the inch**: width and depth are editable per-inch in the
   inspector (width has quick 4'/3' presets), and every unit rotates in 90°
   steps.

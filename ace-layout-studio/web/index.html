@@ -62,7 +62,7 @@
         </svg>
         <span>Pan</span>
       </button>
-      <button data-tool="label" title="Type location codes (L)">
+      <button data-tool="label" title="Type location codes; drag to auto-number (L)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <path d="M5 5h14M12 5v14M9 19h6"/>
         </svg>
@@ -129,6 +129,16 @@
         <span>Location code</span>
         <input id="inCode" placeholder="e.g. A01" autocomplete="off" spellcheck="false">
       </label>
+
+      <div class="field" id="fieldLabelStyle">
+        <span>Label text</span>
+        <div class="row">
+          <button id="btnLabelRot" class="mini" title="Rotate label (Shift+R)">⟲ Turn</button>
+          <button id="btnLabelSmaller" class="mini" title="Smaller text ( [ )">A−</button>
+          <span id="labelScale" class="scale-readout">100%</span>
+          <button id="btnLabelBigger" class="mini" title="Bigger text ( ] )">A+</button>
+        </div>
+      </div>
 
       <label class="field">
         <span>Width</span>
@@ -201,11 +211,14 @@
         <dt>Move</dt><dd>Drag units — they snap to a 1" grid and to the edges of nearby units. Hold <b>Alt</b> to disable edge snapping.</dd>
         <dt>Exact gaps</dt><dd>Select a unit and click any red gap measurement to type the distance (e.g. <b>42</b> or <b>3' 6"</b>).</dd>
         <dt>Label</dt><dd>Double-click a unit (any tool) to type its location code, or use the panel on the right.</dd>
+        <dt>Auto-number a run</dt><dd>Type a code (e.g. <b>01R01</b>), then with the Label tool press on that unit and drag across the rest — each one it touches gets the next code (<b>01R02</b>, <b>01R03</b>…). Zero padding is kept, and a trailing letter steps too (<b>BAY-C</b> → <b>BAY-D</b>).</dd>
+        <dt>Label look</dt><dd>Turn a label 90° with <b>Shift+R</b> (or ⟲ Turn) and size the text with <b>[</b> / <b>]</b> — per unit, and applies to the whole selection at once.</dd>
         <dt>Multi-select</dt><dd>Drag a box on empty floor, or Shift-click. Ctrl+A selects all.</dd>
       </dl>
       <dl>
         <dt>Arrows / Shift+Arrows</dt><dd>Nudge 1" / 12"</dd>
-        <dt>R</dt><dd>Rotate 90°</dd>
+        <dt>R · Shift+R</dt><dd>Rotate unit · rotate its label</dd>
+        <dt>[ · ]</dt><dd>Label text smaller · bigger</dd>
         <dt>Ctrl+D</dt><dd>Duplicate</dd>
         <dt>Del</dt><dd>Delete</dd>
         <dt>Ctrl+Z / Ctrl+Shift+Z</dt><dd>Undo / Redo</dd>

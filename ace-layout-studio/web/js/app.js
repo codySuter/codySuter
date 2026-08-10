@@ -24,6 +24,32 @@ function fmtLen(v) {
   return `${neg}${ft}' ${inch}"`;
 }
 
+/* Step the trailing number of a location code, keeping its zero padding.
+   01R01 +1 -> 01R02 · A09 +1 -> A10 · AISLE-9 +2 -> AISLE-11 · BAY-C +1 -> BAY-D */
+function incrementCode(code, n) {
+  code = String(code == null ? '' : code);
+  if (!code) return '';
+  const num = code.match(/^(.*?)(\d+)(\D*)$/);
+  if (num) {
+    const [, head, digits, tail] = num;
+    const next = Math.max(0, parseInt(digits, 10) + n);
+    return head + String(next).padStart(digits.length, '0') + tail;
+  }
+  // trailing letter steps only when it reads as an enumerator — a lone letter
+  // (C), or one set off by a separator or digit (BAY-C, 9C) — never a word's
+  // last letter (SHOP must not become SHOQ)
+  const alpha = code.match(/^(.*?)([A-Za-z])$/);
+  if (alpha) {
+    const [, head, ch] = alpha;
+    if (!/[A-Za-z]$/.test(head)) {
+      const base = ch === ch.toUpperCase() ? 65 : 97;
+      const idx = ch.charCodeAt(0) - base + n;
+      if (idx >= 0 && idx < 26) return head + String.fromCharCode(base + idx);
+    }
+  }
+  return code;
+}
+
 /* Accepts: 42 · 42" · 42in · 3' · 3ft · 3'6 · 3' 6" · 3ft 6in · 3-6. Returns inches or null. */
 function parseLen(str) {
   if (str == null) return null;
@@ -275,6 +301,30 @@ function renderGrid() {
   }
 }
 
+/* Label geometry. u.cr = label angle in degrees (undefined = auto: upright for
+   horizontal units, along the run for vertical ones). u.cs = size multiplier. */
+function labelAngle(u) {
+  return u.cr == null ? (u.rot % 180 === 0 ? 0 : -90) : u.cr;
+}
+
+function codeMarkup(u, code, cls, fill, forExport) {
+  const b = aabb(u);
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  const ang = labelAngle(u);
+  // room measured along the axis the text actually runs
+  const horizText = ((ang % 180) + 180) % 180 === 0;
+  const along = horizText ? b.w : b.h;
+  const across = horizText ? b.h : b.w;
+  const scale = u.cs || 1;
+  let fs = Math.min(14, across * 0.55, (along * 1.6) / Math.max(2, code.length));
+  if (!forExport) fs = Math.max(fs, Math.min(11 / view.scale, across * 0.9));
+  fs *= scale;
+  const rotT = ang ? ` transform="rotate(${ang} ${cx} ${cy})"` : '';
+  const style = fill ? ` style="fill:${fill}"` : '';
+  return `<text class="${cls}" x="${cx}" y="${cy}" font-size="${fs.toFixed(2)}"
+          text-anchor="middle" dominant-baseline="central"${style}${rotT}>${esc(code)}</text>`;
+}
+
 function unitMarkup(u, opts = {}) {
   const t = TYPES[u.type] || TYPES.block;
   const b = aabb(u);
@@ -293,15 +343,8 @@ function unitMarkup(u, opts = {}) {
 
   // location code label, rotated with the unit, kept upright
   if (u.code) {
-    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-    const along = u.rot % 180 === 0 ? b.w : b.h;   // room along the unit's width axis
-    const across = u.rot % 180 === 0 ? b.h : b.w;
-    let fs = Math.min(14, across * 0.55, (along * 1.6) / Math.max(2, u.code.length));
-    if (!opts.forExport) fs = Math.max(fs, Math.min(11 / view.scale, across * 0.9));
-    const rotT = u.rot % 180 === 0 ? '' : ` transform="rotate(-90 ${cx} ${cy})"`;
     const fill = u.type === 'wall' ? '#ffffff' : '#1a1a1a';
-    s += `<text class="u-label" x="${cx}" y="${cy}" font-size="${fs.toFixed(1)}"
-          text-anchor="middle" dominant-baseline="central" style="fill:${fill}"${rotT}>${esc(u.code)}</text>`;
+    s += codeMarkup(u, u.code, 'u-label', fill, opts.forExport);
   }
 
   // size readout when selected
@@ -392,6 +435,19 @@ function renderGhost() {
   }
 }
 
+function renderLabelPreview() {
+  if (!drag || drag.kind !== 'label') { gGhost.innerHTML = ''; return; }
+  let s = '';
+  for (let i = 0; i < drag.targets.length; i++) {
+    const u = unitById(drag.targets[i]);
+    if (!u) continue;
+    const b = aabb(u);
+    s += `<rect class="ghost-rect" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}"/>`;
+    s += codeMarkup(u, incrementCode(drag.src.code, i + 1), 'label-preview', null, false);
+  }
+  gGhost.innerHTML = s;
+}
+
 function renderStatus() {
   $('statZoom').textContent = Math.round(view.scale * 100 / 1.4) + '%';
   const n = sel.size;
@@ -402,7 +458,13 @@ function renderStatus() {
   else if (drag && drag.kind === 'extend') hint = drag.count
     ? `Adding ${drag.count} panel${drag.count === 1 ? '' : 's'} — release to place`
     : 'Drag along the aisle to add matching panels';
-  else if (tool === 'label') hint = 'Click a unit and type its location code';
+  else if (drag && drag.kind === 'label' && drag.moved) {
+    if (!drag.src.code) hint = 'Type a code on this unit first, then drag to auto-number from it';
+    else if (!drag.targets.length) hint = `Drag across units to number them from ${drag.src.code}`;
+    else hint = `Numbering ${drag.targets.length} unit${drag.targets.length === 1 ? '' : 's'}: ` +
+      `${incrementCode(drag.src.code, 1)} → ${incrementCode(drag.src.code, drag.targets.length)}`;
+  }
+  else if (tool === 'label') hint = 'Click a unit to type its code, then drag from it to auto-number along the run';
   else if (tool === 'duplicate') hint = 'Drag a unit to pull off a copy — a plain click copies beside it';
   else if (tool === 'extend') hint = 'Press on a panel and drag along the aisle to add matching panels';
   else if (tool === 'erase') hint = 'Click or drag across units to remove them';
@@ -435,6 +497,13 @@ function renderInspector() {
 
   $('fieldCode').classList.toggle('hidden', !one);
   if (one && document.activeElement !== $('inCode')) $('inCode').value = one.code || '';
+
+  const anyCoded = units.some(u => u.code);
+  $('fieldLabelStyle').classList.toggle('hidden', !anyCoded);
+  if (anyCoded) {
+    const cs = same(u => u.cs || 1);
+    $('labelScale').textContent = cs == null ? 'mixed' : Math.round(cs * 100) + '%';
+  }
 
   const w = same(u => u.w);
   $('inWidthPreset').value = w === 48 ? '48' : w === 36 ? '36' : 'custom';
@@ -512,6 +581,18 @@ for (const id of ['inPosX', 'inPosY'])
 document.querySelectorAll('#fieldAlign button').forEach(btn => {
   btn.addEventListener('click', () => alignSelection(btn.dataset.align));
 });
+
+function rotateLabels() {
+  commitField(u => { u.cr = (((labelAngle(u) + 90) % 360) + 360) % 360; });
+}
+
+function scaleLabels(mult) {
+  commitField(u => { u.cs = clamp(Math.round(((u.cs || 1) * mult) * 100) / 100, 0.4, 4); });
+}
+
+$('btnLabelRot').addEventListener('click', rotateLabels);
+$('btnLabelSmaller').addEventListener('click', () => scaleLabels(1 / 1.15));
+$('btnLabelBigger').addEventListener('click', () => scaleLabels(1.15));
 
 $('btnRotate').addEventListener('click', () => rotateSelection());
 $('btnDup').addEventListener('click', () => duplicateSelection());
@@ -802,7 +883,11 @@ svg.addEventListener('pointerdown', (e) => {
   if (tool === 'label') {
     if (hit) {
       e.preventDefault(); // openCodeEditor focuses the float input; don't let mousedown steal it back
-      openCodeEditor(hit.getAttribute('data-uid'));
+      const src = unitById(hit.getAttribute('data-uid'));
+      sel = new Set([src.id]);
+      drag = { kind: 'label', src, startW: w, moved: false, targets: [], seen: new Set([src.id]) };
+      svg.setPointerCapture(e.pointerId);
+      renderAll();
     } else if (sel.size) {
       sel.clear(); renderAll();
     }
@@ -916,6 +1001,25 @@ svg.addEventListener('pointermove', (e) => {
     return;
   }
 
+  if (drag.kind === 'label') {
+    if (!drag.moved) {
+      const dx = w.x - drag.startW.x, dy = w.y - drag.startW.y;
+      if (Math.abs(dx) < 3 / view.scale && Math.abs(dy) < 3 / view.scale) return;
+      drag.moved = true;
+    }
+    if (drag.src.code) {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const over = el && el.closest && el.closest('[data-uid]');
+      if (over) {
+        const id = over.getAttribute('data-uid');
+        if (!drag.seen.has(id)) { drag.seen.add(id); drag.targets.push(id); }
+      }
+      renderLabelPreview();
+    }
+    renderStatus();
+    return;
+  }
+
   if (drag.kind === 'extend') {
     const b = aabb(drag.src);
     const dx = w.x - drag.startW.x, dy = w.y - drag.startW.y;
@@ -1021,6 +1125,23 @@ function endPointer(e) {
   if (drag.kind === 'erase') {
     if (drag.didPush) persist();
     drag = null;
+    renderAll();
+    return;
+  }
+  if (drag.kind === 'label') {
+    const d = drag;
+    drag = null;
+    gGhost.innerHTML = '';
+    if (!d.moved) { openCodeEditor(d.src.id); return; }
+    if (d.src.code && d.targets.length) {
+      pushUndo();
+      d.targets.forEach((id, i) => {
+        const u = unitById(id);
+        if (u) u.code = incrementCode(d.src.code, i + 1);
+      });
+      sel = new Set([d.src.id, ...d.targets]);
+      persist();
+    }
     renderAll();
     return;
   }
@@ -1160,9 +1281,11 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault(); deleteSelection();
   } else if (e.key.toLowerCase() === 'r' && !mod) {
-    if (placing) { placing.tpl.rot = (placing.tpl.rot + 90) % 360; renderGhost(); }
+    if (e.shiftKey) rotateLabels();
+    else if (placing) { placing.tpl.rot = (placing.tpl.rot + 90) % 360; renderGhost(); }
     else rotateSelection();
-  } else if (!mod && !drag && { v: 'select', h: 'pan', l: 'label', d: 'duplicate', e: 'extend', x: 'erase' }[e.key.toLowerCase()]) {
+  } else if (e.key === '[') { scaleLabels(1 / 1.15); }
+  else if (e.key === ']') { scaleLabels(1.15); } else if (!mod && !drag && { v: 'select', h: 'pan', l: 'label', d: 'duplicate', e: 'extend', x: 'erase' }[e.key.toLowerCase()]) {
     setTool({ v: 'select', h: 'pan', l: 'label', d: 'duplicate', e: 'extend', x: 'erase' }[e.key.toLowerCase()]);
   } else if (e.key === 'ArrowLeft')  { e.preventDefault(); nudgeSelection(-step, 0); }
   else if (e.key === 'ArrowRight')   { e.preventDefault(); nudgeSelection(step, 0); }
@@ -1275,6 +1398,8 @@ $('importFile').addEventListener('change', async (e) => {
       d: clamp(Math.round(+u.d || 24), 1, 1200),
       rot: [0, 90, 180, 270].includes(+u.rot) ? +u.rot : 0,
       code: String(u.code || '').slice(0, 40),
+      cr: [0, 90, 180, 270].includes(+u.cr) ? +u.cr : undefined,
+      cs: +u.cs > 0 ? clamp(+u.cs, 0.4, 4) : undefined,
     }));
     db.layouts.push(imported);
     switchLayout(imported.id);
