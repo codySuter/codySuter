@@ -164,6 +164,34 @@ const SIGN_TYPES = [
     render: (spec, w, h) => AceRenderers.text_only(spec, w, h),
     sample: { name: "STORE USE LADDERS", detail: "" },
   },
+  {
+    id: "arrow_up", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Up",
+    note: "Regular price + big arrow up to the product",
+    fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
+    render: (spec, w, h) => AceRenderers.arrow_up(spec, w, h),
+    sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
+  },
+  {
+    id: "arrow_down", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Down",
+    note: "Regular price + big arrow down to the product",
+    fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
+    render: (spec, w, h) => AceRenderers.arrow_down(spec, w, h),
+    sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
+  },
+  {
+    id: "arrow_left", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Left",
+    note: "Regular price + big arrow left to the product",
+    fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
+    render: (spec, w, h) => AceRenderers.arrow_left(spec, w, h),
+    sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
+  },
+  {
+    id: "arrow_right", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Right",
+    note: "Regular price + big arrow right to the product",
+    fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
+    render: (spec, w, h) => AceRenderers.arrow_right(spec, w, h),
+    sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
+  },
 ];
 
 const typeById = (id) => SIGN_TYPES.find((t) => t.id === id) || null;
@@ -210,6 +238,7 @@ function applyTemplateProduct(p) {
   set("was_now", { price: now, regPrice: was, unitOnly: true });
   set("final_sale", { price: now, note: "*No returns" });
   set("large_text", { price: price.toFixed(2) });
+  for (const d of ["up", "down", "left", "right"]) set("arrow_" + d, { price: price.toFixed(2) });
 }
 
 applyTemplateProduct(TEMPLATE_FALLBACK);

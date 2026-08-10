@@ -119,8 +119,8 @@ async function run() {
     console.log("→ Boot & gallery");
     await page.goto(appUrl);
     await page.waitForSelector(".g-card", { timeout: 20000 });
-    ok("gallery renders all 14 sign types", (await page.$$(".g-card")).length === 14);
-    ok("nav lists sign types", (await page.$$(".nav-item[data-type]")).length === 14);
+    ok("gallery renders all 18 sign types", (await page.$$(".g-card")).length === 18);
+    ok("nav lists sign types", (await page.$$(".nav-item[data-type]")).length === 18);
     await page.waitForSelector("#g-prev-regular svg", { timeout: 20000 });
     await shot("01-gallery");
 

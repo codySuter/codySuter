@@ -9,6 +9,15 @@
 
 const CHANGELOG = [
   {
+    version: "3.9.0",
+    date: "August 2026",
+    notes: [
+      "New: pick and print. Tick any signs in the queue and the print buttons switch to “Print Selected” / “Save PDF (N)” — print just those without touching the rest of the queue. Untick (or hit “clear selection”) to go back to printing everything.",
+      "New: four Product Pointer signs — Arrow Up, Down, Left and Right. Same everyday price layout as Regular Price, plus a big Ace-red arrow pointing at the product. They bulk-add and price-refresh like regular signs.",
+      "Fixed: printing a single sign from the editor now comes out at the correct physical size. It used to make a page the size of the sign itself, which the print dialog then stretched to fit the paper — a 5×3 shelf sign printed nearly double size. Single signs now go on a US Letter sheet with their cut line, exactly like queue printing.",
+    ],
+  },
+  {
     version: "3.8.2",
     date: "August 2026",
     notes: [
