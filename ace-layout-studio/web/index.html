@@ -51,6 +51,45 @@
   </aside>
 
   <div class="canvas-wrap">
+    <div class="toolstrip" id="toolstrip">
+      <button data-tool="select" title="Select &amp; move (V)">
+        <svg viewBox="0 0 24 24"><path d="M5 3l4.7 15.6 2.6-6.3 6.3-2.6L5 3z" fill="currentColor"/></svg>
+        <span>Select</span>
+      </button>
+      <button data-tool="pan" title="Pan the floor (H)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/>
+        </svg>
+        <span>Pan</span>
+      </button>
+      <button data-tool="label" title="Type location codes (L)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M5 5h14M12 5v14M9 19h6"/>
+        </svg>
+        <span>Label</span>
+      </button>
+      <button data-tool="duplicate" title="Drag a copy off a unit (D)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="4" y="4" width="12" height="12" rx="1.5"/>
+          <path d="M9 20h10V10" stroke-linecap="round"/>
+        </svg>
+        <span>Copy</span>
+      </button>
+      <button data-tool="extend" title="Drag along an aisle to add matching panels (E)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="2.5" y="9" width="5.5" height="6"/>
+          <rect x="8.5" y="9" width="5.5" height="6" stroke-dasharray="2.4 1.8"/>
+          <path d="M16 12h5.5M19.2 9.7l2.3 2.3-2.3 2.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Extend</span>
+      </button>
+      <button data-tool="erase" title="Remove units (X)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 21h13M3.7 15.3 14.2 4.8a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L10.5 18.5H7l-3.3-3.2zM11 8l5 5"/>
+        </svg>
+        <span>Erase</span>
+      </button>
+    </div>
     <svg id="canvas" tabindex="0">
       <defs>
         <pattern id="gridMinor" width="12" height="12" patternUnits="userSpaceOnUse">
@@ -156,10 +195,12 @@
     <h2>Ace Layout Studio — help</h2>
     <div class="help-cols">
       <dl>
+        <dt>Tools (V H L D E X)</dt><dd><b>Select</b> moves &amp; box-selects · <b>Pan</b> scrolls the floor · <b>Label</b> types codes with one click per unit · <b>Copy</b> drags a duplicate off a unit · <b>Extend</b> drags matching panels out along an aisle · <b>Erase</b> removes units. Esc returns to Select.</dd>
         <dt>Place fixtures</dt><dd>Drag from the palette, or click a palette item and stamp on the floor (Esc stops).</dd>
+        <dt>Extend a run</dt><dd>With the Extend tool, press on a panel and drag along the aisle — flush copies stamp out as you go.</dd>
         <dt>Move</dt><dd>Drag units — they snap to a 1" grid and to the edges of nearby units. Hold <b>Alt</b> to disable edge snapping.</dd>
         <dt>Exact gaps</dt><dd>Select a unit and click any red gap measurement to type the distance (e.g. <b>42</b> or <b>3' 6"</b>).</dd>
-        <dt>Label</dt><dd>Double-click a unit to type its location code, or use the panel on the right.</dd>
+        <dt>Label</dt><dd>Double-click a unit (any tool) to type its location code, or use the panel on the right.</dd>
         <dt>Multi-select</dt><dd>Drag a box on empty floor, or Shift-click. Ctrl+A selects all.</dd>
       </dl>
       <dl>

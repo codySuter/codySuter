@@ -66,6 +66,7 @@ let sel = new Set();    // selected unit ids
 let undoStack = [], redoStack = [];
 let placing = null;     // { tpl, at:{x,y}|null, sticky:bool }
 let drag = null;        // active unit-drag / marquee / pan / pinch state
+let tool = 'select';    // select | pan | label | duplicate | extend | erase
 let spaceHeld = false;
 let guides = [];        // snap guide segments to draw
 let saveTimer = null;
@@ -398,6 +399,14 @@ function renderStatus() {
   let hint = '';
   if (placing) hint = 'Click to place — Esc to stop';
   else if (drag && drag.kind === 'unit') hint = 'Snapping to edges — hold Alt for free movement';
+  else if (drag && drag.kind === 'extend') hint = drag.count
+    ? `Adding ${drag.count} panel${drag.count === 1 ? '' : 's'} — release to place`
+    : 'Drag along the aisle to add matching panels';
+  else if (tool === 'label') hint = 'Click a unit and type its location code';
+  else if (tool === 'duplicate') hint = 'Drag a unit to pull off a copy — a plain click copies beside it';
+  else if (tool === 'extend') hint = 'Press on a panel and drag along the aisle to add matching panels';
+  else if (tool === 'erase') hint = 'Click or drag across units to remove them';
+  else if (tool === 'pan') hint = 'Drag to pan the floor';
   else if (!layout.units.length) hint = 'Drag a fixture in from the left to get started';
   $('statHint').textContent = hint;
 }
@@ -717,6 +726,26 @@ function updateGhostFromClient(cx, cy) {
     + gapDims({ x: snapped.x, y: snapped.y, w: bw, h: bh }, layout.units, false);
 }
 
+/* ============================== tools ============================== */
+
+function setTool(name) {
+  if (tool === name) return;
+  tool = name;
+  cancelPlacing();
+  closeFloatEdit(false);
+  drag = null;
+  guides = [];
+  gGhost.innerHTML = '';
+  gScreen.innerHTML = '';
+  svg.setAttribute('data-tool', name);
+  document.querySelectorAll('#toolstrip button').forEach(b =>
+    b.classList.toggle('on', b.dataset.tool === name));
+  renderStatus();
+}
+
+document.querySelectorAll('#toolstrip button').forEach(b =>
+  b.addEventListener('click', () => setTool(b.dataset.tool)));
+
 /* ============================== canvas interaction ============================== */
 
 const pointers = new Map();
@@ -756,7 +785,7 @@ svg.addEventListener('pointerdown', (e) => {
 
   // dimension label -> exact gap editor
   const dimEl = e.target.closest && e.target.closest('[data-dimside]');
-  if (dimEl && sel.size === 1) {
+  if (dimEl && sel.size === 1 && tool === 'select') {
     e.preventDefault(); // keep the default mousedown focus shift from blurring the editor
     openGapEditor(dimEl.getAttribute('data-dimside'), e);
     return;
@@ -764,9 +793,59 @@ svg.addEventListener('pointerdown', (e) => {
 
   const hit = e.target.closest && e.target.closest('[data-uid]');
 
-  if (spaceHeld || e.button === 1 || (!hit && e.pointerType === 'touch')) {
+  if (spaceHeld || e.button === 1 || tool === 'pan' || (!hit && e.pointerType === 'touch')) {
     drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
     svg.setPointerCapture(e.pointerId);
+    return;
+  }
+
+  if (tool === 'label') {
+    if (hit) {
+      e.preventDefault(); // openCodeEditor focuses the float input; don't let mousedown steal it back
+      openCodeEditor(hit.getAttribute('data-uid'));
+    } else if (sel.size) {
+      sel.clear(); renderAll();
+    }
+    return;
+  }
+
+  if (tool === 'erase') {
+    drag = { kind: 'erase', didPush: false };
+    svg.setPointerCapture(e.pointerId);
+    if (hit) eraseAt(hit.getAttribute('data-uid'));
+    return;
+  }
+
+  if (tool === 'extend') {
+    if (hit) {
+      const src = unitById(hit.getAttribute('data-uid'));
+      sel = new Set([src.id]);
+      drag = { kind: 'extend', src, startW: w, count: 0, axis: 'x', dir: 1, pitch: 0 };
+      svg.setPointerCapture(e.pointerId);
+      renderAll();
+    } else if (sel.size) {
+      sel.clear(); renderAll();
+    }
+    return;
+  }
+
+  if (tool === 'duplicate') {
+    if (hit) {
+      const src = unitById(hit.getAttribute('data-uid'));
+      pushUndo();
+      const clone = { ...src, id: uid() };
+      layout.units.push(clone);
+      sel = new Set([clone.id]);
+      renderAll();
+      drag = {
+        kind: 'unit', startW: w, moved: false, dupe: true, undoPushed: true,
+        orig: [{ id: clone.id, x: clone.x, y: clone.y }],
+        origBox: aabb(clone), clickedId: clone.id, shift: false,
+      };
+      svg.setPointerCapture(e.pointerId);
+    } else if (sel.size) {
+      sel.clear(); renderAll();
+    }
     return;
   }
 
@@ -830,10 +909,43 @@ svg.addEventListener('pointermove', (e) => {
     return;
   }
 
+  if (drag.kind === 'erase') {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const hit = el && el.closest && el.closest('[data-uid]');
+    if (hit) eraseAt(hit.getAttribute('data-uid'));
+    return;
+  }
+
+  if (drag.kind === 'extend') {
+    const b = aabb(drag.src);
+    const dx = w.x - drag.startW.x, dy = w.y - drag.startW.y;
+    drag.axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+    drag.pitch = drag.axis === 'x' ? b.w : b.h;
+    const dist = drag.axis === 'x' ? dx : dy;
+    drag.dir = dist < 0 ? -1 : 1;
+    drag.count = clamp(Math.round(Math.abs(dist) / drag.pitch), 0, 200);
+    let s = '';
+    for (let i = 1; i <= drag.count; i++) {
+      const gx = b.x + (drag.axis === 'x' ? i * drag.pitch * drag.dir : 0);
+      const gy = b.y + (drag.axis === 'y' ? i * drag.pitch * drag.dir : 0);
+      s += `<rect class="ghost-rect" x="${gx}" y="${gy}" width="${b.w}" height="${b.h}"/>`;
+    }
+    if (drag.count) {
+      const fs = 13 / view.scale;
+      const lx = b.x + b.w / 2 + (drag.axis === 'x' ? drag.count * drag.pitch * drag.dir : 0);
+      const ly = b.y + b.h / 2 + (drag.axis === 'y' ? drag.count * drag.pitch * drag.dir : 0);
+      s += `<text class="dim-text" x="${lx}" y="${ly}" font-size="${fs.toFixed(2)}"
+            text-anchor="middle" dominant-baseline="central">+${drag.count}</text>`;
+    }
+    gGhost.innerHTML = s;
+    renderStatus();
+    return;
+  }
+
   if (drag.kind === 'unit') {
     const dx = w.x - drag.startW.x, dy = w.y - drag.startW.y;
     if (!drag.moved && Math.abs(dx) < 2 / view.scale && Math.abs(dy) < 2 / view.scale) return;
-    if (!drag.moved) { drag.moved = true; pushUndo(); }
+    if (!drag.moved) { drag.moved = true; if (!drag.undoPushed) pushUndo(); }
     const box = {
       x: drag.origBox.x + dx, y: drag.origBox.y + dy,
       w: drag.origBox.w, h: drag.origBox.h,
@@ -874,10 +986,40 @@ function endPointer(e) {
   if (drag.kind === 'unit') {
     if (drag.moved) {
       persist();
+    } else if (drag.dupe) {
+      const u = unitById(drag.clickedId); // plain click: place the copy just beside the original
+      if (u) { u.x += 12; u.y += 12; }
+      persist();
     } else if (!drag.shift) {
       sel = new Set([drag.clickedId]); // click without drag: collapse to that unit
     }
     guides = [];
+    drag = null;
+    renderAll();
+    return;
+  }
+  if (drag.kind === 'extend') {
+    if (drag.count > 0) {
+      pushUndo();
+      const clones = [];
+      for (let i = 1; i <= drag.count; i++) {
+        clones.push({
+          ...drag.src, id: uid(), code: '',
+          x: drag.src.x + (drag.axis === 'x' ? i * drag.pitch * drag.dir : 0),
+          y: drag.src.y + (drag.axis === 'y' ? i * drag.pitch * drag.dir : 0),
+        });
+      }
+      layout.units.push(...clones);
+      sel = new Set(clones.map(u => u.id));
+      persist();
+    }
+    gGhost.innerHTML = '';
+    drag = null;
+    renderAll();
+    return;
+  }
+  if (drag.kind === 'erase') {
+    if (drag.didPush) persist();
     drag = null;
     renderAll();
     return;
@@ -889,6 +1031,15 @@ function endPointer(e) {
     return;
   }
   drag = null;
+}
+
+function eraseAt(id) {
+  const u = unitById(id);
+  if (!u) return;
+  if (drag && drag.kind === 'erase' && !drag.didPush) { pushUndo(); drag.didPush = true; }
+  layout.units = layout.units.filter(x => x.id !== id);
+  sel.delete(id);
+  renderUnits(); renderOverlay(); renderInspector();
 }
 svg.addEventListener('pointerup', endPointer);
 svg.addEventListener('pointercancel', endPointer);
@@ -1011,12 +1162,15 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key.toLowerCase() === 'r' && !mod) {
     if (placing) { placing.tpl.rot = (placing.tpl.rot + 90) % 360; renderGhost(); }
     else rotateSelection();
+  } else if (!mod && !drag && { v: 'select', h: 'pan', l: 'label', d: 'duplicate', e: 'extend', x: 'erase' }[e.key.toLowerCase()]) {
+    setTool({ v: 'select', h: 'pan', l: 'label', d: 'duplicate', e: 'extend', x: 'erase' }[e.key.toLowerCase()]);
   } else if (e.key === 'ArrowLeft')  { e.preventDefault(); nudgeSelection(-step, 0); }
   else if (e.key === 'ArrowRight')   { e.preventDefault(); nudgeSelection(step, 0); }
   else if (e.key === 'ArrowUp')      { e.preventDefault(); nudgeSelection(0, -step); }
   else if (e.key === 'ArrowDown')    { e.preventDefault(); nudgeSelection(0, step); }
   else if (e.key === 'Escape') {
     if (placing) cancelPlacing();
+    else if (tool !== 'select') setTool('select');
     else { sel.clear(); renderAll(); }
   } else if (e.key === '+' || e.key === '=') zoomCenter(1.25);
   else if (e.key === '-') zoomCenter(0.8);
@@ -1246,6 +1400,8 @@ window.addEventListener('resize', requestRender);
 db = loadDb();
 layout = db.layouts.find(l => l.id === db.currentId) || db.layouts[0];
 db.currentId = layout.id;
+svg.setAttribute('data-tool', tool);
+document.querySelector('#toolstrip [data-tool="select"]').classList.add('on');
 buildPalette();
 refreshLayoutSelect();
 updateUndoButtons();

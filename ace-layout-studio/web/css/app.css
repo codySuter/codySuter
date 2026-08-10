@@ -147,6 +147,44 @@ body {
 
 /* ---------- canvas ---------- */
 .canvas-wrap { flex: 1 1 auto; position: relative; display: flex; flex-direction: column; min-width: 0; }
+
+.toolstrip {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid var(--gray-md);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 3px;
+}
+.toolstrip button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font: 600 9.5px var(--font);
+  color: var(--gray-dk);
+  background: none;
+  border: none;
+  border-radius: 7px;
+  padding: 5px 9px 4px;
+  cursor: pointer;
+  min-width: 46px;
+}
+.toolstrip button svg { width: 19px; height: 19px; }
+.toolstrip button:hover { background: var(--gray-lt); }
+.toolstrip button.on { background: var(--ace-red); color: #fff; }
+
+#canvas[data-tool="pan"] { cursor: grab; }
+#canvas[data-tool="label"] { cursor: text; }
+#canvas[data-tool="duplicate"] { cursor: copy; }
+#canvas[data-tool="extend"] { cursor: crosshair; }
+#canvas[data-tool="erase"] { cursor: cell; }
 #canvas {
   flex: 1 1 auto;
   width: 100%;

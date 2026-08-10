@@ -14,6 +14,12 @@ needed).
   (36"), walls, and generic fixture blocks (checkouts, pallets, displays).
   Drag one onto the floor, or click it and stamp repeatedly — handy for
   laying out a whole gondola run of 4' sections.
+- **Tool strip** (V / H / L / D / E / X): **Select** moves and
+  box-selects, **Pan** scrolls the floor, **Label** types a location code
+  with one click per unit, **Copy** drags a duplicate off any unit,
+  **Extend** presses on a panel and drags along the aisle to stamp out
+  flush matching panels (with a live ghost preview and count), and
+  **Erase** removes units on click or drag-across. Esc returns to Select.
 - **Snap placement**: everything snaps to a 1" grid and to the edges and
   centers of nearby units, so sections butt flush into runs and endcaps
   seat square against them. Hold **Alt** to move freely.
