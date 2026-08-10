@@ -1374,10 +1374,14 @@ $('layoutMenu').addEventListener('click', (e) => {
 });
 
 function exportJson() {
-  const blob = new Blob(
-    [JSON.stringify({ app: 'ace-layout-studio', version: 1, layout }, null, 2)],
-    { type: 'application/json' });
-  downloadBlob(blob, safeFileName(layout.name) + '.layout.json');
+  const text = JSON.stringify({ app: 'ace-layout-studio', version: 1, layout }, null, 2);
+  const name = safeFileName(layout.name) + '.layout.json';
+  saveBlob(new Blob([text], { type: 'application/json' }), name, {
+    title: 'Export layout',
+    msg: 'This page runs in a sandboxed frame, so the browser may block the automatic download. Download it below, or copy the text and save it yourself — either way it re-imports with Import JSON.',
+    text,
+    linkText: `Download ${name}`,
+  });
 }
 
 $('importFile').addEventListener('change', async (e) => {
@@ -1412,13 +1416,84 @@ function safeFileName(s) {
   return (s || 'layout').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'layout';
 }
 
-function downloadBlob(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+/* Embedded pages (the shared web version runs in a sandboxed iframe) have
+   downloads and print() silently blocked by the browser, so every save also
+   offers a hand-held path: a preview, a real link, and the raw text. */
+const EMBEDDED = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+
+let saveUrl = null;
+function releaseSaveUrl() {
+  if (saveUrl) { URL.revokeObjectURL(saveUrl); saveUrl = null; }
 }
+
+function openSaveModal(opts) {
+  releaseSaveUrl();
+  saveUrl = opts.url || null;
+  $('saveTitle').textContent = opts.title;
+  $('saveMsg').textContent = opts.msg;
+  const prev = $('savePreview');
+  prev.classList.toggle('hidden', !opts.imageUrl);
+  prev.innerHTML = opts.imageUrl ? `<img src="${opts.imageUrl}" alt="Blueprint preview">` : '';
+  const ta = $('saveText');
+  ta.classList.toggle('hidden', !opts.text);
+  ta.value = opts.text || '';
+  $('saveCopy').classList.toggle('hidden', !opts.text);
+  const link = $('saveLink');
+  link.href = opts.url || '#';
+  link.download = opts.name || 'layout';
+  link.textContent = opts.linkText || 'Download';
+  link.classList.toggle('hidden', !opts.url);
+  const open = $('saveOpen');
+  open.href = opts.url || '#';
+  open.classList.toggle('hidden', !opts.url);
+  $('saveModal').classList.remove('hidden');
+}
+
+function closeSaveModal() {
+  $('saveModal').classList.add('hidden');
+  $('savePreview').innerHTML = '';
+  releaseSaveUrl();
+}
+
+$('saveClose').addEventListener('click', closeSaveModal);
+$('saveModal').addEventListener('click', (e) => {
+  if (e.target === $('saveModal')) closeSaveModal();
+});
+$('saveCopy').addEventListener('click', () => {
+  const ta = $('saveText');
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  if (!ok && navigator.clipboard) navigator.clipboard.writeText(ta.value).then(() => { ok = true; });
+  $('saveCopy').textContent = ok ? 'Copied' : 'Press Ctrl+C';
+  setTimeout(() => { $('saveCopy').textContent = 'Copy'; }, 1800);
+});
+
+/* Try a real download first; embedded pages get the modal too, since the
+   browser drops the download without telling the page. */
+function saveBlob(blob, name, extra = {}) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  if (EMBEDDED) {
+    openSaveModal({
+      title: extra.title || 'Save file',
+      msg: extra.msg || `This page runs in a sandboxed frame, so the browser may block the automatic download. Use the button below — or right-click the preview and choose “Save image as…”.`,
+      url, name, imageUrl: extra.imageUrl, text: extra.text,
+      linkText: extra.linkText || `Download ${name}`,
+    });
+  } else {
+    setTimeout(() => URL.revokeObjectURL(url), 20000);
+  }
+}
+
+function downloadBlob(blob, name) { saveBlob(blob, name); }
 
 /* ============================== export PNG / print ============================== */
 
@@ -1459,11 +1534,30 @@ function gridExportMarkup(x, y, w, h) {
   return s;
 }
 
+/* data: URI rather than blob: — it survives the stricter content policies the
+   shared web version is served under. */
+function svgDataUri(svg) {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+function saveSvg(ex, why) {
+  const name = safeFileName(layout.name) + '-blueprint.svg';
+  saveBlob(new Blob([ex.svg], { type: 'image/svg+xml' }), name, {
+    title: 'Save blueprint (SVG)',
+    msg: (why ? why + ' ' : '') + 'SVG is vector — it prints sharp at any size and opens in any browser.',
+    text: null,
+    linkText: `Download ${name}`,
+  });
+}
+
 function renderPng(cb) {
   const ex = exportSvgString();
-  if (!ex) { alert('Nothing to export yet — place some fixtures first.'); return; }
+  if (!ex) {
+    setBusy($('btnPng'), false);
+    alert('Nothing to export yet — place some fixtures first.');
+    return;
+  }
   const img = new Image();
-  const svgUrl = URL.createObjectURL(new Blob([ex.svg], { type: 'image/svg+xml' }));
   img.onload = () => {
     const c = document.createElement('canvas');
     c.width = ex.w; c.height = ex.h;
@@ -1471,38 +1565,84 @@ function renderPng(cb) {
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, c.width, c.height);
     ctx.drawImage(img, 0, 0);
-    URL.revokeObjectURL(svgUrl);
-    cb(c);
+    cb(c, ex);
   };
-  img.onerror = () => { URL.revokeObjectURL(svgUrl); alert('PNG export failed.'); };
-  img.src = svgUrl;
+  img.onerror = () => {
+    setBusy($('btnPng'), false);
+    saveSvg(ex, 'This browser blocked the image conversion needed for PNG, so here is the drawing itself.');
+  };
+  img.src = svgDataUri(ex.svg);
+}
+
+/* A big floor takes a couple of seconds to rasterize — say so, or it reads as
+   a dead button. */
+function setBusy(btn, on, label) {
+  btn.disabled = on;
+  if (on) {
+    btn.dataset.idle = btn.textContent;
+    btn.textContent = '…';
+  } else if (btn.dataset.idle) {
+    btn.textContent = btn.dataset.idle;
+    delete btn.dataset.idle;
+  }
+  $('statHint').textContent = on ? label : '';
 }
 
 $('btnPng').addEventListener('click', () => {
-  renderPng((c) => c.toBlob((blob) =>
-    downloadBlob(blob, safeFileName(layout.name) + '-blueprint.png'), 'image/png'));
+  setBusy($('btnPng'), true, 'Rendering PNG…');
+  renderPng((c) => {
+    const name = safeFileName(layout.name) + '-blueprint.png';
+    const preview = c.toDataURL('image/png');
+    c.toBlob((blob) => {
+      setBusy($('btnPng'), false);
+      if (!blob) { saveSvg(exportSvgString(), 'PNG conversion failed here.'); return; }
+      saveBlob(blob, name, {
+        title: 'Save blueprint (PNG)',
+        msg: 'This page runs in a sandboxed frame, so the browser may block the automatic download. Use the button below, or right-click the preview and choose “Save image as…”.',
+        imageUrl: preview,
+        linkText: `Download ${name}`,
+      });
+    }, 'image/png');
+  });
 });
 
+/* Print renders the blueprint as inline SVG into a normally-hidden sheet that
+   the print stylesheet reveals — no rasterizing, no nested frame, and a plain
+   browser Ctrl+P produces the same page. */
+let printFired = false;
+
+function buildPrintSheet() {
+  const ex = exportSvgString();
+  // drop the pixel width/height so viewBox + preserveAspectRatio letterbox the
+  // plan into whatever paper size and orientation the printer is set to
+  $('printSheet').innerHTML = ex
+    ? ex.svg.replace(/^<svg([^>]*)>/, (m, attrs) =>
+        '<svg' + attrs.replace(/\s(width|height)="[^"]*"/g, '') + ' width="100%" height="100%">')
+    : '';
+  return !!ex;
+}
+
+window.addEventListener('beforeprint', () => { printFired = true; buildPrintSheet(); });
+
 $('btnPrint').addEventListener('click', () => {
-  renderPng((c) => {
-    const url = c.toDataURL('image/png');
-    const f = document.createElement('iframe');
-    f.style.position = 'fixed';
-    f.style.right = '100%';
-    document.body.appendChild(f);
-    const doc = f.contentDocument;
-    doc.write(`<!doctype html><title>${esc(layout.name)}</title>
-      <style>@page{size:landscape;margin:.35in} html,body{height:100%;margin:0}
-      img{max-width:100%;max-height:100%;display:block;margin:auto}</style>
-      <img src="${url}">`);
-    doc.close();
-    const imgEl = doc.querySelector('img');
-    imgEl.onload = () => {
-      f.contentWindow.focus();
-      f.contentWindow.print();
-      setTimeout(() => f.remove(), 2000);
-    };
-  });
+  if (!buildPrintSheet()) { alert('Nothing to print yet — place some fixtures first.'); return; }
+  printFired = false;
+  try { window.print(); } catch (e) { /* blocked below */ }
+  setTimeout(() => {
+    if (printFired) return;
+    // sandboxed frames ignore print() outright — hand over a printable file
+    const ex = exportSvgString();
+    // openSaveModal takes ownership of this URL and revokes it on close
+    const url = URL.createObjectURL(new Blob([ex.svg], { type: 'image/svg+xml' }));
+    openSaveModal({
+      title: 'Print blueprint',
+      msg: 'This page runs in a sandboxed frame, so the browser won’t open its print dialog here. Open the blueprint in a new tab and print it from there (Ctrl+P), or download it first.',
+      url,
+      name: safeFileName(layout.name) + '-blueprint.svg',
+      imageUrl: svgDataUri(ex.svg),
+      linkText: 'Download blueprint',
+    });
+  }, 400);
 });
 
 /* ============================== help ============================== */

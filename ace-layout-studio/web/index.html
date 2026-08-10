@@ -227,10 +227,27 @@
         <dt>Space+drag</dt><dd>Pan</dd>
       </dl>
     </div>
-    <p>Layouts autosave in this browser. Use <b>Export JSON</b> (layout menu ⋯) for a backup you can re-import anywhere.</p>
+    <p>Layouts autosave in this browser. Use <b>Export JSON</b> (layout menu ⋯) for a backup you can re-import anywhere. <b>Print</b> and <b>PNG</b> cover the whole floor on one sheet; if this page is embedded in a frame the browser blocks automatic downloads and printing, so a dialog appears with a preview, a download button and an open-in-new-tab link.</p>
     <button id="btnHelpClose">Close</button>
   </div>
 </div>
+
+<div id="saveModal" class="modal hidden">
+  <div class="modal-card">
+    <h2 id="saveTitle">Save</h2>
+    <p id="saveMsg"></p>
+    <div id="savePreview" class="save-preview hidden"></div>
+    <textarea id="saveText" class="save-text hidden" readonly spellcheck="false"></textarea>
+    <div class="save-actions">
+      <a id="saveLink" class="btn-primary" download>Download</a>
+      <a id="saveOpen" class="btn-ghost" target="_blank" rel="noopener">Open in new tab</a>
+      <button id="saveCopy" class="btn-ghost hidden">Copy</button>
+      <button id="saveClose" class="btn-ghost">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="printSheet"></div>
 
 <input type="file" id="importFile" accept=".json,application/json" class="hidden">
 

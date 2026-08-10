@@ -372,6 +372,52 @@ body {
 }
 #btnHelpClose:hover { background: var(--ace-dark-red); }
 
+/* ---------- save fallback modal ---------- */
+.save-preview {
+  border: 1px solid var(--gray-lt);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  margin-bottom: 14px;
+  max-height: 46vh;
+  overflow: auto;
+}
+.save-preview img { display: block; width: 100%; height: auto; }
+.save-text {
+  width: 100%;
+  height: 180px;
+  font: 400 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  border: 1px solid var(--gray-md);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 14px;
+  resize: vertical;
+}
+.save-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-primary, .btn-ghost {
+  font: 700 14px var(--font);
+  border-radius: 6px;
+  padding: 9px 18px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn-primary { color: #fff; background: var(--ace-red); border: 1px solid var(--ace-red); }
+.btn-primary:hover { background: var(--ace-dark-red); border-color: var(--ace-dark-red); }
+.btn-ghost { color: var(--ink); background: #fff; border: 1px solid var(--gray-md); }
+.btn-ghost:hover { border-color: var(--gray-dk); }
+
+/* ---------- print ---------- */
+#printSheet { display: none; }
+
+@media print {
+  @page { size: landscape; margin: 0.35in; }
+  html, body { height: auto; overflow: visible; background: #fff; }
+  body > *:not(#printSheet) { display: none !important; }
+  #printSheet { display: block; width: 100%; height: 100vh; }
+  #printSheet svg { display: block; width: 100%; height: 100%; }
+}
+
 @media (max-width: 860px) {
   .palette { flex-basis: 150px; }
   .inspector { flex-basis: 200px; }

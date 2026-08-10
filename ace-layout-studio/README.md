@@ -49,6 +49,17 @@ needed).
 - **Multiple layouts** autosaved in the browser (localStorage), plus JSON
   export/import for backup or moving between machines, PNG export, and
   printing.
+- **Printing** renders the plan as inline vector SVG into a hidden print
+  sheet that the print stylesheet reveals, so output is sharp at any size
+  and letterboxes onto whatever paper and orientation the printer is set
+  to. A plain browser **Ctrl+P** produces the same page (a `beforeprint`
+  hook rebuilds the sheet first).
+- **Saving from a sandboxed page**: when the app is embedded in a frame
+  (the shared web version), browsers block automatic downloads and
+  `print()` outright and tell the page nothing. Every save detects this
+  and opens a fallback dialog with a preview, a real download button, an
+  "open in new tab" link, and — for JSON — the raw text with a Copy
+  button, so nothing is ever silently lost.
 
 ## Files
 
