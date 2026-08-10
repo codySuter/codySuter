@@ -9,6 +9,9 @@
 > (formerly Ace Policy Studio), a Windows app for designing Snyder's Ace
 > Hardware policy, procedure & store documents
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows/AceDocumentStudio.exe)) ·
+> [`ace-layout-studio/`](ace-layout-studio/) — **Ace Layout Studio**, a
+> zero-install browser app for drawing top-down store shelving blueprints with
+> snap placement, location codes & inch-exact aisle measurements ·
 > [`ace-studio-brand/`](ace-studio-brand/) — the shared **Ace Studio** app-icon
 > style both apps (and future siblings) draw from.
 

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ace Layout Studio</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">ACE</span>
+    <span class="brand-name">Layout Studio</span>
+  </div>
+
+  <div class="layout-picker">
+    <select id="layoutSelect" title="Switch layout"></select>
+    <button id="btnLayoutMenu" class="tb-btn" title="Layout actions">⋯</button>
+    <div id="layoutMenu" class="menu hidden">
+      <button data-act="new">New layout</button>
+      <button data-act="rename">Rename…</button>
+      <button data-act="duplicate">Duplicate</button>
+      <button data-act="import">Import JSON…</button>
+      <button data-act="export">Export JSON</button>
+      <hr>
+      <button data-act="delete" class="danger">Delete layout</button>
+    </div>
+  </div>
+
+  <div class="topbar-actions">
+    <button id="btnUndo" class="tb-btn" title="Undo (Ctrl+Z)">↩</button>
+    <button id="btnRedo" class="tb-btn" title="Redo (Ctrl+Shift+Z)">↪</button>
+    <span class="tb-sep"></span>
+    <button id="btnZoomOut" class="tb-btn" title="Zoom out (−)">−</button>
+    <button id="btnZoomFit" class="tb-btn zoom-fit" title="Fit layout (0)">Fit</button>
+    <button id="btnZoomIn" class="tb-btn" title="Zoom in (+)">+</button>
+    <span class="tb-sep"></span>
+    <button id="btnPng" class="tb-btn" title="Download PNG">PNG</button>
+    <button id="btnPrint" class="tb-btn" title="Print blueprint">Print</button>
+    <button id="btnHelp" class="tb-btn" title="Shortcuts &amp; help">?</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <aside class="palette">
+    <h2>Fixtures</h2>
+    <p class="palette-hint">Drag onto the floor, or click then click the floor to stamp. Esc stops stamping.</p>
+    <div id="paletteItems"></div>
+  </aside>
+
+  <div class="canvas-wrap">
+    <svg id="canvas" tabindex="0">
+      <defs>
+        <pattern id="gridMinor" width="12" height="12" patternUnits="userSpaceOnUse">
+          <path d="M12 0H0V12" fill="none" stroke="#eceef0" stroke-width="1" vector-effect="non-scaling-stroke"/>
+        </pattern>
+        <pattern id="gridMajor" width="48" height="48" patternUnits="userSpaceOnUse">
+          <path d="M48 0H0V48" fill="none" stroke="#dcdfe1" stroke-width="1" vector-effect="non-scaling-stroke"/>
+        </pattern>
+      </defs>
+      <g id="world">
+        <rect id="gridRectMinor" fill="url(#gridMinor)"/>
+        <rect id="gridRectMajor" fill="url(#gridMajor)"/>
+        <g id="units"></g>
+        <g id="ghost"></g>
+        <g id="overlay"></g>
+      </g>
+      <g id="screenOverlay"></g>
+    </svg>
+    <input id="floatEdit" class="hidden" autocomplete="off" spellcheck="false">
+    <div class="statusbar">
+      <span id="statPos"></span>
+      <span id="statSel"></span>
+      <span id="statHint" class="stat-hint"></span>
+      <span id="statZoom"></span>
+    </div>
+  </div>
+
+  <aside class="inspector" id="inspector">
+    <div id="inspEmpty">
+      <h2>Nothing selected</h2>
+      <p>Click a unit to edit it. Drag on empty floor to box-select. Scroll to pan, Ctrl+scroll (or pinch) to zoom.</p>
+    </div>
+    <div id="inspBody" class="hidden">
+      <h2 id="inspTitle"></h2>
+
+      <label class="field" id="fieldCode">
+        <span>Location code</span>
+        <input id="inCode" placeholder="e.g. A01" autocomplete="off" spellcheck="false">
+      </label>
+
+      <label class="field">
+        <span>Width</span>
+        <div class="row">
+          <select id="inWidthPreset">
+            <option value="48">4' (48")</option>
+            <option value="36">3' (36")</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input id="inWidth" type="number" min="1" max="1200" step="1"> <em>in</em>
+        </div>
+      </label>
+
+      <label class="field">
+        <span>Depth</span>
+        <div class="row">
+          <input id="inDepth" type="number" min="1" max="1200" step="1"> <em>in</em>
+        </div>
+      </label>
+
+      <label class="field">
+        <span>Rotation</span>
+        <div class="row seg" id="rotSeg">
+          <button data-rot="0">0°</button>
+          <button data-rot="90">90°</button>
+          <button data-rot="180">180°</button>
+          <button data-rot="270">270°</button>
+        </div>
+      </label>
+
+      <label class="field" id="fieldPos">
+        <span>Position (from origin)</span>
+        <div class="row">
+          <input id="inPosX" placeholder="x"> <input id="inPosY" placeholder="y">
+        </div>
+        <small>Accepts 42, 42", or 3' 6"</small>
+      </label>
+
+      <div class="field" id="fieldAlign">
+        <span>Align selection</span>
+        <div class="row seg">
+          <button data-align="l" title="Align left edges">⇤</button>
+          <button data-align="cx" title="Align vertical centers">↔</button>
+          <button data-align="r" title="Align right edges">⇥</button>
+          <button data-align="t" title="Align top edges">⤒</button>
+          <button data-align="cy" title="Align horizontal centers">↕</button>
+          <button data-align="b" title="Align bottom edges">⤓</button>
+        </div>
+      </div>
+
+      <div class="insp-actions">
+        <button id="btnRotate" title="Rotate 90° (R)">Rotate</button>
+        <button id="btnDup" title="Duplicate (Ctrl+D)">Duplicate</button>
+        <button id="btnDelete" class="danger" title="Delete (Del)">Delete</button>
+      </div>
+
+      <p class="insp-tip">Tip: click a red gap measurement on the floor to type an exact aisle distance.</p>
+    </div>
+  </aside>
+</div>
+
+<div id="helpModal" class="modal hidden">
+  <div class="modal-card">
+    <h2>Ace Layout Studio — help</h2>
+    <div class="help-cols">
+      <dl>
+        <dt>Place fixtures</dt><dd>Drag from the palette, or click a palette item and stamp on the floor (Esc stops).</dd>
+        <dt>Move</dt><dd>Drag units — they snap to a 1" grid and to the edges of nearby units. Hold <b>Alt</b> to disable edge snapping.</dd>
+        <dt>Exact gaps</dt><dd>Select a unit and click any red gap measurement to type the distance (e.g. <b>42</b> or <b>3' 6"</b>).</dd>
+        <dt>Label</dt><dd>Double-click a unit to type its location code, or use the panel on the right.</dd>
+        <dt>Multi-select</dt><dd>Drag a box on empty floor, or Shift-click. Ctrl+A selects all.</dd>
+      </dl>
+      <dl>
+        <dt>Arrows / Shift+Arrows</dt><dd>Nudge 1" / 12"</dd>
+        <dt>R</dt><dd>Rotate 90°</dd>
+        <dt>Ctrl+D</dt><dd>Duplicate</dd>
+        <dt>Del</dt><dd>Delete</dd>
+        <dt>Ctrl+Z / Ctrl+Shift+Z</dt><dd>Undo / Redo</dd>
+        <dt>+ / − / 0</dt><dd>Zoom in / out / fit</dd>
+        <dt>Scroll · Ctrl+Scroll</dt><dd>Pan · Zoom (pinch works too)</dd>
+        <dt>Space+drag</dt><dd>Pan</dd>
+      </dl>
+    </div>
+    <p>Layouts autosave in this browser. Use <b>Export JSON</b> (layout menu ⋯) for a backup you can re-import anywhere.</p>
+    <button id="btnHelpClose">Close</button>
+  </div>
+</div>
+
+<input type="file" id="importFile" accept=".json,application/json" class="hidden">
+
+<script src="js/app.js"></script>
+</body>
+</html>
