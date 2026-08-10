@@ -46,6 +46,20 @@ needed).
 | `web/index.html` | App shell, palette/inspector/help markup |
 | `web/css/app.css` | Ace-branded styling (brand palette, Roboto stack) |
 | `web/js/app.js` | Editor: state, snapping, measuring, rendering, persistence |
+| `layouts/media-pa.layout.json` | Snyder's Ace (Media, PA) floor extracted from the official Ace fixture plan (12/19/2022) — import via layout menu ⋯ → Import JSON |
+
+## Bundled layout: Media PA fixture plan
+
+`layouts/media-pa.layout.json` was machine-extracted from the vector
+linework and per-section labels of the AutoCAD-plotted
+`12180_MEDIA_PA_l01_FINAL_FIXTURE_PLAN_12192022.pdf` (1.5 pt = 1",
+origin at the building's outer NW corner), then verified tile-by-tile
+against the drawing. It contains 368 units: 312 shelving panels (one per
+gondola/wall section side, depth = drawn base-deck footprint), 13
+endcaps snapped to their drawn boxes, 39 labeled fixture blocks
+(checkouts, STIHL, grill fences, displays…), and the 4 building walls.
+Location codes are intentionally blank on shelving — add your own with
+the Label tool.
 
 All world coordinates are in **inches**; `view.scale` is screen pixels per
 inch. Units are axis-aligned rectangles (`x, y, w, d, rot`), where `rot`
