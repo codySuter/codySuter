@@ -113,9 +113,9 @@ const Queue = {
     this._touch();
   },
   totalSigns() { return this.items.reduce((a, q) => a + (q.copies || 1), 0); },
-  packable() {
+  packable(items) {
     const out = [];
-    for (const q of this.items) {
+    for (const q of items || this.items) {
       for (let i = 0; i < (q.copies || 1); i++) {
         out.push({ uid: q.uid + ":" + i, size: sizeOfQueueItem(q), q });
       }

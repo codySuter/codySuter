@@ -437,31 +437,86 @@ async function getLogoURI() {
 const AceRenderers = {};
 
 /* Regular price — plain red price, superscript cents, optional unit. */
+/* The bare red price line used by Regular Price and the arrow signs:
+   $ DD ⁰⁰ with an optional unit under the cents, centered in the box. */
+function bigPriceMarkup(cx, top, availW, availH, spec) {
+  const mp = moneyParts(spec.price);
+  let S = Math.min(availH * 0.82, 200);
+  // The unit label shares the cents column, so the fit must budget for
+  // whichever is wider — a wide unit ("per gallon") otherwise extends
+  // past the frame on a width-limited price.
+  const measure = (s) =>
+    textWidth("$", "RobotoBlack", s * 0.55) + textWidth(mp.d, "RobotoBlack", s) +
+    Math.max(
+      mp.c ? textWidth(mp.c, "RobotoBlack", s * 0.45) : 0,
+      spec.unit ? textWidth(String(spec.unit), "RobotoBold", s * 0.16) : 0
+    ) + s * 0.08;
+  if (measure(S) > availW) S *= availW / measure(S);
+  const w = measure(S);
+  const x0 = cx - w / 2;
+  const base = top + (availH - S * 1.05) / 2 + S * 0.9;
+  let m = svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
+  let cur = x0 + textWidth("$", "RobotoBlack", S * 0.55);
+  m += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start" });
+  cur += textWidth(mp.d, "RobotoBlack", S) + S * 0.08;
+  if (mp.c) m += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
+  if (spec.unit) m += svgText(cur, base, spec.unit, "RobotoBold", S * 0.16, GRAY11, { anchor: "start" });
+  return m;
+}
+
 AceRenderers.regular = (spec, W, H) =>
-  productSignTemplate(spec, W, H, String(spec.price || "").trim() ? 0.38 : 0, (cx, top, availW, availH) => {
-    const mp = moneyParts(spec.price);
-    let S = Math.min(availH * 0.82, 200);
-    // The unit label shares the cents column, so the fit must budget for
-    // whichever is wider — a wide unit ("per gallon") otherwise extends
-    // past the frame on a width-limited price.
-    const measure = (s) =>
-      textWidth("$", "RobotoBlack", s * 0.55) + textWidth(mp.d, "RobotoBlack", s) +
-      Math.max(
-        mp.c ? textWidth(mp.c, "RobotoBlack", s * 0.45) : 0,
-        spec.unit ? textWidth(String(spec.unit), "RobotoBold", s * 0.16) : 0
-      ) + s * 0.08;
-    if (measure(S) > availW) S *= availW / measure(S);
-    const w = measure(S);
-    const x0 = cx - w / 2;
-    const base = top + (availH - S * 1.05) / 2 + S * 0.9;
-    let m = svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
-    let cur = x0 + textWidth("$", "RobotoBlack", S * 0.55);
-    m += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start" });
-    cur += textWidth(mp.d, "RobotoBlack", S) + S * 0.08;
-    if (mp.c) m += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
-    if (spec.unit) m += svgText(cur, base, spec.unit, "RobotoBold", S * 0.16, GRAY11, { anchor: "start" });
+  productSignTemplate(spec, W, H, String(spec.price || "").trim() ? 0.38 : 0, (cx, top, availW, availH) =>
+    ({ markup: bigPriceMarkup(cx, top, availW, availH, spec), h: availH }));
+
+/* Directional price signs — Regular Price plus a large Ace-red block arrow
+   pointing at the product (hang or shelf-clip the sign beside, above, or
+   below what it prices). */
+function blockArrowMarkup(cx, cy, len, breadth, dir) {
+  // Drawn pointing up in a len×breadth box centered on the origin, then
+  // rotated into place. len runs along the pointing direction.
+  const hh = len * 0.45;       // arrowhead length
+  const sw = breadth * 0.52;   // shaft width
+  const pts = [
+    [0, -len / 2], [breadth / 2, -len / 2 + hh], [sw / 2, -len / 2 + hh],
+    [sw / 2, len / 2], [-sw / 2, len / 2], [-sw / 2, -len / 2 + hh], [-breadth / 2, -len / 2 + hh],
+  ].map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
+  const rot = { up: 0, right: 90, down: 180, left: 270 }[dir] || 0;
+  return `<g data-elem="arrow" transform="translate(${cx.toFixed(2)},${cy.toFixed(2)}) rotate(${rot})"><polygon points="${pts}" fill="${ACE_RED}"/></g>`;
+}
+
+const arrowSign = (dir) => (spec, W, H) =>
+  productSignTemplate(spec, W, H, String(spec.price || "").trim() ? 0.46 : 0.3, (cx, top, availW, availH) => {
+    let m = "";
+    if (dir === "left" || dir === "right") {
+      // arrow beside the price, pointing out of the sign toward the product
+      const aLen = availW * 0.26;
+      const aBreadth = Math.min(availH * 0.6, aLen * 0.85);
+      const gap = availW * 0.03;
+      const priceW = availW - aLen - gap;
+      const priceCx = dir === "right" ? cx - (aLen + gap) / 2 : cx + (aLen + gap) / 2;
+      const arrowCx = dir === "right"
+        ? priceCx + priceW / 2 + gap + aLen / 2
+        : priceCx - priceW / 2 - gap - aLen / 2;
+      m += bigPriceMarkup(priceCx, top, priceW, availH, spec);
+      m += blockArrowMarkup(arrowCx, top + availH / 2, aLen, aBreadth, dir);
+    } else {
+      // arrow above (up) or below (down) the price
+      const aLen = availH * 0.38;
+      const aBreadth = Math.min(availW * 0.3, aLen * 1.05);
+      const gap = availH * 0.05;
+      const priceH = availH - aLen - gap;
+      const priceTop = dir === "down" ? top : top + aLen + gap;
+      const arrowCy = dir === "down" ? top + priceH + gap + aLen / 2 : top + aLen / 2;
+      m += bigPriceMarkup(cx, priceTop, availW, priceH, spec);
+      m += blockArrowMarkup(cx, arrowCy, aLen, aBreadth, dir);
+    }
     return { markup: m, h: availH };
   });
+
+AceRenderers.arrow_up = arrowSign("up");
+AceRenderers.arrow_down = arrowSign("down");
+AceRenderers.arrow_left = arrowSign("left");
+AceRenderers.arrow_right = arrowSign("right");
 
 /* Sale — black SALE chip + red block price (+ optional REG chip).
    Price/reg hide independently; the chip is the sign's identity. */
