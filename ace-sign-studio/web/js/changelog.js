@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.9.1",
+    date: "August 2026",
+    notes: [
+      "The arrow on the Product Pointer signs now sits out at the edge of the sign in the direction it points — top-right corner for Up, bottom-right for Down, and hugging the side for Left/Right — instead of being tucked next to the price. Easier to read from across the aisle, and the price stays out of its way.",
+    ],
+  },
+  {
     version: "3.9.0",
     date: "August 2026",
     notes: [

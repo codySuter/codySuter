@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.9.0"
+VERSION="3.9.1"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Pick-and-print: tick queue signs to print just those. Four new arrow signs point at the product. Single-sign printing now comes out at the correct physical size."
+NOTES="Product Pointer arrows now sit at the outer edge of the sign in the direction they point, not next to the price."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
