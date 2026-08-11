@@ -301,12 +301,14 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const small = Math.min(Win, Hin) <= 5.6;
   const header = signHeader(W, H, frame, logoURI, dates, small, noLogo, elemScale(spec, "logo"));
   const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"), qrURLFor(spec));
-  const cx = W / 2;
-  // hReserve narrows the content symmetrically (keeping it centered) so a
-  // side element like a pointer arrow gets a clear column without pushing
-  // the image/name/price off-center.
-  const hReserve = o.hReserve || 0;
-  const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03) - 2 * hReserve;
+  // arrowCol reserves a column on one side (for a pointer arrow) and shifts
+  // the whole content block — image, name AND price together — to the other
+  // side by half that width. Everything keeps one shared centerline, so the
+  // three elements stay vertically aligned with each other; the block just
+  // sits off-center to clear the arrow.
+  const arrowCol = o.arrowCol || 0;
+  const cx = W / 2 + (o.arrowSide === "left" ? arrowCol / 2 : o.arrowSide === "right" ? -arrowCol / 2 : 0);
+  const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03) - arrowCol;
 
   let imgURI = null, imgNat = { w: 1, h: 1 };
   if (spec.image && !o.noImage) {
@@ -499,20 +501,21 @@ const arrowSign = (dir) => (spec, Win, Hin) => {
   const inset = fm + pad; // distance from the paper edge to content
   const aLen = Math.min(Wpx, Hpx) * 0.24;
   const horizontal = dir === "left" || dir === "right";
-  // Left/right reserve a symmetric column so the image, name and price stay
-  // centered (just narrower) and line up with each other; the arrow is
-  // overlaid separately, centered on the sign's vertical midline. Up/down
-  // keep the price centered too and tuck the arrow into a top/bottom corner.
   const aBreadth = horizontal ? aLen * 0.72 : Math.min(Wpx * 0.16, aLen * 0.85);
-  // Reserve a symmetric column so image/name/price stay centered and clear
-  // of the arrow — the arrow's footprint plus a small gap.
-  const opts = { hReserve: (horizontal ? aLen : aBreadth) + Wpx * 0.02 };
+  // Reserve the arrow's column and shift the content to the opposite side.
+  // The arrow always sits on the right except when it points left, so the
+  // content shifts left in every case but Left.
+  const arrowSide = dir === "left" ? "left" : "right";
+  const arrowCol = (horizontal ? aLen : aBreadth) + Wpx * 0.03;
+  const opts = { arrowSide, arrowCol };
   return productSignTemplate(spec, Win, Hin, String(spec.price || "").trim() ? 0.42 : 0.3, (cx, top, availW, availH) => {
     const m = bigPriceMarkup(cx, top, availW, availH, spec);
     if (horizontal) {
+      // vertically centered on the sign; hugs its side frame edge
       const ax = dir === "left" ? inset + aLen / 2 : Wpx - inset - aLen / 2;
       return { markup: m + blockArrowMarkup(ax, Hpx / 2, aLen, aBreadth, dir), h: availH };
     }
+    // top-right / bottom-right corner, tip at the top/bottom frame
     const ax = Wpx - inset - aBreadth / 2;
     const ay = dir === "up" ? inset + aLen / 2 : Hpx - inset - aLen / 2;
     return { markup: m + blockArrowMarkup(ax, ay, aLen, aBreadth, dir), h: availH };
