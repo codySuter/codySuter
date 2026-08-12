@@ -147,22 +147,26 @@ const SIGN_TYPES = [
     sample: { category: "STOCKING STUFFERS", price: "10" },
   },
   {
-    id: "large_text", hideable: ["logo", "image", "price", "sku"], group: "Specialty", label: "Large Text",
-    note: "Name as big as possible + price",
-    fields: [F.sku, F.name, F.price, F.image, F.dates],
-    render: (spec, w, h) => AceRenderers.large_text(spec, w, h),
-    sample: { name: "PROPANE REFILLS", price: "17.99" },
-  },
-  {
-    id: "text_only", hideable: ["logo"], group: "Specialty", label: "Text Only",
-    note: "Message sign — no price, no photo",
+    // Merged Large Text + Text Only: one big-text sign with a style
+    // selector. "priced" = giant name with a price (and optional photo);
+    // "message" = a message sign with an optional small line, no price.
+    // Fields tagged with `modes` show only in the matching style.
+    id: "big_text", hideable: ["logo", "image", "price", "sku"], group: "Specialty", label: "Big Text",
+    note: "Giant text — as a price sign or a message",
     fields: [
-      Object.assign({}, F.name, { label: "Message (line 1–2)" }),
-      Object.assign({}, F.detail, { label: "Small line under the message" }),
-      F.dates,
+      { key: "mode", kind: "seg", label: "Style", def: "priced", options: [
+        { value: "priced", label: "Text + price" },
+        { value: "message", label: "Message only" },
+      ] },
+      Object.assign({}, F.sku, { modes: ["priced"] }),
+      Object.assign({}, F.name, { label: "Big text", modes: ["priced", "message"] }),
+      Object.assign({}, F.price, { modes: ["priced"] }),
+      Object.assign({}, F.image, { modes: ["priced"] }),
+      Object.assign({}, F.detail, { label: "Small line underneath", modes: ["message"] }),
+      Object.assign({}, F.dates, { modes: ["priced", "message"] }),
     ],
-    render: (spec, w, h) => AceRenderers.text_only(spec, w, h),
-    sample: { name: "STORE USE LADDERS", detail: "" },
+    render: (spec, w, h) => AceRenderers.big_text(spec, w, h),
+    sample: { name: "PROPANE REFILLS", price: "17.99", mode: "priced" },
   },
   {
     id: "arrow_up", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Up",
@@ -237,7 +241,7 @@ function applyTemplateProduct(p) {
   set("your_choice", { price: price.toFixed(2) });
   set("was_now", { price: now, regPrice: was, unitOnly: true });
   set("final_sale", { price: now, note: "*No returns" });
-  set("large_text", { price: price.toFixed(2) });
+  set("big_text", { price: price.toFixed(2), mode: "priced" });
   for (const d of ["up", "down", "left", "right"]) set("arrow_" + d, { price: price.toFixed(2) });
 }
 

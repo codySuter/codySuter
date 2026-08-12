@@ -471,7 +471,9 @@ function currentRenderSpec() {
 
 function validateSpec(t, spec) {
   const hidden = (f) => !!(spec.hide && spec.hide[f]);
-  const need = (f) => !hidden(f) && t.fields.some((x) => x.key === f);
+  // a field only counts if it's active in the current style (see `modes`)
+  const active = (x) => !x.modes || x.modes.includes(spec.mode);
+  const need = (f) => !hidden(f) && t.fields.some((x) => x.key === f && active(x));
   if (need("name") && !String(spec.name || "").trim() && t.id !== "under_amount") return "Enter a product name (or look up a SKU).";
   if (need("price") && !String(spec.price || "").trim()) return "Enter a price.";
   if (need("percent") && !String(spec.percent || "").trim()) return "Enter the percent off.";
@@ -519,7 +521,28 @@ function buildEditorFields(t) {
   fine.appendChild(fineBody);
   const FINE_KEYS = { unit: 1, barcode: 1, qr: 1 };
   for (const f of t.fields) {
+    // Fields tagged with `modes` only appear in the matching style (see the
+    // Big Text sign's "mode" selector).
+    if (f.modes && !f.modes.includes(App.spec.mode)) continue;
     const dest = FINE_KEYS[f.key] ? fineBody : host;
+    if (f.kind === "seg") {
+      // Segmented style picker; changing it re-filters the fields above.
+      if (App.spec[f.key] == null) App.spec[f.key] = f.def;
+      host.appendChild(labelEl(f.label));
+      const row = el("div", "seg");
+      for (const opt of f.options) {
+        const b = el("button", "seg-btn" + (App.spec[f.key] === opt.value ? " active" : ""), opt.label);
+        b.onclick = () => {
+          if (App.spec[f.key] === opt.value) return;
+          App.spec[f.key] = opt.value;
+          buildEditorFields(t);
+          schedulePreview();
+        };
+        row.appendChild(b);
+      }
+      host.appendChild(row);
+      continue;
+    }
     if (f.kind === "sku") {
       host.appendChild(labelEl(f.label));
       const inp = inputEl("text", App.spec.sku || "", "e.g. 7135975 — or paste a product URL");
@@ -1264,7 +1287,7 @@ function showToast(text, opts) {
 /* Types whose price fields map 1:1 onto lookup results. Everything else
    (percent/BOGO/savings…) is hand-entered and left alone. */
 const PRICE_REFRESH_TYPES = {
-  regular: true, sale: true, large_text: true,
+  regular: true, sale: true, big_text: true,
   arrow_up: true, arrow_down: true, arrow_left: true, arrow_right: true,
 };
 let _refreshingPrices = false;

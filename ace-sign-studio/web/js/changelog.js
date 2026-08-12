@@ -9,6 +9,14 @@
 
 const CHANGELOG = [
   {
+    version: "3.9.1",
+    date: "August 2026",
+    notes: [
+      "The arrow on the Product Pointer signs now sits out at the edge of the sign in the direction it points — top-right corner for Up, bottom-right for Down, and hugging the side (centered top-to-bottom) for Left/Right — instead of being tucked next to the price. The photo, name and price shift together to make room for the arrow and stay lined up with each other. Easier to read from across the aisle.",
+      "Large Text and Text Only are now one sign — “Big Text.” Pick the style at the top: “Text + price” for a giant name with a price and photo, or “Message only” for a message sign with an optional small line. Your existing Large Text and Text Only signs carry over automatically.",
+    ],
+  },
+  {
     version: "3.9.0",
     date: "August 2026",
     notes: [

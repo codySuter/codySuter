@@ -301,8 +301,14 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const small = Math.min(Win, Hin) <= 5.6;
   const header = signHeader(W, H, frame, logoURI, dates, small, noLogo, elemScale(spec, "logo"));
   const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"), qrURLFor(spec));
-  const cx = W / 2;
-  const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
+  // arrowCol reserves a column on one side (for a pointer arrow) and shifts
+  // the whole content block — image, name AND price together — to the other
+  // side by half that width. Everything keeps one shared centerline, so the
+  // three elements stay vertically aligned with each other; the block just
+  // sits off-center to clear the arrow.
+  const arrowCol = o.arrowCol || 0;
+  const cx = W / 2 + (o.arrowSide === "left" ? arrowCol / 2 : o.arrowSide === "right" ? -arrowCol / 2 : 0);
+  const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03) - arrowCol;
 
   let imgURI = null, imgNat = { w: 1, h: 1 };
   if (spec.image && !o.noImage) {
@@ -484,34 +490,37 @@ function blockArrowMarkup(cx, cy, len, breadth, dir) {
   return `<g data-elem="arrow" transform="translate(${cx.toFixed(2)},${cy.toFixed(2)}) rotate(${rot})"><polygon points="${pts}" fill="${ACE_RED}"/></g>`;
 }
 
-const arrowSign = (dir) => (spec, W, H) =>
-  productSignTemplate(spec, W, H, String(spec.price || "").trim() ? 0.46 : 0.3, (cx, top, availW, availH) => {
-    let m = "";
-    if (dir === "left" || dir === "right") {
-      // arrow beside the price, pointing out of the sign toward the product
-      const aLen = availW * 0.26;
-      const aBreadth = Math.min(availH * 0.6, aLen * 0.85);
-      const gap = availW * 0.03;
-      const priceW = availW - aLen - gap;
-      const priceCx = dir === "right" ? cx - (aLen + gap) / 2 : cx + (aLen + gap) / 2;
-      const arrowCx = dir === "right"
-        ? priceCx + priceW / 2 + gap + aLen / 2
-        : priceCx - priceW / 2 - gap - aLen / 2;
-      m += bigPriceMarkup(priceCx, top, priceW, availH, spec);
-      m += blockArrowMarkup(arrowCx, top + availH / 2, aLen, aBreadth, dir);
-    } else {
-      // arrow above (up) or below (down) the price
-      const aLen = availH * 0.38;
-      const aBreadth = Math.min(availW * 0.3, aLen * 1.05);
-      const gap = availH * 0.05;
-      const priceH = availH - aLen - gap;
-      const priceTop = dir === "down" ? top : top + aLen + gap;
-      const arrowCy = dir === "down" ? top + priceH + gap + aLen / 2 : top + aLen / 2;
-      m += bigPriceMarkup(cx, priceTop, availW, priceH, spec);
-      m += blockArrowMarkup(cx, arrowCy, aLen, aBreadth, dir);
+const arrowSign = (dir) => (spec, Win, Hin) => {
+  // Pixel dimensions + frame inset, mirroring signFrame/signHeader, so the
+  // arrow can be pinned to the sign's outer border. The price-zone callback
+  // only receives pixel coords, so these are closed over.
+  const Wpx = Win * PPI, Hpx = Hin * PPI;
+  let fm = Math.max(10, Math.min(Wpx, Hpx) * 0.028);
+  if (Math.min(Wpx, Hpx) >= 800) fm = Math.max(27, fm);
+  const pad = Math.max(8, Math.min(Wpx, Hpx) * 0.022);
+  const inset = fm + pad; // distance from the paper edge to content
+  const aLen = Math.min(Wpx, Hpx) * 0.24;
+  const horizontal = dir === "left" || dir === "right";
+  const aBreadth = horizontal ? aLen * 0.72 : Math.min(Wpx * 0.16, aLen * 0.85);
+  // Reserve the arrow's column and shift the content to the opposite side.
+  // The arrow always sits on the right except when it points left, so the
+  // content shifts left in every case but Left.
+  const arrowSide = dir === "left" ? "left" : "right";
+  const arrowCol = (horizontal ? aLen : aBreadth) + Wpx * 0.03;
+  const opts = { arrowSide, arrowCol };
+  return productSignTemplate(spec, Win, Hin, String(spec.price || "").trim() ? 0.42 : 0.3, (cx, top, availW, availH) => {
+    const m = bigPriceMarkup(cx, top, availW, availH, spec);
+    if (horizontal) {
+      // vertically centered on the sign; hugs its side frame edge
+      const ax = dir === "left" ? inset + aLen / 2 : Wpx - inset - aLen / 2;
+      return { markup: m + blockArrowMarkup(ax, Hpx / 2, aLen, aBreadth, dir), h: availH };
     }
-    return { markup: m, h: availH };
-  });
+    // top-right / bottom-right corner, tip at the top/bottom frame
+    const ax = Wpx - inset - aBreadth / 2;
+    const ay = dir === "up" ? inset + aLen / 2 : Hpx - inset - aLen / 2;
+    return { markup: m + blockArrowMarkup(ax, ay, aLen, aBreadth, dir), h: availH };
+  }, opts);
+};
 
 AceRenderers.arrow_up = arrowSign("up");
 AceRenderers.arrow_down = arrowSign("down");
@@ -841,6 +850,14 @@ AceRenderers.under_amount = async (spec, W, H) => {
 };
 
 /* Large text — the name is the hero; optional price + image below. */
+/* Big Text — merged Large Text + Text Only. mode "message" draws a message
+   sign (giant text + optional small line, no price/photo); anything else is
+   the priced style (giant name + optional price + photo). */
+AceRenderers.big_text = (spec, W_in, H_in) =>
+  spec.mode === "message"
+    ? AceRenderers.text_only(spec, W_in, H_in)
+    : AceRenderers.large_text(spec, W_in, H_in);
+
 AceRenderers.large_text = async (spec, W_in, H_in) => {
   const W = W_in * PPI, H = H_in * PPI;
   const frame = signFrame(W, H);
