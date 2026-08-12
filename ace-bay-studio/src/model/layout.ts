@@ -15,9 +15,18 @@ export function uid(prefix: string): string {
   ).toString(36)}`;
 }
 
-export function emptyBin(): Bin {
-  return { id: uid('bin'), label: '', overlayIds: [], items: [], notes: '' };
+export function emptyBin(label = ''): Bin {
+  return { id: uid('bin'), label, overlayIds: [], items: [], notes: '' };
 }
+
+/** Sales-floor default: one tile per aisle, labeled with the aisle number. */
+export const DEFAULT_FLOOR_AISLES = 21;
+
+export function defaultFloor(): Bin[] {
+  return Array.from({ length: DEFAULT_FLOOR_AISLES }, (_, i) => emptyBin(String(i + 1)));
+}
+
+export const DEFAULT_FRESHNESS = { enabled: false, greenDays: 60, redDays: 365 };
 
 function emptyBank(side: Side, shelves: number, perShelf: number): Bank {
   return {
@@ -40,8 +49,44 @@ export function defaultMap(): BayMap {
   return {
     version: 1,
     aisles: Array.from({ length: DEFAULT_AISLES }, (_, i) => emptyAisle(`Bay Aisle ${i + 1}`)),
+    floor: defaultFloor(),
     overlays: [],
+    freshness: { ...DEFAULT_FRESHNESS },
     updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Fill anything a map from an older version (or a hand-edited backup)
+ * is missing: the sales floor, the freshness preset, per-item fields.
+ */
+export function normalizeMap(map: BayMap): BayMap {
+  const fixBin = (bin: Bin): Bin => ({
+    ...bin,
+    overlayIds: Array.isArray(bin.overlayIds) ? bin.overlayIds : [],
+    notes: typeof bin.notes === 'string' ? bin.notes : '',
+    items: (Array.isArray(bin.items) ? bin.items : []).map((it) => ({
+      id: it.id ?? uid('item'),
+      name: it.name ?? '',
+      qty: it.qty ?? '',
+      sku: it.sku ?? '',
+      note: it.note ?? '',
+      lastPhysical: it.lastPhysical ?? '',
+    })),
+  });
+  return {
+    ...map,
+    aisles: map.aisles.map((a) => ({
+      ...a,
+      banks: a.banks.map((b) => ({ ...b, shelves: b.shelves.map((row) => row.map(fixBin)) })),
+    })),
+    floor: (Array.isArray(map.floor) ? map.floor : defaultFloor()).map(fixBin),
+    overlays: Array.isArray(map.overlays) ? map.overlays : [],
+    freshness: {
+      enabled: map.freshness?.enabled ?? DEFAULT_FRESHNESS.enabled,
+      greenDays: map.freshness?.greenDays ?? DEFAULT_FRESHNESS.greenDays,
+      redDays: map.freshness?.redDays ?? DEFAULT_FRESHNESS.redDays,
+    },
   };
 }
 
@@ -81,6 +126,7 @@ export function* allBins(map: BayMap): Generator<{ bin: Bin; address: BinAddress
           yield {
             bin: bank.shelves[s][p],
             address: {
+              kind: 'bay',
               aisleId: aisle.id,
               aisleName: aisle.name,
               side: bank.side,
@@ -92,6 +138,9 @@ export function* allBins(map: BayMap): Generator<{ bin: Bin; address: BinAddress
       }
     }
   }
+  for (let i = 0; i < map.floor.length; i++) {
+    yield { bin: map.floor[i], address: { kind: 'floor', index: i + 1 } };
+  }
 }
 
 export function findBin(map: BayMap, binId: string): { bin: Bin; address: BinAddress } | undefined {
@@ -102,6 +151,7 @@ export function findBin(map: BayMap, binId: string): { bin: Bin; address: BinAdd
 export const sideLabel = (side: Side): string => (side === 'left' ? 'Left side' : 'Right side');
 
 export function addressText(a: BinAddress): string {
+  if (a.kind === 'floor') return 'Sales floor location';
   return `${a.aisleName} · ${sideLabel(a.side)} · Shelf ${a.shelf} · Slot ${a.slot}`;
 }
 

@@ -1,11 +1,15 @@
 import type { BinItem } from './types';
 import { uid } from './layout';
+import { parseDateLoose } from './freshness';
 
-// Contents import: one row per item, first column says which OPTI it
-// lives in. Header row optional; extra columns are kept as the note.
-//   opti,item,qty,sku,note
-//   82,Traeger pellet grill,2,1004114,display return
-//   82,Char-Broil 4-burner,1,8069731,
+// Contents import: one row per item, first column says which location
+// (OPTI number or sales-floor aisle code) it lives in. Header row
+// optional. Headers straight out of an Epicor Compass / Eagle inventory
+// query work as-is — Location, Item Description, QOH, Date Last
+// Physical etc. are all recognized:
+//   opti,item,qty,sku,last_physical,note
+//   82,Traeger pellet grill,2,1004114,03/12/2026,display return
+//   Location,Item Description,QOH,SKU,Date Last Physical      (Compass)
 
 export interface CsvRow {
   optiLabel: string;
@@ -56,29 +60,48 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-const HEADER_HINTS = ['opti', 'bin', 'container', 'label', 'item', 'name', 'description', 'qty', 'quantity', 'sku', 'note'];
+// Column-name aliases, ours first, then what Epicor Compass / Eagle
+// inventory queries actually put in their header rows.
+const COLS = {
+  opti: ['opti', 'opti #', 'bin', 'container', 'label', 'location', 'loc', 'loc code', 'location code', 'bin location'],
+  item: ['item', 'name', 'description', 'product', 'item description', 'desc'],
+  qty: ['qty', 'quantity', 'count', 'qoh', 'on hand', 'on-hand', 'qty on hand', 'quantity on hand', 'oh'],
+  sku: ['sku', 'sku #', 'item #', 'item no', 'item no.', 'item number', 'upc'],
+  note: ['note', 'notes', 'comment'],
+  lastPhysical: [
+    'last_physical',
+    'last physical',
+    'date last physical',
+    'last physical date',
+    'dlp',
+    'last count',
+    'last counted',
+    'date of last physical',
+    'phys date',
+    'physical date',
+  ],
+};
+const HEADER_HINTS = new Set(Object.values(COLS).flat());
 
-/** Column order when there is no header: opti, item, qty, sku, note. */
+/** Column order when there is no header: opti, item, qty, sku, note, last physical. */
 export function csvToRows(text: string): CsvParseResult {
   const raw = parseCsv(text);
   if (raw.length === 0) return { rows: [], skipped: 0 };
 
-  let cols = { opti: 0, item: 1, qty: 2, sku: 3, note: 4 };
+  let cols = { opti: 0, item: 1, qty: 2, sku: 3, note: 4, lastPhysical: 5 };
   let start = 0;
   const first = raw[0].map((c) => c.trim().toLowerCase());
-  const isHeader = first.some((c) => HEADER_HINTS.includes(c));
+  const isHeader = first.some((c) => HEADER_HINTS.has(c));
   if (isHeader) {
     start = 1;
-    const at = (...names: string[]) => {
-      const i = first.findIndex((c) => names.includes(c));
-      return i;
-    };
+    const at = (names: string[]) => first.findIndex((c) => names.includes(c));
     cols = {
-      opti: Math.max(at('opti', 'opti #', 'bin', 'container', 'label'), 0),
-      item: at('item', 'name', 'description', 'product'),
-      qty: at('qty', 'quantity', 'count'),
-      sku: at('sku', 'sku #', 'item #', 'upc'),
-      note: at('note', 'notes', 'comment'),
+      opti: Math.max(at(COLS.opti), 0),
+      item: at(COLS.item),
+      qty: at(COLS.qty),
+      sku: at(COLS.sku),
+      note: at(COLS.note),
+      lastPhysical: at(COLS.lastPhysical),
     };
     if (cols.item < 0) cols.item = cols.opti === 0 ? 1 : 0;
   }
@@ -93,16 +116,26 @@ export function csvToRows(text: string): CsvParseResult {
       skipped++;
       continue;
     }
+    const rawDate = cell(cols.lastPhysical);
     rows.push({
       optiLabel,
-      item: { id: uid('item'), name, qty: cell(cols.qty), sku: cell(cols.sku), note: cell(cols.note) },
+      item: {
+        id: uid('item'),
+        name,
+        qty: cell(cols.qty),
+        sku: cell(cols.sku),
+        note: cell(cols.note),
+        // Normalized to ISO when the format is recognized; kept raw
+        // otherwise so nothing typed in Compass is silently dropped.
+        lastPhysical: parseDateLoose(rawDate) || rawDate,
+      },
     });
   }
   return { rows, skipped };
 }
 
 export const CSV_TEMPLATE =
-  'opti,item,qty,sku,note\n' +
-  '82,Example item name,2,1234567,optional note\n' +
-  '82,Second item in the same OPTI,1,,\n' +
-  '65,Item in a different OPTI,4,7654321,\n';
+  'opti,item,qty,sku,last_physical,note\n' +
+  '82,Example item name,2,1234567,03/12/2026,optional note\n' +
+  '82,Second item in the same OPTI,1,,,\n' +
+  '65,Item in a different OPTI,4,7654321,2026-01-05,\n';

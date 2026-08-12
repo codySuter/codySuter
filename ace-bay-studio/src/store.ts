@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { api } from './api';
-import type { Aisle, BayMap, Bin, BinItem, Overlay } from './model/types';
+import type { Area, Aisle, BayMap, Bin, BinItem, FreshnessPreset, Overlay } from './model/types';
 import {
   defaultMap,
   emptyAisle,
+  emptyBin,
   looksLikeMap,
   normalizeLabel,
+  normalizeMap,
   resizeAisle,
   uid,
 } from './model/layout';
@@ -30,6 +32,9 @@ export const OVERLAY_COLORS = [
 
 export type Tool = 'select' | 'paint';
 
+/** Which map an import's location numbers refer to. */
+export type ImportScope = Area | 'both';
+
 export interface ImportSummary {
   binsMatched: number;
   itemsAdded: number;
@@ -39,6 +44,7 @@ export interface ImportSummary {
 
 interface BayState {
   map: BayMap | null;
+  area: Area;
   tool: Tool;
   activeOverlayId: string | null;
   selectedBinId: string | null;
@@ -49,6 +55,7 @@ interface BayState {
   toast: string | null;
 
   init(): Promise<void>;
+  setArea(area: Area): void;
   setTool(tool: Tool): void;
   setSearch(q: string): void;
   setSettingsOpen(open: boolean): void;
@@ -67,6 +74,7 @@ interface BayState {
   updateOverlay(id: string, patch: Partial<Pick<Overlay, 'name' | 'color' | 'visible'>>): void;
   removeOverlay(id: string): void;
   setActiveOverlay(id: string | null): void;
+  updateFreshness(patch: Partial<FreshnessPreset>): void;
   beginStroke(binId: string): void;
   strokeOver(binId: string): void;
   endStroke(): void;
@@ -75,8 +83,10 @@ interface BayState {
   resizeAisleTo(aisleId: string, shelves: number, perShelf: number): void;
   addAisle(): void;
   removeAisle(aisleId: string): void;
+  addFloorLocations(count: number): void;
+  removeFloorLocation(binId: string): void;
 
-  importContents(rows: CsvRow[], mode: 'append' | 'replace', skippedRows: number): ImportSummary;
+  importContents(rows: CsvRow[], mode: 'append' | 'replace', scope: ImportScope, skippedRows: number): ImportSummary;
   restoreMap(parsed: unknown): boolean;
   resetMap(): void;
 }
@@ -90,6 +100,7 @@ function persist(map: BayMap): void {
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 function withBin(map: BayMap, binId: string, fn: (bin: Bin) => Bin): BayMap {
+  const each = (bin: Bin) => (bin.id === binId ? fn(bin) : bin);
   return {
     ...map,
     updatedAt: Date.now(),
@@ -97,9 +108,10 @@ function withBin(map: BayMap, binId: string, fn: (bin: Bin) => Bin): BayMap {
       ...aisle,
       banks: aisle.banks.map((bank) => ({
         ...bank,
-        shelves: bank.shelves.map((row) => row.map((bin) => (bin.id === binId ? fn(bin) : bin))),
+        shelves: bank.shelves.map((row) => row.map(each)),
       })),
     })),
+    floor: map.floor.map(each),
   };
 }
 
@@ -114,7 +126,19 @@ function mapAllBins(map: BayMap, fn: (bin: Bin) => Bin): BayMap {
         shelves: bank.shelves.map((row) => row.map(fn)),
       })),
     })),
+    floor: map.floor.map(fn),
   };
+}
+
+/** Every bin an import scope covers, in match-priority order. */
+function scopedBins(map: BayMap, scope: ImportScope): Bin[] {
+  const bays: Bin[] = [];
+  for (const aisle of map.aisles)
+    for (const bank of aisle.banks)
+      for (const row of bank.shelves) bays.push(...row);
+  if (scope === 'bays') return bays;
+  if (scope === 'floor') return [...map.floor];
+  return [...bays, ...map.floor];
 }
 
 export const useBay = create<BayState>((set, get) => {
@@ -129,6 +153,7 @@ export const useBay = create<BayState>((set, get) => {
 
   return {
     map: null,
+    area: 'bays',
     tool: 'select',
     activeOverlayId: null,
     selectedBinId: null,
@@ -139,11 +164,12 @@ export const useBay = create<BayState>((set, get) => {
 
     async init() {
       const loaded = await api.loadMap();
-      const map = loaded ?? defaultMap();
+      const map = normalizeMap(loaded ?? defaultMap());
       if (!loaded) void api.saveMap(map);
       set({ map, activeOverlayId: map.overlays[0]?.id ?? null });
     },
 
+    setArea: (area) => set({ area, selectedBinId: null }),
     setTool: (tool) => set({ tool, ...(tool === 'paint' ? { selectedBinId: null } : {}) }),
     setSearch: (search) => set({ search }),
     setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
@@ -175,7 +201,7 @@ export const useBay = create<BayState>((set, get) => {
         ...bin,
         items: [
           ...bin.items,
-          { id: uid('item'), name: '', qty: '', sku: '', note: '', ...item },
+          { id: uid('item'), name: '', qty: '', sku: '', note: '', lastPhysical: '', ...item },
         ],
       }));
     },
@@ -234,18 +260,17 @@ export const useBay = create<BayState>((set, get) => {
 
     setActiveOverlay: (activeOverlayId) => set({ activeOverlayId }),
 
+    updateFreshness(patch) {
+      const { map } = get();
+      if (!map) return;
+      update({ ...map, updatedAt: Date.now(), freshness: { ...map.freshness, ...patch } });
+    },
+
     beginStroke(binId) {
       const { map, activeOverlayId } = get();
       if (!map || !activeOverlayId) return;
-      let adding = true;
-      outer: for (const aisle of map.aisles)
-        for (const bank of aisle.banks)
-          for (const row of bank.shelves)
-            for (const bin of row)
-              if (bin.id === binId) {
-                adding = !bin.overlayIds.includes(activeOverlayId);
-                break outer;
-              }
+      const bin = scopedBins(map, 'both').find((b) => b.id === binId);
+      const adding = !bin || !bin.overlayIds.includes(activeOverlayId);
       set({ stroke: { overlayId: activeOverlayId, adding } });
       get().setBinOverlay(binId, activeOverlayId, adding);
     },
@@ -290,20 +315,32 @@ export const useBay = create<BayState>((set, get) => {
       update({ ...map, updatedAt: Date.now(), aisles: map.aisles.filter((a) => a.id !== aisleId) });
     },
 
-    importContents(rows, mode, skippedRows) {
+    addFloorLocations(count) {
+      const { map } = get();
+      if (!map || count < 1) return;
+      const start = map.floor.length + 1;
+      const added = Array.from({ length: count }, (_, i) => emptyBin(String(start + i)));
+      update({ ...map, updatedAt: Date.now(), floor: [...map.floor, ...added] });
+    },
+
+    removeFloorLocation(binId) {
+      const { map, selectedBinId } = get();
+      if (!map) return;
+      update({ ...map, updatedAt: Date.now(), floor: map.floor.filter((b) => b.id !== binId) });
+      if (selectedBinId === binId) set({ selectedBinId: null });
+    },
+
+    importContents(rows, mode, scope, skippedRows) {
       const { map } = get();
       const summary: ImportSummary = { binsMatched: 0, itemsAdded: 0, unmatchedLabels: [], skippedRows };
       if (!map) return summary;
 
-      // First labeled bin wins for each normalized label.
+      // First labeled bin in the scope wins for each normalized label.
       const binsByLabel = new Map<string, Bin>();
-      for (const aisle of map.aisles)
-        for (const bank of aisle.banks)
-          for (const row of bank.shelves)
-            for (const bin of row) {
-              const key = normalizeLabel(bin.label);
-              if (key && !binsByLabel.has(key)) binsByLabel.set(key, bin);
-            }
+      for (const bin of scopedBins(map, scope)) {
+        const key = normalizeLabel(bin.label);
+        if (key && !binsByLabel.has(key)) binsByLabel.set(key, bin);
+      }
 
       const itemsByBinId = new Map<string, BinItem[]>();
       const unmatched = new Set<string>();
@@ -335,7 +372,7 @@ export const useBay = create<BayState>((set, get) => {
 
     restoreMap(parsed) {
       if (!looksLikeMap(parsed)) return false;
-      const map = { ...parsed, updatedAt: Date.now() };
+      const map = normalizeMap({ ...parsed, updatedAt: Date.now() });
       update(map);
       set({ selectedBinId: null, activeOverlayId: map.overlays[0]?.id ?? null });
       return true;
@@ -370,5 +407,6 @@ export function overlayBinCount(map: BayMap, overlayId: string): number {
     for (const bank of aisle.banks)
       for (const row of bank.shelves)
         for (const bin of row) if (bin.overlayIds.includes(overlayId)) n++;
+  for (const bin of map.floor) if (bin.overlayIds.includes(overlayId)) n++;
   return n;
 }

@@ -1,7 +1,7 @@
 {
   "name": "ace-bay-studio",
   "productName": "Ace Bay Studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "The back-room bay aisles at a glance — every OPTI container as an icon, color overlays to flag groups of them, and per-OPTI contents with CSV import.",
   "author": "Cody Suter",
   "license": "MIT",

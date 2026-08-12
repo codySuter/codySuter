@@ -10,6 +10,8 @@ export interface BinItem {
   qty: string;
   sku: string;
   note: string;
+  /** Eagle's Date Last Physical, ISO (YYYY-MM-DD) when parseable, else raw. */
+  lastPhysical: string;
 }
 
 export interface Bin {
@@ -41,20 +43,37 @@ export interface Overlay {
   visible: boolean;
 }
 
+/** The built-in "how old is the data?" preset (red→green by Date Last Physical). */
+export interface FreshnessPreset {
+  enabled: boolean;
+  /** Counted this recently (days) → full green. */
+  greenDays: number;
+  /** This long ago or more (days) → full red. */
+  redDays: number;
+}
+
 export interface BayMap {
   version: 1;
   aisles: Aisle[];
+  /** Sales-floor location tiles (aisle codes), same shape as back-room bins. */
+  floor: Bin[];
   overlays: Overlay[];
+  freshness: FreshnessPreset;
   updatedAt: number;
 }
 
+export type Area = 'bays' | 'floor';
+
 /** Where a bin sits, for tooltips and the details panel. */
-export interface BinAddress {
-  aisleId: string;
-  aisleName: string;
-  side: Side;
-  /** 1-based, counted from the top shelf down. */
-  shelf: number;
-  /** 1-based, counted left to right. */
-  slot: number;
-}
+export type BinAddress =
+  | {
+      kind: 'bay';
+      aisleId: string;
+      aisleName: string;
+      side: Side;
+      /** 1-based, counted from the top shelf down. */
+      shelf: number;
+      /** 1-based, counted left to right. */
+      slot: number;
+    }
+  | { kind: 'floor'; index: number };
