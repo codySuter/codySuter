@@ -48,6 +48,30 @@
     <h2>Fixtures</h2>
     <p class="palette-hint">Drag onto the floor, or click then click the floor to stamp. Esc stops stamping.</p>
     <div id="paletteItems"></div>
+
+    <div class="underlay">
+      <h2>Underlay image</h2>
+      <button id="btnBgLoad" class="mini wide">Load image…</button>
+      <div id="bgControls" class="hidden">
+        <label class="field">
+          <span>Opacity <em id="bgOpacityVal">45%</em></span>
+          <input type="range" id="bgOpacity" min="0" max="100" step="5" value="45">
+        </label>
+        <label class="field">
+          <span>Image width</span>
+          <div class="row">
+            <input id="bgWidth" type="number" min="12" max="6000" step="1"> <em>in</em>
+          </div>
+          <small>Set the real width to scale it to the floor</small>
+        </label>
+        <label class="check"><input type="checkbox" id="bgLock"> Lock in place</label>
+        <div class="row">
+          <button id="btnBgReplace" class="mini">Replace…</button>
+          <button id="btnBgRemove" class="mini danger-text">Remove</button>
+        </div>
+        <p class="palette-hint" id="bgHint">Drag it to move, corners to scale.</p>
+      </div>
+    </div>
   </aside>
 
   <div class="canvas-wrap">
@@ -102,6 +126,7 @@
       <g id="world">
         <rect id="gridRectMinor" fill="url(#gridMinor)"/>
         <rect id="gridRectMajor" fill="url(#gridMajor)"/>
+        <g id="underlay"></g>
         <g id="units"></g>
         <g id="ghost"></g>
         <g id="overlay"></g>
@@ -214,6 +239,7 @@
         <dt>Auto-number a run</dt><dd>Type a code (e.g. <b>01R01</b>), then with the Label tool press on that unit and drag across the rest — each one it touches gets the next code (<b>01R02</b>, <b>01R03</b>…). Zero padding is kept, and a trailing letter steps too (<b>BAY-C</b> → <b>BAY-D</b>).</dd>
         <dt>Label look</dt><dd>Turn a label 90° with <b>Shift+R</b> (or ⟲ Turn) and size the text with <b>[</b> / <b>]</b> — per unit, and applies to the whole selection at once.</dd>
         <dt>Multi-select</dt><dd>Drag a box on empty floor, or Shift-click. Ctrl+A selects all.</dd>
+        <dt>Trace an image</dt><dd><b>Load image…</b> in the left panel puts a photo or scan under the drawing. Set its real <b>width</b> in inches to scale it, drag it to line up, then <b>Lock</b> it and build on top. The <b>opacity</b> slider fades it; at 0% it's hidden and left out of exports.</dd>
       </dl>
       <dl>
         <dt>Arrows / Shift+Arrows</dt><dd>Nudge 1" / 12"</dd>
@@ -250,6 +276,7 @@
 <div id="printSheet"></div>
 
 <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+<input type="file" id="bgFile" accept="image/*" class="hidden">
 
 <script src="js/app.js"></script>
 </body>

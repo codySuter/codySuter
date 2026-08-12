@@ -44,6 +44,13 @@ needed).
   measurements appear while dragging. **Click a gap label and type a
   distance** (`42`, `42"`, or `3' 6"`) to set an aisle exactly. Arrow keys
   nudge 1" (Shift+arrows = 12").
+- **Trace over an image**: **Load image…** drops a photo, scan, or plan
+  screenshot underneath the fixtures. Type its real width in inches to
+  scale it to the floor, drag it to line up, pull a corner to resize it
+  proportionally, then **Lock in place** so it stops catching clicks and
+  you can build on top. The **opacity slider** fades it from 0–100%; at 0%
+  it's hidden and left out of PNG/print exports. It's part of the layout —
+  undo/redo, autosave, and JSON export all carry it.
 - **Multi-select** with box-drag or Shift-click, group move with snapping,
   align tools, duplicate, undo/redo.
 - **Multiple layouts** autosaved in the browser (localStorage), plus JSON
@@ -85,5 +92,8 @@ the Label tool.
 
 All world coordinates are in **inches**; `view.scale` is screen pixels per
 inch. Units are axis-aligned rectangles (`x, y, w, d, rot`), where `rot`
-90/270 swaps the footprint. Layouts live under the localStorage key
-`ace-layout-studio:v1`.
+90/270 swaps the footprint. A layout's optional underlay image is
+`bg: { src, x, y, w, h, op, locked }` with `src` a `data:` URI (downscaled
+to 2400 px and re-encoded as JPEG when large, so autosave stays under the
+storage cap — the status bar warns if it doesn't). Layouts live under the
+localStorage key `ace-layout-studio:v1`.

@@ -119,9 +119,20 @@ function persist() {
   saveTimer = setTimeout(flushSave, 250);
 }
 
+let storageWarning = '';
+
 function flushSave() {
   clearTimeout(saveTimer);
-  try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch (e) { /* quota */ }
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(db));
+    if (storageWarning) { storageWarning = ''; renderStatus(); }
+  } catch (e) {
+    // usually the quota, and an underlay image is the usual reason
+    if (!storageWarning) {
+      storageWarning = 'Browser storage is full — this layout is NOT being saved. Export JSON to keep it, and remove or shrink the underlay image.';
+      renderStatus();
+    }
+  }
 }
 
 window.addEventListener('pagehide', flushSave);
@@ -129,8 +140,17 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') flushSave();
 });
 
+/* history snapshots cover the units and the underlay placement */
+function snapshot() { return JSON.stringify({ units: layout.units, bg: layout.bg || null }); }
+
+function restore(json) {
+  const s = JSON.parse(json);
+  layout.units = s.units;
+  if (s.bg) layout.bg = s.bg; else delete layout.bg;
+}
+
 function pushUndo() {
-  undoStack.push(JSON.stringify(layout.units));
+  undoStack.push(snapshot());
   if (undoStack.length > 100) undoStack.shift();
   redoStack.length = 0;
   updateUndoButtons();
@@ -138,22 +158,22 @@ function pushUndo() {
 
 function undo() {
   if (!undoStack.length) return;
-  redoStack.push(JSON.stringify(layout.units));
-  layout.units = JSON.parse(undoStack.pop());
+  redoStack.push(snapshot());
+  restore(undoStack.pop());
   afterHistoryJump();
 }
 
 function redo() {
   if (!redoStack.length) return;
-  undoStack.push(JSON.stringify(layout.units));
-  layout.units = JSON.parse(redoStack.pop());
+  undoStack.push(snapshot());
+  restore(redoStack.pop());
   afterHistoryJump();
 }
 
 function afterHistoryJump() {
   const ids = new Set(layout.units.map(u => u.id));
   sel = new Set([...sel].filter(id => ids.has(id)));
-  persist(); renderAll(); updateUndoButtons();
+  persist(); renderAll(); renderBgPanel(); updateUndoButtons();
 }
 
 function updateUndoButtons() {
@@ -183,7 +203,22 @@ function selectionBBox(units) {
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 }
 
-function contentBBox() { return selectionBBox(layout.units); }
+/* everything the user can see, so Fit and the exports frame the same thing */
+function contentBBox() {
+  const box = selectionBBox(layout.units);
+  const bg = visibleBg();
+  if (!bg) return box;
+  const b = { x: bg.x, y: bg.y, w: bg.w, h: bg.h };
+  if (!box) return b;
+  const x1 = Math.min(box.x, b.x), y1 = Math.min(box.y, b.y);
+  const x2 = Math.max(box.x + box.w, b.x + b.w), y2 = Math.max(box.y + box.h, b.y + b.h);
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+function visibleBg() {
+  const bg = layout.bg;
+  return bg && bg.src && bg.op > 0 ? bg : null;
+}
 
 /* screen px -> world inches (px relative to canvas element) */
 function toWorld(px, py) { return { x: view.x + px / view.scale, y: view.y + py / view.scale }; }
@@ -282,6 +317,7 @@ function renderAll() {
   gWorld.setAttribute('transform',
     `scale(${view.scale}) translate(${-view.x} ${-view.y})`);
   renderGrid();
+  renderUnderlay();
   renderUnits();
   renderOverlay();
   renderGhost();
@@ -361,6 +397,34 @@ function renderUnits() {
   gUnits.innerHTML = layout.units.map(u => unitMarkup(u)).join('');
 }
 
+/* Underlay: a traced plan photo/scan sitting beneath the fixtures. */
+function bgMarkup(bg, forExport) {
+  // the export/print copy carries no id or class — it would collide with the live one
+  const tag = forExport ? '<image' : `<image id="underlayImg" class="${bg.locked ? 'locked' : ''}"`;
+  return `${tag}
+      href="${bg.src}" x="${bg.x}" y="${bg.y}" width="${bg.w}" height="${bg.h}"
+      opacity="${(bg.op / 100).toFixed(2)}" preserveAspectRatio="none"/>`;
+}
+
+function renderUnderlay() {
+  const bg = visibleBg();
+  $('underlay').innerHTML = bg ? bgMarkup(bg, false) : '';
+}
+
+function bgHandlesMarkup() {
+  const bg = layout.bg;
+  if (!bg || !bg.src || bg.locked) return '';
+  const s = 7 / view.scale;
+  const corners = [['nw', bg.x, bg.y], ['ne', bg.x + bg.w, bg.y],
+                   ['sw', bg.x, bg.y + bg.h], ['se', bg.x + bg.w, bg.y + bg.h]];
+  let out = `<rect class="bg-frame" x="${bg.x}" y="${bg.y}" width="${bg.w}" height="${bg.h}"/>`;
+  for (const [k, cx, cy] of corners) {
+    out += `<rect class="bg-handle ${k}" data-bghandle="${k}"
+            x="${cx - s}" y="${cy - s}" width="${s * 2}" height="${s * 2}"/>`;
+  }
+  return out;
+}
+
 function dimMarkup(side, info, editable) {
   // dimension line with end ticks + centered label
   if (!info || info.gap < 0.5) return '';
@@ -402,7 +466,7 @@ function gapDims(box, others, editable) {
 }
 
 function renderOverlay() {
-  let s = '';
+  let s = bgHandlesMarkup();
   const units = selectedUnits();
 
   for (const u of units) {
@@ -453,7 +517,10 @@ function renderStatus() {
   const n = sel.size;
   $('statSel').textContent = n ? `${n} selected` : '';
   let hint = '';
-  if (placing) hint = 'Click to place — Esc to stop';
+  if (storageWarning) hint = storageWarning;
+  else if (drag && drag.kind === 'bgmove') hint = 'Moving underlay image';
+  else if (drag && drag.kind === 'bgscale') hint = `Underlay ${fmtLen(layout.bg.w)} wide`;
+  else if (placing) hint = 'Click to place — Esc to stop';
   else if (drag && drag.kind === 'unit') hint = 'Snapping to edges — hold Alt for free movement';
   else if (drag && drag.kind === 'extend') hint = drag.count
     ? `Adding ${drag.count} panel${drag.count === 1 ? '' : 's'} — release to place`
@@ -807,6 +874,118 @@ function updateGhostFromClient(cx, cy) {
     + gapDims({ x: snapped.x, y: snapped.y, w: bw, h: bh }, layout.units, false);
 }
 
+/* ============================== underlay image ============================== */
+
+function renderBgPanel() {
+  const bg = layout.bg;
+  const has = !!(bg && bg.src);
+  $('bgControls').classList.toggle('hidden', !has);
+  $('btnBgLoad').classList.toggle('hidden', has);
+  if (!has) return;
+  $('bgOpacity').value = bg.op;
+  $('bgOpacityVal').textContent = bg.op + '%';
+  if (document.activeElement !== $('bgWidth')) $('bgWidth').value = Math.round(bg.w);
+  $('bgLock').checked = !!bg.locked;
+  $('bgHint').textContent = bg.locked
+    ? 'Locked — unlock to move or scale it.'
+    : 'Drag it to move, corners to scale.';
+}
+
+$('btnBgLoad').addEventListener('click', () => $('bgFile').click());
+$('btnBgReplace').addEventListener('click', () => $('bgFile').click());
+
+$('bgOpacity').addEventListener('input', () => {
+  if (!layout.bg) return;
+  layout.bg.op = +$('bgOpacity').value;
+  $('bgOpacityVal').textContent = layout.bg.op + '%';
+  persist(); renderUnderlay(); renderOverlay();
+});
+
+$('bgWidth').addEventListener('change', () => {
+  const bg = layout.bg;
+  const w = Math.round(+$('bgWidth').value);
+  if (!bg || !(w >= 12 && w <= 6000)) { renderBgPanel(); return; }
+  pushUndo();
+  bg.h = Math.max(1, Math.round(w * (bg.h / bg.w)));
+  bg.w = w;
+  persist(); renderAll(); renderBgPanel();
+});
+
+$('bgLock').addEventListener('change', () => {
+  if (!layout.bg) return;
+  layout.bg.locked = $('bgLock').checked;
+  persist(); renderAll(); renderBgPanel();
+});
+
+$('btnBgRemove').addEventListener('click', () => {
+  if (!layout.bg) return;
+  if (!confirm('Remove the underlay image? The fixtures stay.')) return;
+  pushUndo();
+  delete layout.bg;
+  persist(); renderAll(); renderBgPanel();
+});
+
+/* Big photos blow past the localStorage budget, so shrink on the way in and
+   pick the smallest encoding that still reads cleanly. */
+function shrinkImage(img) {
+  const MAX = 2400;
+  const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+  let src = c.toDataURL('image/png');
+  if (src.length > 1_600_000) src = c.toDataURL('image/jpeg', 0.9);
+  if (src.length > 2_600_000) src = c.toDataURL('image/jpeg', 0.72);
+  return src;
+}
+
+function bgInitialBox(natW, natH) {
+  const box = selectionBBox(layout.units);
+  let w, x, y;
+  if (box && box.w > 48) { w = box.w; x = box.x; y = box.y; }
+  else {
+    const r = svg.getBoundingClientRect();
+    w = clamp(Math.round((r.width / view.scale) * 0.8), 96, 2400);
+    x = Math.round(view.x + 24);
+    y = Math.round(view.y + 24);
+  }
+  return { x, y, w: Math.round(w), h: Math.max(1, Math.round(w * natH / natW)) };
+}
+
+$('bgFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const keep = layout.bg && layout.bg.src
+        ? { x: layout.bg.x, y: layout.bg.y, w: layout.bg.w,
+            h: Math.max(1, Math.round(layout.bg.w * img.naturalHeight / img.naturalWidth)) }
+        : bgInitialBox(img.naturalWidth, img.naturalHeight);
+      pushUndo();
+      layout.bg = {
+        src: shrinkImage(img),
+        x: keep.x, y: keep.y, w: keep.w, h: keep.h,
+        op: layout.bg ? layout.bg.op : 45,
+        locked: false,
+      };
+      persist(); renderAll(); renderBgPanel();
+      if (!selectionBBox(layout.units)) fitView();
+    };
+    img.onerror = () => alert('That file could not be read as an image.');
+    img.src = reader.result;
+  };
+  reader.onerror = () => alert('That file could not be read.');
+  reader.readAsDataURL(file);
+});
+
 /* ============================== tools ============================== */
 
 function setTool(name) {
@@ -861,6 +1040,18 @@ svg.addEventListener('pointerdown', (e) => {
       addUnit(tpl, at.x, at.y);
       placing = { tpl, at, sticky: true }; // keep stamping
     }
+    return;
+  }
+
+  // underlay scale handle (only offered while it is unlocked)
+  const bgH = e.target.closest && e.target.closest('[data-bghandle]');
+  if (bgH && layout.bg && !layout.bg.locked) {
+    const bg = layout.bg;
+    drag = {
+      kind: 'bgscale', corner: bgH.getAttribute('data-bghandle'),
+      startW: w, orig: { x: bg.x, y: bg.y, w: bg.w, h: bg.h }, pushed: false,
+    };
+    svg.setPointerCapture(e.pointerId);
     return;
   }
 
@@ -958,6 +1149,15 @@ svg.addEventListener('pointerdown', (e) => {
     return;
   }
 
+  // unlocked underlay: drag it into position
+  if (e.target.id === 'underlayImg' && layout.bg && !layout.bg.locked) {
+    const bg = layout.bg;
+    drag = { kind: 'bgmove', startW: w, orig: { x: bg.x, y: bg.y }, pushed: false };
+    svg.setPointerCapture(e.pointerId);
+    if (sel.size) { sel.clear(); renderAll(); }
+    return;
+  }
+
   // empty floor: marquee (mouse/pen)
   if (!e.shiftKey) { sel.clear(); renderAll(); }
   drag = { kind: 'marquee', startW: w, curW: w, additive: e.shiftKey, base: new Set(sel) };
@@ -998,6 +1198,34 @@ svg.addEventListener('pointermove', (e) => {
     const el = document.elementFromPoint(e.clientX, e.clientY);
     const hit = el && el.closest && el.closest('[data-uid]');
     if (hit) eraseAt(hit.getAttribute('data-uid'));
+    return;
+  }
+
+  if (drag.kind === 'bgmove') {
+    if (!drag.pushed) { pushUndo(); drag.pushed = true; }
+    layout.bg.x = Math.round(drag.orig.x + (w.x - drag.startW.x));
+    layout.bg.y = Math.round(drag.orig.y + (w.y - drag.startW.y));
+    renderUnderlay(); renderOverlay(); renderStatus();
+    return;
+  }
+
+  if (drag.kind === 'bgscale') {
+    if (!drag.pushed) { pushUndo(); drag.pushed = true; }
+    const o = drag.orig;
+    const east = drag.corner === 'ne' || drag.corner === 'se';
+    const south = drag.corner === 'sw' || drag.corner === 'se';
+    // anchor the opposite corner and keep the aspect ratio
+    const ax = east ? o.x : o.x + o.w;
+    const ay = south ? o.y : o.y + o.h;
+    const wantW = Math.abs(w.x - ax);
+    const wantH = Math.abs(w.y - ay);
+    const k = Math.max(wantW / o.w, wantH / o.h, 12 / o.w);
+    const nw = Math.round(o.w * k), nh = Math.round(o.h * k);
+    layout.bg.w = nw;
+    layout.bg.h = nh;
+    layout.bg.x = Math.round(east ? ax : ax - nw);
+    layout.bg.y = Math.round(south ? ay : ay - nh);
+    renderUnderlay(); renderOverlay(); renderBgPanel(); renderStatus();
     return;
   }
 
@@ -1149,6 +1377,12 @@ function endPointer(e) {
     gScreen.innerHTML = '';
     drag = null;
     renderAll();
+    return;
+  }
+  if (drag.kind === 'bgmove' || drag.kind === 'bgscale') {
+    if (drag.pushed) persist();
+    drag = null;
+    renderAll(); renderBgPanel();
     return;
   }
   drag = null;
@@ -1325,6 +1559,7 @@ function switchLayout(id) {
   sel.clear(); undoStack = []; redoStack = []; updateUndoButtons();
   persist();
   refreshLayoutSelect();
+  renderBgPanel();
   fitView();
 }
 
@@ -1394,6 +1629,17 @@ $('importFile').addEventListener('change', async (e) => {
       : (Array.isArray(data.units) ? data : null);
     if (!l) throw new Error('bad format');
     const imported = newLayout(l.name || file.name.replace(/\.layout\.json$|\.json$/i, ''));
+    const bg = l.bg;
+    if (bg && typeof bg.src === 'string' && /^data:image\//.test(bg.src)) {
+      imported.bg = {
+        src: bg.src,
+        x: Math.round(+bg.x || 0), y: Math.round(+bg.y || 0),
+        w: clamp(Math.round(+bg.w || 240), 12, 6000),
+        h: clamp(Math.round(+bg.h || 240), 12, 6000),
+        op: clamp(Math.round(+bg.op || 45), 0, 100),
+        locked: !!bg.locked,
+      };
+    }
     imported.units = l.units.map(u => ({
       id: uid(),
       type: TYPES[u.type] ? u.type : 'block',
@@ -1519,6 +1765,7 @@ function exportSvgString() {
 </style>
 <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#ffffff"/>
 ${gridExportMarkup(x, y, w, h)}
+${visibleBg() ? bgMarkup(visibleBg(), true) : ''}
 ${units}
 <text class="bp-title" x="${x + 10}" y="${y + titleFs + 6}" font-size="${titleFs}">${esc(layout.name)} — ${new Date().toLocaleDateString()}</text>
 </svg>` };
@@ -1669,5 +1916,6 @@ svg.setAttribute('data-tool', tool);
 document.querySelector('#toolstrip [data-tool="select"]').classList.add('on');
 buildPalette();
 refreshLayoutSelect();
+renderBgPanel();
 updateUndoButtons();
-if (layout.units.length) fitView(); else renderAll();
+if (layout.units.length || layout.bg) fitView(); else renderAll();
