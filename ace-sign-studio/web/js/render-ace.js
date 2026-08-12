@@ -850,6 +850,14 @@ AceRenderers.under_amount = async (spec, W, H) => {
 };
 
 /* Large text — the name is the hero; optional price + image below. */
+/* Big Text — merged Large Text + Text Only. mode "message" draws a message
+   sign (giant text + optional small line, no price/photo); anything else is
+   the priced style (giant name + optional price + photo). */
+AceRenderers.big_text = (spec, W_in, H_in) =>
+  spec.mode === "message"
+    ? AceRenderers.text_only(spec, W_in, H_in)
+    : AceRenderers.large_text(spec, W_in, H_in);
+
 AceRenderers.large_text = async (spec, W_in, H_in) => {
   const W = W_in * PPI, H = H_in * PPI;
   const frame = signFrame(W, H);

@@ -119,8 +119,8 @@ async function run() {
     console.log("→ Boot & gallery");
     await page.goto(appUrl);
     await page.waitForSelector(".g-card", { timeout: 20000 });
-    ok("gallery renders all 18 sign types", (await page.$$(".g-card")).length === 18);
-    ok("nav lists sign types", (await page.$$(".nav-item[data-type]")).length === 18);
+    ok("gallery renders all 17 sign types", (await page.$$(".g-card")).length === 17);
+    ok("nav lists sign types", (await page.$$(".nav-item[data-type]")).length === 17);
     await page.waitForSelector("#g-prev-regular svg", { timeout: 20000 });
     await shot("01-gallery");
 
@@ -193,7 +193,7 @@ async function run() {
 
     // ================= second sign + reorder =================
     console.log("→ Reorder");
-    await page.click('.nav-item[data-type="large_text"]');
+    await page.click('.nav-item[data-type="big_text"]');
     await page.waitForSelector("#editorFields");
     await fill('[data-field="name"]', "PROPANE REFILLS");
     await fill('[data-field="price"]', "17.99");
@@ -334,7 +334,8 @@ async function run() {
     ok(`export stays lean (${(size / 1024).toFixed(0)} KB < 1 MB)`, size > 5000 && size < 1024 * 1024);
 
     // single-sign PDF from the editor
-    await page.click('.nav-item[data-type="text_only"]');
+    await page.click('.nav-item[data-type="big_text"]');
+    await page.click('.seg-btn:has-text("Message only")');
     await page.waitForSelector("#editorFields");
     await fill('[data-field="name"]', "STORE USE LADDERS");
     const dl2 = page.waitForEvent("download", { timeout: 60000 });

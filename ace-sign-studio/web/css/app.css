@@ -359,6 +359,12 @@ label.f-label:first-child{margin-top:0}
 .pc-row .pc-price{color:var(--text-2);white-space:nowrap}
 
 /* Fine-tune section in the editor: power controls behind one summary. */
+/* segmented control (Big Text style picker) */
+.seg{display:flex;gap:0;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:4px}
+.seg-btn{flex:1;background:#fff;border:none;padding:9px 10px;font-size:13px;font-weight:700;color:var(--text-2);cursor:pointer}
+.seg-btn+.seg-btn{border-left:1.5px solid var(--border)}
+.seg-btn.active{background:var(--ace-red);color:#fff}
+
 .fine-tune{border:1px solid var(--border);border-radius:8px;margin-top:14px;background:var(--surface-alt)}
 .fine-tune>summary{
   cursor:pointer;font-size:12px;font-weight:800;color:var(--text-2);padding:9px 12px;

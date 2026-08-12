@@ -310,6 +310,17 @@ async function restoreState() {
     const b = Batches.data[n];
     if (b && !b.items && (Date.parse(b.deletedAt || 0) || 0) < tombCutoff) delete Batches.data[n];
   }
+  // 3.9.1 merged Large Text + Text Only into one "Big Text" type with a
+  // style selector — remap old saved signs so they survive and open in the
+  // right style. Covers the queue, saved batches and print history.
+  const migrateBigText = (q) => {
+    if (!q) return;
+    if (q.typeId === "large_text") { q.typeId = "big_text"; if (q.spec) q.spec.mode = "priced"; }
+    else if (q.typeId === "text_only") { q.typeId = "big_text"; if (q.spec) q.spec.mode = "message"; }
+  };
+  Queue.items.forEach(migrateBigText);
+  for (const n of Object.keys(Batches.data)) (Batches.data[n].items || []).forEach(migrateBigText);
+  History.data.forEach((h) => (h.items || []).forEach(migrateBigText));
   // drop queue entries whose sign type isn't registered
   Queue.items = Queue.items.filter((q) => typeById(q.typeId));
   // migrate pre-2.1 items: no copies counter, and hides applied
