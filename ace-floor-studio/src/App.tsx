@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, b64ToBytes } from './api';
 import FixtureDetails from './components/FixtureDetails';
 import FloorMapView from './components/FloorMapView';
@@ -25,6 +25,7 @@ export default function App() {
 
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const importSeq = useRef(0);
 
   useEffect(() => {
     void init();
@@ -36,7 +37,7 @@ export default function App() {
       return;
     }
     const cols = detectColumns(grid[0]);
-    setPendingImport({ fileName, grid, cols });
+    setPendingImport({ fileName, grid, cols, seq: ++importSeq.current });
   }, []);
 
   const importFile = useCallback(async () => {
@@ -101,27 +102,37 @@ export default function App() {
     };
   }, [importFile, loadSample, backup, restore]);
 
-  const settings = doc?.settings;
+  const storedSettings = doc?.settings;
   const data = doc?.data ?? null;
 
   const present = useMemo(() => availableFields(data), [data]);
+  // A stored metric can outlive its column (a new import without it, a
+  // restored backup) — fall back to the first metric this data can run.
+  const settings = useMemo(() => {
+    if (!storedSettings) return storedSettings;
+    if (metricAvailable(metricById(storedSettings.metricId), present)) return storedSettings;
+    const fallback = METRICS.find((m) => metricAvailable(m, present))?.id ?? 'skuCount';
+    return { ...storedSettings, metricId: fallback };
+  }, [storedSettings, present]);
   // Recompute "days since" once a minute so a long-open window stays honest.
   const [todayTick, setTodayTick] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setTodayTick(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
-  const heat = useMemo(
-    () => (settings ? computeHeat(index, settings, todayTick) : new Map<string, FixtureHeat>()),
+  const heatRes = useMemo(
+    () =>
+      settings
+        ? computeHeat(index, settings, todayTick)
+        : { byFixture: new Map<string, FixtureHeat>(), magTop: 0 },
     [index, settings, todayTick],
   );
+  const heat = heatRes.byFixture;
   const hits = useMemo(() => searchHits(index, search), [index, search]);
 
   if (!doc || !settings) {
     return <div className="flex h-full items-center justify-center text-[14px] text-[#6d6e71]">Loading the floor…</div>;
   }
-
-  const metric = metricById(settings.metricId);
 
   return (
     <div className="flex h-full flex-col">
@@ -210,7 +221,7 @@ export default function App() {
           {selectedId ? (
             <FixtureDetails id={selectedId} heat={heat.get(selectedId)} settings={settings} skus={index.get(selectedId) ?? []} />
           ) : (
-            <SummaryPanel heat={heat} settings={settings} data={data} onImport={() => void importFile()} onLoadSample={loadSample} />
+            <SummaryPanel heat={heat} magTop={heatRes.magTop} settings={settings} data={data} onImport={() => void importFile()} onLoadSample={loadSample} />
           )}
         </aside>
       </div>
@@ -245,7 +256,7 @@ export default function App() {
         </div>
       )}
 
-      {pendingImport && <ImportDialog pending={pendingImport} onClose={() => setPendingImport(null)} />}
+      {pendingImport && <ImportDialog key={pendingImport.seq} pending={pendingImport} onClose={() => setPendingImport(null)} />}
     </div>
   );
 }

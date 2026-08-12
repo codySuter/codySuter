@@ -8,6 +8,8 @@ export interface PendingImport {
   fileName: string;
   grid: string[][];
   cols: ColumnMap;
+  /** Monotonic per-pick id — keys the dialog so a new file remounts it. */
+  seq: number;
 }
 
 const CORE_FIELDS = ['sku', 'desc'] as const;

@@ -23,10 +23,25 @@ interface FloorState {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
+let unsaved: FloorDoc | null = null;
 function persist(doc: FloorDoc): void {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => void api.saveDoc(doc), 400);
+  unsaved = doc;
+  saveTimer = setTimeout(() => {
+    unsaved = null;
+    void api.saveDoc(doc);
+  }, 400);
 }
+
+// The debounce must not eat the last change when the window closes —
+// flush whatever is still pending on the way out.
+window.addEventListener('beforeunload', () => {
+  if (unsaved) {
+    clearTimeout(saveTimer);
+    void api.saveDoc(unsaved);
+    unsaved = null;
+  }
+});
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 

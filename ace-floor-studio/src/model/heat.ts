@@ -154,7 +154,11 @@ export function metricAvailable(metric: Metric, present: Set<string>): boolean {
 // ---- per-fixture heat ----
 
 export interface FixtureHeat {
-  /** The aggregated metric value (days, %, units, $ …). Null = never. */
+  /**
+   * The aggregated metric value (days, %, units, $ …). Null on an age
+   * metric = never counted/sold/received; null on a pct metric = none
+   * of the bay's SKUs carry the field the percentage needs.
+   */
   value: number | null;
   /** 0 = best/low end of the ramp, 1 = worst/high end. */
   t: number;
@@ -162,6 +166,12 @@ export interface FixtureHeat {
   neverCount: number;
   skuCount: number;
   text: string;
+}
+
+export interface HeatResult {
+  byFixture: Map<string, FixtureHeat>;
+  /** Where the magnitude ramp saturates (the p95); 0 for other kinds. */
+  magTop: number;
 }
 
 export function thresholdsFor(metric: Metric, settings: HeatSettings): { lo: number; hi: number } {
@@ -193,7 +203,7 @@ export function computeHeat(
   index: Map<string, SkuRecord[]>,
   settings: HeatSettings,
   todayMs: number,
-): Map<string, FixtureHeat> {
+): HeatResult {
   const metric = metricById(settings.metricId);
   const { lo, hi } = thresholdsFor(metric, settings);
   const out = new Map<string, FixtureHeat>();
@@ -213,7 +223,7 @@ export function computeHeat(
         out.set(loc, { value: v, t: scale(v), neverCount, skuCount: skus.length, text: formatValue(metric, v) });
       }
     }
-    return out;
+    return { byFixture: out, magTop: 0 };
   }
 
   if (metric.kind === 'pct') {
@@ -232,11 +242,17 @@ export function computeHeat(
           if (metric.id === 'oosPct' ? s.qoh <= 0 : s.qoh < 0) hit++;
         }
       }
-      if (denom === 0) continue;
+      if (denom === 0) {
+        // The bay has SKUs but none carry the field this percentage
+        // needs — keep it on the map as "no usable values", not as an
+        // empty bay.
+        out.set(loc, { value: null, t: 0, neverCount: 0, skuCount: skus.length, text: 'n/a' });
+        continue;
+      }
       const v = (100 * hit) / denom;
       out.set(loc, { value: v, t: scale(v), neverCount: 0, skuCount: skus.length, text: formatValue(metric, v) });
     }
-    return out;
+    return { byFixture: out, magTop: 0 };
   }
 
   // magnitude — sum per fixture, scaled to the 95th percentile so one
@@ -264,15 +280,7 @@ export function computeHeat(
       text: formatValue(metric, v),
     });
   }
-  return out;
-}
-
-/** The magnitude legend needs the domain top to label the dark end. */
-export function magnitudeTop(heat: Map<string, FixtureHeat>): number {
-  let top = 0;
-  for (const h of heat.values()) if (h.t >= 1 && (h.value ?? 0) > 0) top = Math.max(top, h.value ?? 0);
-  if (top === 0) for (const h of heat.values()) top = Math.max(top, h.value ?? 0);
-  return top;
+  return { byFixture: out, magTop: p95 };
 }
 
 // ---- color ramps (OKLab interpolation) ----
@@ -380,9 +388,12 @@ export function rampGradient(kind: MetricKind, ramp: RampId): string {
   return `linear-gradient(to right, ${parts.join(', ')})`;
 }
 
-/** Pick label ink that survives the fill behind it. */
+/** Pick whichever label ink actually contrasts more with the fill. */
 export function inkFor(hex: string): string {
   const [r, g, b] = hexToRgb(hex);
   const lum = 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b);
-  return lum > 0.35 ? '#15181D' : '#FFFFFF';
+  const DARK_LUM = 0.0086; // relative luminance of #15181D
+  const contrastWhite = 1.05 / (lum + 0.05);
+  const contrastDark = (lum + 0.05) / (DARK_LUM + 0.05);
+  return contrastDark >= contrastWhite ? '#15181D' : '#FFFFFF';
 }

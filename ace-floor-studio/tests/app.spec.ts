@@ -16,7 +16,7 @@ function testCsv(): string {
     `1000003,GHOST ITEM,EC12,,1,$2.00,`, // never counted
     `1000004,TWO-SPOT ITEM,"BW05; EC03",,7,$3.25,${iso(100)}`, // multi-location cell
     `1000005,LOST ITEM,ZZ99,,2,$4.00,${iso(10)}`, // unknown code
-    `1000006,RETURN MAGNET,10R05,,(3),"$1,299.99",${iso(30)}`, // parens negative + $ comma
+    `1000006,RETURN MAGNET 3" NEO,10R05,,(3),"$1,299.99",${iso(30)}`, // mid-field inch mark + parens negative + $ comma
     `1000007,DUSTY HAMMER,BW01,,4,$9.99,${iso(200)}`, // second SKU in BW01
   ].join('\n');
 }
@@ -98,9 +98,29 @@ test('age modes, thresholds, and the colorblind ramp all recolor the map', async
   await page.getByTestId('threshold-hi').blur();
   await expect(stale).not.toHaveAttribute('fill', before!);
 
+  // Clearing the field reverts instead of committing 0.
+  await page.getByTestId('threshold-hi').fill('');
+  await page.getByTestId('threshold-hi').blur();
+  await expect(page.getByTestId('threshold-hi')).toHaveValue('1000');
+
   const cvdBefore = await stale.getAttribute('fill');
   await page.getByTestId('ramp-cvd').check();
   await expect(stale).not.toHaveAttribute('fill', cvdBefore!);
+});
+
+test('a stored metric that the next import cannot run falls back to one it can', async ({ page }) => {
+  await boot(page);
+  await page.getByTestId('sample-hero').click();
+  await page.getByTestId('import-apply').click();
+  await page.getByTestId('metric-select').selectOption('sold');
+  await expect(page.getByTestId('header-status')).toContainText('locations heat-mapped');
+
+  // The hand-made CSV has no units-sold column — the map must not keep
+  // painting a locked metric.
+  await importCsv(page, testCsv(), 'import-file');
+  await page.getByTestId('import-apply').click();
+  await expect(page.getByTestId('metric-select')).toHaveValue('phys');
+  await expect(page.locator('[data-loc="BW01"]')).toHaveAttribute('data-days', '200');
 });
 
 test('metric picker: locked without its column, magnitude metrics recolor, values print on the map', async ({ page }) => {

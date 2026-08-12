@@ -34,9 +34,13 @@ function FixtureShape({
   const selectedId = useFloor((s) => s.selectedId);
   const metric = metricById(settings.metricId);
 
-  const never = !!heat && heat.value === null;
-  const fill = !heat ? NO_DATA_FILL : never ? 'url(#afs-never)' : heatColor(metric.kind, settings.ramp, heat.t);
-  const ink = !heat ? '#9AA1A8' : inkFor(never ? NEVER_FILL : heatColor(metric.kind, settings.ramp, heat.t));
+  // value === null means "never" on an age metric (hatched) but "no
+  // usable values" on a pct metric (neutral, still counted as covered).
+  const never = !!heat && heat.value === null && metric.kind === 'age';
+  const noValue = !!heat && heat.value === null && metric.kind !== 'age';
+  const fill = !heat || noValue ? NO_DATA_FILL : never ? 'url(#afs-never)' : heatColor(metric.kind, settings.ramp, heat.t);
+  const ink =
+    !heat || noValue ? '#9AA1A8' : inkFor(never ? NEVER_FILL : heatColor(metric.kind, settings.ramp, heat.t));
   const selected = selectedId === f.id;
   const hit = hits?.has(f.id) ?? false;
   const dimmed = hits !== null && !hit;
@@ -50,7 +54,7 @@ function FixtureShape({
   const tooltip = [
     label,
     heat
-      ? `${metricLabel}: ${heat.text}${heat.value === null ? ' counted' : ''} · ${heat.skuCount} SKU${heat.skuCount === 1 ? '' : 's'}`
+      ? `${metricLabel}: ${never ? 'never' : noValue ? 'no usable values' : heat.text} · ${heat.skuCount} SKU${heat.skuCount === 1 ? '' : 's'}`
       : 'No SKUs in this import',
     heat && heat.neverCount > 0 && heat.value !== null ? `${heat.neverCount} never counted` : '',
   ]
@@ -127,11 +131,16 @@ export default function FloorMapView({
   const drag = useRef<{ px: number; py: number; moved: boolean } | null>(null);
   const metricLabel = metricById(settings.metricId).label;
 
+  // Fit on mount, and keep refitting on window resizes until the user
+  // takes over the view with their own pan/zoom.
+  const userDrove = useRef(false);
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     setView(fitView(el));
-    const ro = new ResizeObserver(() => setView((v) => v)); // keep dims fresh on resize
+    const ro = new ResizeObserver(() => {
+      if (!userDrove.current) setView(fitView(el));
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -142,6 +151,7 @@ export default function FloorMapView({
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      userDrove.current = true;
       setView((v) => {
         const factor = Math.exp(-e.deltaY * 0.0015);
         const k = Math.min(8, Math.max(0.15, v.k * factor));
@@ -169,6 +179,7 @@ export default function FloorMapView({
         const dy = e.clientY - drag.current.py;
         if (!drag.current.moved && Math.abs(dx) + Math.abs(dy) > 3) {
           drag.current.moved = true;
+          userDrove.current = true;
           // Capture only once a pan starts — capturing on pointerdown
           // would retarget the click and break selecting a fixture.
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -237,7 +248,11 @@ export default function FloorMapView({
             key={glyph}
             type="button"
             title={i === 2 ? 'Fit to window' : i === 0 ? 'Zoom in' : 'Zoom out'}
-            onClick={() => wrapRef.current && setView((v) => fn(v, wrapRef.current!))}
+            onClick={() => {
+              if (!wrapRef.current) return;
+              userDrove.current = i !== 2; // Fit hands the view back to auto-refit
+              setView((v) => fn(v, wrapRef.current!));
+            }}
             className={`h-9 w-9 cursor-pointer text-[16px] font-bold text-[#31353b] hover:bg-[#f5f6f7] ${i > 0 ? 'border-t border-[#e4e6e8]' : ''}`}
           >
             {glyph}

@@ -23,7 +23,11 @@ export function parseCsv(text: string): string[][] {
         } else inQuotes = false;
       } else field += c;
     } else if (c === '"') {
-      inQuotes = true;
+      // A quote only opens a quoted field at the field's start. Mid-field
+      // it is literal — hardware descriptions are full of inch marks, and
+      // one stray 3" must not swallow the rest of the file.
+      if (field === '') inQuotes = true;
+      else field += c;
     } else if (c === ',') {
       pushField();
     } else if (c === '\n' || c === '\r') {

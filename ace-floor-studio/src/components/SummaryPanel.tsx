@@ -5,7 +5,6 @@ import {
   NEVER_FILL,
   NO_DATA_FILL,
   formatValue,
-  magnitudeTop,
   metricById,
   rampGradient,
   thresholdsFor,
@@ -35,7 +34,8 @@ function NumberInput({
         onChange={(e) => setText(e.target.value)}
         onBlur={() => {
           const n = Number(text);
-          if (text !== null && !Number.isNaN(n) && n >= 0) onCommit(Math.round(n));
+          // A cleared field reverts — Number('') is 0, not an entry.
+          if (text !== null && text.trim() !== '' && !Number.isNaN(n) && n >= 0) onCommit(Math.round(n));
           setText(null);
         }}
         onKeyDown={(e) => {
@@ -51,12 +51,14 @@ function NumberInput({
 
 export default function SummaryPanel({
   heat,
+  magTop,
   settings,
   data,
   onImport,
   onLoadSample,
 }: {
   heat: Map<string, FixtureHeat>;
+  magTop: number;
   settings: HeatSettings;
   data: FloorData | null;
   onImport: () => void;
@@ -68,15 +70,16 @@ export default function SummaryPanel({
   const [showUnmatched, setShowUnmatched] = useState(false);
 
   const covered = heat.size;
+  // Null values rank worst on age metrics (never counted); on pct
+  // metrics they mean "no usable values" and stay out of the list.
   const worst = [...heat.entries()]
-    .filter(([id]) => getFixture(id))
+    .filter(([id, h]) => getFixture(id) && (metric.kind === 'age' || h.value !== null))
     .sort((a, b) => {
       const av = a[1].value === null ? Infinity : a[1].t;
       const bv = b[1].value === null ? Infinity : b[1].t;
       return bv - av || (b[1].value ?? 0) - (a[1].value ?? 0);
     })
     .slice(0, 15);
-  const top = metric.kind === 'magnitude' ? magnitudeTop(heat) : 0;
 
   return (
     <div className="afs-scroll flex-1 overflow-y-auto">
@@ -103,7 +106,7 @@ export default function SummaryPanel({
           {metric.kind === 'magnitude' && (
             <>
               <span>0</span>
-              <span>{formatValue(metric, top)}+ (95th pct)</span>
+              <span>{formatValue(metric, magTop)}+ (95th pct)</span>
             </>
           )}
         </div>
@@ -114,7 +117,15 @@ export default function SummaryPanel({
               <label className="text-[12px] font-medium text-[#31353b]">Green ≤</label>
               <NumberInput value={lo} suffix="d" testid="threshold-lo" onCommit={(n) => setThreshold(metric.id, n, Math.max(n + 1, hi))} />
               <label className="text-[12px] font-medium text-[#31353b]">Red ≥</label>
-              <NumberInput value={hi} suffix="d" testid="threshold-hi" onCommit={(n) => setThreshold(metric.id, Math.min(lo, n - 1), n)} />
+              <NumberInput
+                value={hi}
+                suffix="d"
+                testid="threshold-hi"
+                onCommit={(n) => {
+                  const h = Math.max(1, n);
+                  setThreshold(metric.id, Math.min(lo, h - 1), h);
+                }}
+              />
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[12px] font-medium text-[#31353b]">Bay shows</span>

@@ -2,7 +2,8 @@
 // Compass-shaped export over the real floor plan, so the demo heatmap
 // has fresh zones, stale zones, dead stock, and a few messy rows.
 //
-//   npm run sample     (node >= 22.6 — imports the TS floor plan directly)
+//   npm run sample     (node >= 22.18, where type stripping is on by
+//                       default — on 22.6-22.17 add --experimental-strip-types)
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

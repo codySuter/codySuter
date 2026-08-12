@@ -19,6 +19,10 @@ const AUTO_BACKUPS_KEPT = 15;
 
 let mainWindow = null;
 
+// Tests point this somewhere disposable so a smoke run never touches a
+// real floor.json.
+if (process.env.AFS_USER_DATA) app.setPath('userData', process.env.AFS_USER_DATA);
+
 const docFile = () => path.join(app.getPath('userData'), 'floor.json');
 
 function readDocSync() {
@@ -247,6 +251,12 @@ function createWindow() {
     minHeight: 640,
     backgroundColor: '#e9e9ec',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs') },
+  });
+  // target="_blank" links (the update chip) go to the system browser,
+  // never into a bare Electron child window.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/.test(url)) void shell.openExternal(url);
+    return { action: 'deny' };
   });
   if (isDev) {
     void mainWindow.loadURL(DEV_URL);

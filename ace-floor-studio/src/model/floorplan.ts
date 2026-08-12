@@ -155,8 +155,8 @@ add({ id: 'IML09', x: 928, y: 1190, w: 24, h: 72, vertical: true, fontSize: 9 })
 hRun(['IML04', 'IML03', 'IML02'], 664, 1266, 78, 24);
 hRun(['IML05', 'IML06', 'IML07'], 664, 1292, 78, 24);
 add({ id: 'IML08', x: 902, y: 1292, w: 24, h: 24, fontSize: 7 });
-add({ id: 'BEV01', x: 518, y: 1320, w: 42, h: 30, fontSize: 9 });
-add({ id: 'BEV02', x: 518, y: 1364, w: 42, h: 30, fontSize: 9 });
+add({ id: 'BEV01', x: 552, y: 1320, w: 42, h: 30, fontSize: 9 });
+add({ id: 'BEV02', x: 552, y: 1364, w: 42, h: 30, fontSize: 9 });
 add({ id: 'REG', x: 560, y: 1402, w: 346, h: 30 });
 
 // ---- grilling department (front right) ----

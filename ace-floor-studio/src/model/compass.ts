@@ -34,7 +34,11 @@ export const FIELD_LABELS: Record<SingleField, string> = {
   dateReceipt: 'Date last receipt',
 };
 
-const isDateName = (h: string) => /\b(date|dt)\b/.test(h) || h.includes('last');
+// "Date Last Sale", "Dt Last Sold", bare "Last Sale" — but NOT movement
+// columns like "$ Sales Last 12 Mo" / "Units Sold YTD", which also say
+// "last"/"sold" without being dates.
+const isDateName = (h: string) =>
+  !/[$#%]/.test(h) && !/\b(units?|qty|amount|amt|\d+\s*(mo|wk|week|mos|weeks)|ytd)\b/.test(h) && (/\b(date|dt)\b/.test(h) || /^last\s/.test(h));
 
 /**
  * Guess which export column feeds which field from the header row.
@@ -52,15 +56,17 @@ export function detectColumns(headers: string[]): ColumnMap {
 
   // Specific names claim their columns before looser patterns run.
   const datePhys = claim((h) => h.includes('phys'));
-  const dateSale = claim((h) => h.includes('sale') && !h.includes('unit') && !h.includes('qty') && isDateName(h));
-  const dateReceipt = claim((h) => /rec(eipt|pt|v|'d|d\b)/.test(h) && isDateName(h));
+  const dateSale = claim((h) => (h.includes('sale') || h.includes('sold')) && isDateName(h));
+  const dateReceipt = claim((h) => /rec(eipt|eived|pt|v|'d|d\b)/.test(h) && isDateName(h));
   const sku = claim((h) => h === 'sku' || h.includes('sku') || /^item ?(#|no|num|number)?$/.test(h) || h.includes('upc'));
   const desc = claim((h) => h.includes('desc'));
   const qoh = claim((h) => h.includes('qoh') || h.includes('on hand') || h.includes('on-hand') || h === 'oh' || h.includes('quantity on'));
   const cost = claim((h) => h.includes('cost'));
   const retail = claim((h) => h.includes('retail') || h === 'price');
   const sold = claim(
-    (h) => h.includes('sold') || h.includes('mvmt') || h.includes('movement') || (h.includes('sales') && h.includes('unit')),
+    (h) =>
+      !isDateName(h) &&
+      (h.includes('sold') || h.includes('mvmt') || h.includes('movement') || (h.includes('sales') && h.includes('unit'))),
   );
   const locs = hs
     .map((h, i) => i)
@@ -147,12 +153,16 @@ export function buildFloorData(grid: string[][], cols: ColumnMap, fileName: stri
   const unmatched = new Map<string, number>();
   let unlocatedRows = 0;
   let skippedRows = 0;
+  let blankRows = 0;
 
   for (const row of grid.slice(1)) {
     const sku = cell(row, cols.sku).trim();
     const desc = cell(row, cols.desc).trim();
     if (sku === '' && desc === '') {
+      // Comma-only filler lines aren't data rows at all; rows that carry
+      // other values but no SKU/description are reported as skipped.
       if (row.some((c) => c.trim() !== '')) skippedRows++;
+      else blankRows++;
       continue;
     }
 
@@ -194,7 +204,7 @@ export function buildFloorData(grid: string[][], cols: ColumnMap, fileName: stri
     data: {
       fileName,
       importedAt: Date.now(),
-      rowCount: Math.max(0, grid.length - 1),
+      rowCount: Math.max(0, grid.length - 1 - blankRows),
       skus,
       unmatched: unmatchedList,
       unlocatedRows,
