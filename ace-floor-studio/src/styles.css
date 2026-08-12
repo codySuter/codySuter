@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+/* Roboto is the Ace brand font — the only family in the app. */
+@import '@fontsource/roboto/400.css';
+@import '@fontsource/roboto/500.css';
+@import '@fontsource/roboto/700.css';
+@import '@fontsource/roboto/900.css';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #e9e9ec;
+  font-family: 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* Panning the map must never select text. */
+.afs-nosel {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.afs-input {
+  outline: none;
+}
+.afs-input:focus {
+  border-color: #d40029 !important;
+  box-shadow: 0 0 0 2px rgba(212, 0, 41, 0.15);
+}
+
+/* Thin scrollbars so the map keeps the room. */
+.afs-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.afs-scroll::-webkit-scrollbar-thumb {
+  background: #c6c9cd;
+  border-radius: 5px;
+  border: 2px solid #e9e9ec;
+}
+.afs-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
