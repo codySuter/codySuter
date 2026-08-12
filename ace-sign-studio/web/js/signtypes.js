@@ -147,22 +147,54 @@ const SIGN_TYPES = [
     sample: { category: "STOCKING STUFFERS", price: "10" },
   },
   {
-    id: "large_text", hideable: ["logo", "image", "price", "sku"], group: "Specialty", label: "Large Text",
-    note: "Name as big as possible + price",
-    fields: [F.sku, F.name, F.price, F.image, F.dates],
-    render: (spec, w, h) => AceRenderers.large_text(spec, w, h),
-    sample: { name: "PROPANE REFILLS", price: "17.99" },
+    // Merged Large Text + Text Only: one big-text sign with a style
+    // selector. "priced" = giant name with a price (and optional photo);
+    // "message" = a message sign with an optional small line, no price.
+    // Fields tagged with `modes` show only in the matching style.
+    id: "big_text", hideable: ["logo", "image", "price", "sku"], group: "Specialty", label: "Big Text",
+    note: "Giant text — as a price sign or a message",
+    fields: [
+      { key: "mode", kind: "seg", label: "Style", def: "priced", options: [
+        { value: "priced", label: "Text + price" },
+        { value: "message", label: "Message only" },
+      ] },
+      Object.assign({}, F.sku, { modes: ["priced"] }),
+      Object.assign({}, F.name, { label: "Big text", modes: ["priced", "message"] }),
+      Object.assign({}, F.price, { modes: ["priced"] }),
+      Object.assign({}, F.image, { modes: ["priced"] }),
+      Object.assign({}, F.detail, { label: "Small line underneath", modes: ["message"] }),
+      Object.assign({}, F.dates, { modes: ["priced", "message"] }),
+    ],
+    render: (spec, w, h) => AceRenderers.big_text(spec, w, h),
+    sample: { name: "PROPANE REFILLS", price: "17.99", mode: "priced" },
   },
   {
-    id: "text_only", hideable: ["logo"], group: "Specialty", label: "Text Only",
-    note: "Message sign — no price, no photo",
-    fields: [
-      Object.assign({}, F.name, { label: "Message (line 1–2)" }),
-      Object.assign({}, F.detail, { label: "Small line under the message" }),
-      F.dates,
-    ],
-    render: (spec, w, h) => AceRenderers.text_only(spec, w, h),
-    sample: { name: "STORE USE LADDERS", detail: "" },
+    id: "arrow_up", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Up",
+    note: "Regular price + big arrow up to the product",
+    fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
+    render: (spec, w, h) => AceRenderers.arrow_up(spec, w, h),
+    sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
+  },
+  {
+    id: "arrow_down", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Down",
+    note: "Regular price + big arrow down to the product",
+    fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
+    render: (spec, w, h) => AceRenderers.arrow_down(spec, w, h),
+    sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
+  },
+  {
+    id: "arrow_left", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Left",
+    note: "Regular price + big arrow left to the product",
+    fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
+    render: (spec, w, h) => AceRenderers.arrow_left(spec, w, h),
+    sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
+  },
+  {
+    id: "arrow_right", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Right",
+    note: "Regular price + big arrow right to the product",
+    fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
+    render: (spec, w, h) => AceRenderers.arrow_right(spec, w, h),
+    sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
   },
 ];
 
@@ -209,7 +241,8 @@ function applyTemplateProduct(p) {
   set("your_choice", { price: price.toFixed(2) });
   set("was_now", { price: now, regPrice: was, unitOnly: true });
   set("final_sale", { price: now, note: "*No returns" });
-  set("large_text", { price: price.toFixed(2) });
+  set("big_text", { price: price.toFixed(2), mode: "priced" });
+  for (const d of ["up", "down", "left", "right"]) set("arrow_" + d, { price: price.toFixed(2) });
 }
 
 applyTemplateProduct(TEMPLATE_FALLBACK);

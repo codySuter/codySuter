@@ -113,24 +113,16 @@ async function pagesToPdf(pages, showGuides, onProgress) {
 
 /* Single sign → its own PDF at true size. Accepts either a queue-packable
    item ({size}) or an editor item ({sizeId}). */
+/* Single-sign export: composed onto a US Letter sheet through the same
+   packer as the queue, so printing at 100% yields the sign's true physical
+   size. The old sign-sized PDF page got "fit to paper"-scaled by the print
+   dialog — a 5×3 shelf sign came out nearly double size. */
 async function signToPdf(q) {
-  await Promise.all([ensureFontsLoaded(), ensurePdfLibs()]);
-  const { jsPDF } = window.jspdf;
-  const size = q.size || sizeById(q.sizeId);
-  const w = size.w, h = size.h;
-  const doc = new jsPDF({ unit: "in", format: [w, h], orientation: w > h ? "landscape" : "portrait", compress: true });
-  await ensurePdfFonts(doc);
-  const svg = await renderQueueItemSVG(q);
-  const host = document.createElement("div");
-  host.style.cssText = "position:fixed;left:-12000px;top:0;";
-  host.innerHTML = svg;
-  document.body.appendChild(host);
-  try {
-    await doc.svg(host.firstElementChild, { x: 0, y: 0, width: w, height: h });
-  } finally {
-    host.remove();
-  }
-  return doc;
+  const packed = packQueue(
+    [{ uid: (q.uid || "single") + ":0", size: sizeOfQueueItem(q), q }],
+    { margin: Settings.get().margin }
+  );
+  return pagesToPdf(packed.pages, Settings.get().cutGuides);
 }
 
 let _printBlobUrl = null;

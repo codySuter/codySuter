@@ -48,6 +48,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("#printAllBtn").onclick = () => exportQueue(true);
   $("#exportAllBtn").onclick = () => exportQueue(false);
   $("#sheetBox").addEventListener("toggle", () => { if ($("#sheetBox").open) renderSheetPreviews(); });
+  $("#selClearBtn").onclick = clearQueueSelection;
   $("#storeLineTop").textContent = Settings.get().storeLine || "Snyder's Ace Hardware";
   initBulk();
   initBackup();
@@ -470,7 +471,9 @@ function currentRenderSpec() {
 
 function validateSpec(t, spec) {
   const hidden = (f) => !!(spec.hide && spec.hide[f]);
-  const need = (f) => !hidden(f) && t.fields.some((x) => x.key === f);
+  // a field only counts if it's active in the current style (see `modes`)
+  const active = (x) => !x.modes || x.modes.includes(spec.mode);
+  const need = (f) => !hidden(f) && t.fields.some((x) => x.key === f && active(x));
   if (need("name") && !String(spec.name || "").trim() && t.id !== "under_amount") return "Enter a product name (or look up a SKU).";
   if (need("price") && !String(spec.price || "").trim()) return "Enter a price.";
   if (need("percent") && !String(spec.percent || "").trim()) return "Enter the percent off.";
@@ -518,7 +521,28 @@ function buildEditorFields(t) {
   fine.appendChild(fineBody);
   const FINE_KEYS = { unit: 1, barcode: 1, qr: 1 };
   for (const f of t.fields) {
+    // Fields tagged with `modes` only appear in the matching style (see the
+    // Big Text sign's "mode" selector).
+    if (f.modes && !f.modes.includes(App.spec.mode)) continue;
     const dest = FINE_KEYS[f.key] ? fineBody : host;
+    if (f.kind === "seg") {
+      // Segmented style picker; changing it re-filters the fields above.
+      if (App.spec[f.key] == null) App.spec[f.key] = f.def;
+      host.appendChild(labelEl(f.label));
+      const row = el("div", "seg");
+      for (const opt of f.options) {
+        const b = el("button", "seg-btn" + (App.spec[f.key] === opt.value ? " active" : ""), opt.label);
+        b.onclick = () => {
+          if (App.spec[f.key] === opt.value) return;
+          App.spec[f.key] = opt.value;
+          buildEditorFields(t);
+          schedulePreview();
+        };
+        row.appendChild(b);
+      }
+      host.appendChild(row);
+      continue;
+    }
     if (f.kind === "sku") {
       host.appendChild(labelEl(f.label));
       const inp = inputEl("text", App.spec.sku || "", "e.g. 7135975 — or paste a product URL");
@@ -1079,10 +1103,19 @@ function renderQueueVisuals() {
   });
 }
 
+/* Multi-select: tick signs in the queue to print/save just those. Lives
+   only in memory — a reload or batch load starts unselected. */
+const _qSel = new Set();
+function selectedQueueItems() {
+  return Queue.items.filter((q) => _qSel.has(q.uid));
+}
+
 function renderQueue() {
   const host = $("#queueItems");
   const count = $("#queueCount");
   count.textContent = String(Queue.totalSigns());
+  // selection can only reference rows that still exist
+  for (const uid of [..._qSel]) if (!Queue.items.some((q) => q.uid === uid)) _qSel.delete(uid);
   if (!Queue.items.length) {
     _queueSeq++; // cancel any in-flight thumbnail pass for the old contents
     host.innerHTML = `<div class="queue-empty">Queue is empty.<br>Build a sign and hit <b>＋ Add to Queue</b> — mix any types and sizes, then print them all at once.</div>`;
@@ -1138,6 +1171,16 @@ function renderQueue() {
     more.title = "More actions";
     more.onclick = (e) => { e.stopPropagation(); showQueueItemMenu(more, q, idx); };
     actions.appendChild(more);
+    const sel = el("input", "q-sel");
+    sel.type = "checkbox";
+    sel.checked = _qSel.has(q.uid);
+    sel.title = "Select — print or save just the ticked signs";
+    sel.onclick = (e) => {
+      e.stopPropagation();
+      if (sel.checked) _qSel.add(q.uid); else _qSel.delete(q.uid);
+      updateQueueButtons();
+    };
+    main.appendChild(sel);
     main.appendChild(thumb);
     main.appendChild(info);
     main.appendChild(actions);
@@ -1192,6 +1235,21 @@ function updateQueueButtons() {
   $("#exportAllBtn").disabled = !has;
   $("#clearQueueBtn").disabled = !has;
   $("#refreshPricesBtn").disabled = !has || _refreshingPrices;
+  // With a selection, the print buttons act on just the ticked signs.
+  const selItems = selectedQueueItems();
+  const nSel = selItems.reduce((a, q) => a + (q.copies || 1), 0);
+  $("#printAllBtn").textContent = nSel ? `🖨 Print Selected (${nSel})` : "🖨 Print All";
+  $("#exportAllBtn").textContent = nSel ? `Save PDF (${nSel})` : "Save PDF";
+  const bar = $("#selBar");
+  if (bar) {
+    bar.style.display = nSel ? "" : "none";
+    if (nSel) $("#selBarText").textContent = `${nSel} sign${nSel === 1 ? "" : "s"} selected —`;
+  }
+}
+
+function clearQueueSelection() {
+  _qSel.clear();
+  renderQueue();
 }
 
 function clearQueueWithUndo() {
@@ -1228,7 +1286,10 @@ function showToast(text, opts) {
 /* ---------------- price refresh ---------------- */
 /* Types whose price fields map 1:1 onto lookup results. Everything else
    (percent/BOGO/savings…) is hand-entered and left alone. */
-const PRICE_REFRESH_TYPES = { regular: true, sale: true, large_text: true };
+const PRICE_REFRESH_TYPES = {
+  regular: true, sale: true, big_text: true,
+  arrow_up: true, arrow_down: true, arrow_left: true, arrow_right: true,
+};
 let _refreshingPrices = false;
 
 /* Apply a lookup result to a sign item ({typeId, spec}) — the shared rules
@@ -1820,8 +1881,8 @@ const STALE_PRICE_DAYS = 3;
 /* Queued signs whose price is stale or was never checked. Limited to the
    types "↻ Prices" can refresh; everything else is hand-entered and has no
    SKU to look up. */
-function stalePricedItems() {
-  return Queue.items.filter((q) => {
+function stalePricedItems(items) {
+  return (items || Queue.items).filter((q) => {
     if (!PRICE_REFRESH_TYPES[q.typeId] || !String(q.spec.sku || "").trim()) return false;
     const age = priceAgeDays(q.spec);
     return age == null || age > STALE_PRICE_DAYS;
@@ -1870,9 +1931,12 @@ function promptStalePrices(stale, print) {
 
 async function exportQueue(print, opts) {
   if (!Queue.items.length) return;
-  // never print a broken sign (e.g. a bulk Was/Now still missing its
-  // NOW price would render "NOW $—") — block with a pointer instead
-  const bad = Queue.items.filter((q) => {
+  // With a selection, everything below acts on just the ticked signs.
+  const selItems = selectedQueueItems();
+  const source = selItems.length ? selItems : Queue.items;
+  // never print a broken sign (e.g. a bulk clearance sign still missing
+  // its NOW price would render "NOW $—") — block with a pointer instead
+  const bad = source.filter((q) => {
     const t = typeById(q.typeId);
     return t && validateSpec(t, q.spec);
   });
@@ -1882,7 +1946,7 @@ async function exportQueue(print, opts) {
     return;
   }
   if (!(opts && opts.skipStaleCheck)) {
-    const stale = stalePricedItems();
+    const stale = stalePricedItems(source);
     if (stale.length) {
       promptStalePrices(stale, print);
       return;
@@ -1892,7 +1956,7 @@ async function exportQueue(print, opts) {
   const orig = btn.textContent;
   btn.disabled = true;
   try {
-    const packed = packQueue(Queue.packable(), { margin: Settings.get().margin });
+    const packed = packQueue(Queue.packable(source), { margin: Settings.get().margin });
     btn.textContent = "Rendering…";
     const doc = await pagesToPdf(packed.pages, Settings.get().cutGuides, (i, n) => {
       btn.textContent = `Sheet ${i}/${n}…`;
@@ -1903,7 +1967,7 @@ async function exportQueue(print, opts) {
       const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       downloadPdfDoc(doc, `ace-signs-${stamp}.pdf`);
     }
-    History.record(print ? "print" : "pdf", Queue.items);
+    History.record(print ? "print" : "pdf", source);
   } catch (e) {
     alert("Export failed: " + friendlyError(e) + ".");
     console.error(e);

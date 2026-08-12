@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.8.2"
+VERSION="3.9.1"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="The Was/Now sign is now This Unit Only Clearance and always prints a No returns line."
+NOTES="Product Pointer arrows sit at the sign edge in their direction; Large Text and Text Only merged into one Big Text sign with a style picker."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
