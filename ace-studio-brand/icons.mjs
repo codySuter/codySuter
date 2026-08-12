@@ -25,6 +25,8 @@ for (const candidate of [
   path.join(REPO, "ace-document-studio/node_modules/playwright-core/index.mjs"),
   path.join(REPO, "ace-bay-studio/node_modules/@playwright/test/index.mjs"),
   path.join(REPO, "ace-bay-studio/node_modules/playwright-core/index.mjs"),
+  path.join(REPO, "ace-floor-studio/node_modules/@playwright/test/index.mjs"),
+  path.join(REPO, "ace-floor-studio/node_modules/playwright-core/index.mjs"),
 ]) {
   try { ({ chromium } = await import(candidate)); break; } catch {}
 }
@@ -109,6 +111,24 @@ const APPS = {
     out: [
       { file: "ace-bay-studio/build/icon.png", size: 512 },
       { file: "ace-bay-studio/build/icon.ico", ico: [16, 24, 32, 48, 64, 128, 256] },
+    ],
+  },
+  floor: {
+    name: "Ace Floor Studio",
+    html: `<!doctype html><html><head><style>${TILE_CSS}
+      .card{position:relative;width:76%;height:60%;background:#fff;border-radius:6%;overflow:hidden}
+      .bar{position:absolute;top:12%;height:52%;width:9%;border-radius:10%;background:#BCBEC0}
+      .b1{left:10%}.b2{left:26%}.b3{left:42%;background:#D40029}.b4{left:58%}.b5{left:74%;background:#15181D}
+      .front{position:absolute;left:10%;right:10%;bottom:12%;height:13%;border-radius:12%;background:#D40029}
+    </style></head><body><div class="wrap"><div class="sheen"></div>
+      <div class="card">
+        <div class="bar b1"></div><div class="bar b2"></div><div class="bar b3"></div>
+        <div class="bar b4"></div><div class="bar b5"></div>
+        <div class="front"></div>
+      </div></div></body></html>`,
+    out: [
+      { file: "ace-floor-studio/build/icon.png", size: 512 },
+      { file: "ace-floor-studio/build/icon.ico", ico: [16, 24, 32, 48, 64, 128, 256] },
     ],
   },
 };

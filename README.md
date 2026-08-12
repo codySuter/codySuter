@@ -13,6 +13,11 @@
 > that maps every OPTI container in the back-room bay aisles, with color
 > overlays and per-OPTI contents
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-bay-studio-windows/AceBayStudio.exe)) ·
+> [`ace-floor-studio/`](ace-floor-studio/) — **Ace Floor Studio**, a Windows
+> app that draws the sales-floor fixture plan and heat-colors every bay from
+> an Epicor Compass export — count currency, dead stock, on-hand accuracy,
+> and more
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-floor-studio-windows/AceFloorStudio.exe)) ·
 > [`ace-layout-studio/`](ace-layout-studio/) — **Ace Layout Studio**, a
 > zero-install browser app for drawing top-down store shelving blueprints with
 > snap placement, location codes & inch-exact aisle measurements ·
