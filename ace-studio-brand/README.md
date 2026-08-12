@@ -22,6 +22,7 @@ Every icon is the **same red tile** holding a **different white subject card**:
 |---|---|---|
 | **Ace Sign Studio** | Landscape (a shelf sign) | Black `SALE` chip + big red `$9⁹⁹` price |
 | **Ace Document Studio** | Portrait (a document) | Red header bar, title rule, checklist rows |
+| **Ace Bay Studio** | Landscape (the bay map) | 4×3 grid of gray bins, three painted red, one ink |
 | *Future app* | Pick the app's canvas shape | One or two bold marks in brand inks, readable at 32 px |
 
 Rules of thumb for a new sibling: keep the tile byte-identical (it comes from
@@ -34,6 +35,7 @@ count), and make sure the 16 px render still reads as "white card on red tile".
 node ace-studio-brand/icons.mjs            # all apps
 node ace-studio-brand/icons.mjs sign       # just Ace Sign Studio
 node ace-studio-brand/icons.mjs document     # just Ace Document Studio
+node ace-studio-brand/icons.mjs bay        # just Ace Bay Studio
 ```
 
 Renders the HTML templates in headless Chromium at every size and writes
@@ -45,6 +47,7 @@ straight into each app's icon locations:
   ([go-winres](https://github.com/tc-hib/go-winres)).
 - `ace-document-studio/build/icon.png` (512) + `build/icon.ico`
   (16–256, PNG-compressed entries) — electron-builder picks these up as-is.
+- `ace-bay-studio/build/icon.png` (512) + `build/icon.ico` — same deal.
 - `ace-studio-brand/previews/*.png` (512) — for eyeballing the family
   side by side.
 
