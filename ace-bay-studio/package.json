@@ -1,0 +1,63 @@
+{
+  "name": "ace-bay-studio",
+  "productName": "Ace Bay Studio",
+  "version": "1.0.0",
+  "description": "The back-room bay aisles at a glance — every OPTI container as an icon, color overlays to flag groups of them, and per-OPTI contents with CSV import.",
+  "author": "Cody Suter",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:app": "concurrently -k -n vite,electron -c magenta,green \"vite\" \"wait-on tcp:5174 && electron .\"",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "preview": "vite preview --port 4174 --strictPort",
+    "test": "playwright test",
+    "icon": "node ../ace-studio-brand/icons.mjs bay",
+    "dist:win": "vite build && electron-builder --win portable"
+  },
+  "dependencies": {
+    "@fontsource/roboto": "^5.2.5",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.18.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@tailwindcss/vite": "^4.3.1",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.1.2",
+    "electron": "^43.1.0",
+    "electron-builder": "^26.0.12",
+    "tailwindcss": "^4.3.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.0",
+    "wait-on": "^9.0.1"
+  },
+  "build": {
+    "appId": "com.snydersace.baystudio",
+    "productName": "Ace Bay Studio",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "AceBayStudio.exe"
+    }
+  }
+}

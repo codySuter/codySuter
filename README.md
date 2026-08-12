@@ -9,6 +9,10 @@
 > (formerly Ace Policy Studio), a Windows app for designing Snyder's Ace
 > Hardware policy, procedure & store documents
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows/AceDocumentStudio.exe)) ·
+> [`ace-bay-studio/`](ace-bay-studio/) — **Ace Bay Studio**, a Windows app
+> that maps every OPTI container in the back-room bay aisles, with color
+> overlays and per-OPTI contents
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-bay-studio-windows/AceBayStudio.exe)) ·
 > [`ace-studio-brand/`](ace-studio-brand/) — the shared **Ace Studio** app-icon
 > style both apps (and future siblings) draw from.
 

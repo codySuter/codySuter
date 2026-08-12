@@ -23,6 +23,8 @@ for (const candidate of [
   path.join(REPO, "ace-sign-studio/e2e/node_modules/playwright/index.mjs"),
   path.join(REPO, "ace-document-studio/node_modules/@playwright/test/index.mjs"),
   path.join(REPO, "ace-document-studio/node_modules/playwright-core/index.mjs"),
+  path.join(REPO, "ace-bay-studio/node_modules/@playwright/test/index.mjs"),
+  path.join(REPO, "ace-bay-studio/node_modules/playwright-core/index.mjs"),
 ]) {
   try { ({ chromium } = await import(candidate)); break; } catch {}
 }
@@ -87,6 +89,26 @@ const APPS = {
     out: [
       { file: "ace-document-studio/build/icon.png", size: 512 },
       { file: "ace-document-studio/build/icon.ico", ico: [16, 24, 32, 48, 64, 128, 256] },
+    ],
+  },
+  bay: {
+    name: "Ace Bay Studio",
+    html: `<!doctype html><html><head><style>${TILE_CSS}
+      .card{position:relative;width:76%;height:60%;background:#fff;border-radius:6%;
+        display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);
+        gap:4.5%;padding:7%;box-sizing:border-box}
+      .bin{border-radius:14%;background:#BCBEC0}
+      .bin.red{background:#D40029}
+      .bin.ink{background:#15181D}
+    </style></head><body><div class="wrap"><div class="sheen"></div>
+      <div class="card">
+        <div class="bin red"></div><div class="bin"></div><div class="bin"></div><div class="bin ink"></div>
+        <div class="bin"></div><div class="bin red"></div><div class="bin"></div><div class="bin"></div>
+        <div class="bin"></div><div class="bin"></div><div class="bin red"></div><div class="bin"></div>
+      </div></div></body></html>`,
+    out: [
+      { file: "ace-bay-studio/build/icon.png", size: 512 },
+      { file: "ace-bay-studio/build/icon.ico", ico: [16, 24, 32, 48, 64, 128, 256] },
     ],
   },
 };
