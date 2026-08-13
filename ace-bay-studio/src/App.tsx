@@ -14,13 +14,14 @@ const RELEASE_PAGE = 'https://github.com/codysuter/codysuter/releases/tag/ace-ba
 
 export default function App() {
   const map = useBay((s) => s.map);
+  const area = useBay((s) => s.area);
   const tool = useBay((s) => s.tool);
   const search = useBay((s) => s.search);
   const selectedBinId = useBay((s) => s.selectedBinId);
   const settingsOpen = useBay((s) => s.settingsOpen);
   const toast = useBay((s) => s.toast);
   const activeOverlayId = useBay((s) => s.activeOverlayId);
-  const { init, setTool, setSearch, setSettingsOpen, showToast, restoreMap } = useBay.getState();
+  const { init, setArea, setTool, setSearch, setSettingsOpen, showToast, restoreMap } = useBay.getState();
 
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -92,13 +93,16 @@ export default function App() {
 
   let total = 0;
   let labeled = 0;
-  for (const aisle of map.aisles)
-    for (const bank of aisle.banks)
-      for (const row of bank.shelves)
-        for (const bin of row) {
-          total++;
-          if (bin.label.trim() !== '') labeled++;
-        }
+  const tally = (bin: { label: string }) => {
+    total++;
+    if (bin.label.trim() !== '') labeled++;
+  };
+  if (area === 'floor') {
+    map.floor.forEach(tally);
+  } else {
+    for (const aisle of map.aisles)
+      for (const bank of aisle.banks) for (const row of bank.shelves) row.forEach(tally);
+  }
   const activeOverlay = map.overlays.find((o) => o.id === activeOverlayId);
 
   return (
@@ -121,13 +125,38 @@ export default function App() {
             </a>
           )}
           <span className="text-[12px] font-bold text-white/90" data-testid="labeled-count">
-            {labeled} / {total} OPTIs labeled
+            {labeled} / {total} {area === 'floor' ? 'locations' : 'OPTIs'} labeled
           </span>
         </div>
       </header>
 
       {/* toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-[#dcdee1] bg-white px-4 py-2">
+        <div className="inline-flex overflow-hidden rounded-md border border-[#d6d9dc]">
+          <button
+            type="button"
+            data-testid="area-bays"
+            onClick={() => setArea('bays')}
+            className={clsx(
+              'cursor-pointer px-3 py-1.5 text-[13px] font-bold',
+              area === 'bays' ? 'bg-[#D40029] text-white' : 'bg-white text-[#31353b] hover:bg-[#f5f6f7]',
+            )}
+          >
+            Back room
+          </button>
+          <button
+            type="button"
+            data-testid="area-floor"
+            onClick={() => setArea('floor')}
+            className={clsx(
+              'cursor-pointer border-l border-[#d6d9dc] px-3 py-1.5 text-[13px] font-bold',
+              area === 'floor' ? 'bg-[#D40029] text-white' : 'bg-white text-[#31353b] hover:bg-[#f5f6f7]',
+            )}
+          >
+            Sales floor
+          </button>
+        </div>
+
         <div className="inline-flex overflow-hidden rounded-md border border-[#d6d9dc]">
           <button
             type="button"

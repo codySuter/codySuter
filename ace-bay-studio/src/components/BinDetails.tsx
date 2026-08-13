@@ -2,6 +2,7 @@ import { clsx } from 'clsx';
 import { useState } from 'react';
 import type { BayMap } from '../model/types';
 import { addressText, findBin } from '../model/layout';
+import { ageDays, binFreshnessColor, binOldestPhysical } from '../model/freshness';
 import { useBay } from '../store';
 import { ArmedDelete, Button } from './ui';
 
@@ -21,11 +22,16 @@ export default function BinDetails({ map, binId }: { map: BayMap; binId: string 
   const found = findBin(map, binId);
   if (!found) return null;
   const { bin, address } = found;
+  const isFloor = address.kind === 'floor';
+  const oldest = binOldestPhysical(bin);
+  const now = Date.now();
 
   return (
     <div className="flex h-full flex-col" data-testid="bin-details">
       <div className="flex items-center justify-between border-b border-[#e4e6e8] px-4 py-3">
-        <h2 className="text-[13px] font-black tracking-[0.08em] text-[#15181d] uppercase">OPTI details</h2>
+        <h2 className="text-[13px] font-black tracking-[0.08em] text-[#15181d] uppercase">
+          {isFloor ? 'Location details' : 'OPTI details'}
+        </h2>
         <button
           type="button"
           data-testid="details-close"
@@ -47,10 +53,20 @@ export default function BinDetails({ map, binId }: { map: BayMap; binId: string 
             className="abs-input w-[104px] rounded-lg border border-[#d6d9dc] px-2 py-1 text-center text-[26px] font-black text-[#15181d]"
           />
           <div className="text-[12px] leading-snug text-[#6d6e71]">
-            <div className="font-bold text-[#31353b] uppercase">OPTI number</div>
+            <div className="font-bold text-[#31353b] uppercase">{isFloor ? 'Location code' : 'OPTI number'}</div>
             {addressText(address)}
           </div>
         </div>
+
+        {oldest && (
+          <div className="mt-3 flex items-center gap-2 rounded-md bg-[#f7f8f9] px-2.5 py-1.5 text-[12px] text-[#31353b]" data-testid="bin-freshness">
+            <span
+              className="h-3.5 w-3.5 shrink-0 rounded-[4px] border border-black/15"
+              style={{ backgroundColor: binFreshnessColor(bin, map.freshness, now) ?? undefined }}
+            />
+            Last physical (oldest item): <b>{oldest}</b> — {ageDays(oldest, now)} days ago
+          </div>
+        )}
 
         <div className="mt-4">
           <div className="mb-1.5 text-[11px] font-bold tracking-[0.1em] text-[#8a9099] uppercase">Overlays</div>
@@ -120,6 +136,7 @@ export default function BinDetails({ map, binId }: { map: BayMap; binId: string 
                   qty={it.qty}
                   sku={it.sku}
                   note={it.note}
+                  lastPhysical={it.lastPhysical}
                   onChange={(patch) => updateBinItem(binId, it.id, patch)}
                   onRemove={() => removeBinItem(binId, it.id)}
                 />
@@ -149,6 +166,7 @@ function ItemRow({
   qty,
   sku,
   note,
+  lastPhysical,
   onChange,
   onRemove,
 }: {
@@ -156,7 +174,8 @@ function ItemRow({
   qty: string;
   sku: string;
   note: string;
-  onChange: (patch: { name?: string; qty?: string; sku?: string; note?: string }) => void;
+  lastPhysical: string;
+  onChange: (patch: { name?: string; qty?: string; sku?: string; note?: string; lastPhysical?: string }) => void;
   onRemove: () => void;
 }) {
   const [armed, setArmed] = useState(false);
@@ -179,14 +198,24 @@ function ItemRow({
           value={qty}
           onChange={(e) => onChange({ qty: e.target.value })}
           placeholder="Qty"
-          className={clsx(field, 'w-[52px] text-center')}
+          className={clsx(field, 'w-[48px] text-center')}
         />
         <input
           value={sku}
           onChange={(e) => onChange({ sku: e.target.value })}
           placeholder="SKU"
-          className={clsx(field, 'w-[96px]')}
+          className={clsx(field, 'w-[88px]')}
         />
+        <input
+          data-testid="item-lastphys"
+          value={lastPhysical}
+          onChange={(e) => onChange({ lastPhysical: e.target.value })}
+          placeholder="Last phys."
+          title="Date Last Physical (from Eagle) — YYYY-MM-DD or MM/DD/YYYY"
+          className={clsx(field, 'w-full min-w-0')}
+        />
+      </div>
+      <div className="mt-1 flex items-center gap-1.5">
         <input
           value={note}
           onChange={(e) => onChange({ note: e.target.value })}

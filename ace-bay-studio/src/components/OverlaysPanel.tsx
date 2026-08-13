@@ -1,6 +1,8 @@
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import type { BayMap, Overlay } from '../model/types';
+import { allBins } from '../model/layout';
+import { ageDays, binOldestPhysical, freshnessColor } from '../model/freshness';
 import { OVERLAY_COLORS, overlayBinCount, useBay } from '../store';
 import { ArmedDelete, Button } from './ui';
 
@@ -133,6 +135,98 @@ function OverlayRow({ overlay, map }: { overlay: Overlay; map: BayMap }) {
   );
 }
 
+/**
+ * The built-in "how old is the data?" preset: colors every location
+ * red→green by the oldest Date Last Physical among its items.
+ */
+function FreshnessPresetRow({ map }: { map: BayMap }) {
+  const { updateFreshness } = useBay.getState();
+  const f = map.freshness;
+  const now = Date.now();
+
+  // fresh (≤ green), stale (≥ red), aging (between), plus no-data count.
+  let fresh = 0;
+  let aging = 0;
+  let stale = 0;
+  let dated = 0;
+  for (const { bin } of allBins(map)) {
+    const oldest = binOldestPhysical(bin);
+    if (!oldest) continue;
+    dated++;
+    const days = ageDays(oldest, now);
+    if (days <= f.greenDays) fresh++;
+    else if (days >= f.redDays) stale++;
+    else aging++;
+  }
+
+  const dayInput = (value: number, patch: (v: number) => void, testid: string) => (
+    <input
+      type="number"
+      min={0}
+      value={value}
+      data-testid={testid}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        const v = Math.max(0, Number(e.target.value) || 0);
+        patch(v);
+      }}
+      className="abs-input w-[54px] rounded-md border border-[#d6d9dc] px-1 py-0.5 text-center text-[12px] font-bold text-[#15181d]"
+    />
+  );
+
+  return (
+    <div
+      data-testid="freshness-preset"
+      className={clsx(
+        'rounded-lg border px-2 py-2',
+        f.enabled ? 'border-[#2E933C] bg-[#f4faf5]' : 'border-[#e4e6e8] bg-white',
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="h-6 w-6 shrink-0 rounded-md border border-black/15"
+          style={{ background: 'linear-gradient(135deg,#2E933C 0%,#FAA227 50%,#D40029 100%)' }}
+          title="Built-in preset"
+        />
+        <span className="w-full text-[13px] font-bold text-[#15181d]">How old is the data?</span>
+        <button
+          type="button"
+          data-testid="freshness-toggle"
+          title={f.enabled ? 'Turn the age coloring off' : 'Color locations by Date Last Physical'}
+          onClick={() => updateFreshness({ enabled: !f.enabled })}
+          className={clsx(
+            'shrink-0 cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-bold',
+            f.enabled ? 'bg-[#2E933C] text-white' : 'bg-[#f3f4f5] text-[#6d6e71] hover:bg-[#e8eaec]',
+          )}
+        >
+          {f.enabled ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      <div className="mt-2 h-[8px] rounded-full" style={{ background: 'linear-gradient(90deg,#2E933C,#FAA227,#D40029)' }} />
+      <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#6d6e71]">
+        <label className="flex items-center gap-1">
+          green ≤ {dayInput(f.greenDays, (v) => updateFreshness({ greenDays: v }), 'freshness-green')} d
+        </label>
+        <label className="flex items-center gap-1">
+          red ≥ {dayInput(f.redDays, (v) => updateFreshness({ redDays: v }), 'freshness-red')} d
+        </label>
+      </div>
+      <div className="mt-1.5 text-[11px] text-[#6d6e71]" data-testid="freshness-stats">
+        {dated === 0 ? (
+          <>No dated items yet — import a Compass CSV with a Date Last Physical column.</>
+        ) : (
+          <>
+            <b style={{ color: freshnessColor(0, f) }}>{fresh} fresh</b> ·{' '}
+            <b style={{ color: '#c47d13' }}>{aging} aging</b> ·{' '}
+            <b style={{ color: freshnessColor(f.redDays, f) }}>{stale} stale</b> — by each location's
+            oldest Date Last Physical
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function OverlaysPanel({ map }: { map: BayMap }) {
   const tool = useBay((s) => s.tool);
   const { addOverlay } = useBay.getState();
@@ -145,6 +239,7 @@ export default function OverlaysPanel({ map }: { map: BayMap }) {
         </Button>
       </div>
       <div className="abs-scroll flex-1 space-y-2 overflow-y-auto px-4 py-3">
+        <FreshnessPresetRow map={map} />
         {map.overlays.length === 0 ? (
           <p className="text-[13px] leading-relaxed text-[#6d6e71]">
             Overlays are colored washes you paint across OPTIs — one for Christmas, one for grills,
