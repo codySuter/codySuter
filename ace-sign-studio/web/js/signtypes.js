@@ -169,6 +169,23 @@ const SIGN_TYPES = [
     sample: { name: "PROPANE REFILLS", price: "17.99", mode: "priced" },
   },
   {
+    id: "stihl_clearance", hideable: ["logo", "image", "sku"], group: "Specialty", label: "STIHL Clearance",
+    note: "Loud clearance sign + shop-inspected policy",
+    fields: [
+      { key: "mode", kind: "seg", label: "Pricing", def: "now", options: [
+        { value: "now", label: "Clearance price" },
+        { value: "wasnow", label: "Was / Now" },
+      ] },
+      F.sku,
+      Object.assign({}, F.name, { label: "Machine / model" }),
+      Object.assign({}, F.regPrice, { label: "Was price", modes: ["wasnow"] }),
+      Object.assign({}, F.price, { label: "Clearance price" }),
+      F.image, F.dates,
+    ],
+    render: (spec, w, h) => AceRenderers.stihl_clearance(spec, w, h),
+    sample: { name: "STIHL MS 271 Farm Boss", price: "399.00", regPrice: "479.00", mode: "wasnow" },
+  },
+  {
     id: "arrow_up", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Up",
     note: "Regular price + big arrow up to the product",
     fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
