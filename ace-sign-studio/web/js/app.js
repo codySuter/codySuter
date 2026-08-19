@@ -480,6 +480,7 @@ function validateSpec(t, spec) {
   if (need("savings") && !String(spec.savings || "").trim()) return "Enter the savings amount.";
   if (need("category") && !String(spec.category || "").trim()) return "Enter the category name.";
   if (t.id === "was_now" && !String(spec.regPrice || "").trim()) return "Enter the was price.";
+  if (t.id === "stihl_clearance" && spec.mode === "wasnow" && !String(spec.regPrice || "").trim()) return "Enter the was price.";
   return null;
 }
 
@@ -1287,7 +1288,7 @@ function showToast(text, opts) {
 /* Types whose price fields map 1:1 onto lookup results. Everything else
    (percent/BOGO/savings…) is hand-entered and left alone. */
 const PRICE_REFRESH_TYPES = {
-  regular: true, sale: true, big_text: true,
+  regular: true, sale: true, big_text: true, stihl_clearance: true,
   arrow_up: true, arrow_down: true, arrow_left: true, arrow_right: true,
 };
 let _refreshingPrices = false;

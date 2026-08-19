@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.10.0",
+    date: "August 2026",
+    notes: [
+      "New: STIHL Clearance sign (under Specialty). A loud red “STIHL CLEARANCE” banner up top, the machine name and photo, and the clearance price — with a Was / Now option to show the markdown. Every one prints the store's clearance policy in fine print: this unit only, inspected by our mechanic and it runs, factory warranty covers mechanical issues only (not cosmetic), and all clearance STIHL sales are final.",
+    ],
+  },
+  {
     version: "3.9.1",
     date: "August 2026",
     notes: [

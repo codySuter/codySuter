@@ -858,6 +858,107 @@ AceRenderers.big_text = (spec, W_in, H_in) =>
     ? AceRenderers.text_only(spec, W_in, H_in)
     : AceRenderers.large_text(spec, W_in, H_in);
 
+/* STIHL Clearance — a loud clearance sign for shop-inspected STIHL units,
+   with the store's clearance policy printed as fine print. mode "wasnow"
+   shows a WAS/NOW price; otherwise a single clearance price. */
+const STIHL_POLICY = [
+  "This unit only — priced as marked",
+  "Inspected by our mechanic — it runs",
+  "Factory warranty applies to mechanical issues only, not cosmetic",
+  "All clearance STIHL sales are final — no returns",
+];
+AceRenderers.stihl_clearance = async (spec, W_in, H_in) => {
+  const W = W_in * PPI, H = H_in * PPI;
+  const small = Math.min(W_in, H_in) <= 5.6;
+  const frame = signFrame(W, H);
+  const noLogo = spec.showLogo === false;
+  const logoURI = noLogo ? null : await getLogoURI();
+  const dates = formatSaleDates(spec.startDate, spec.endDate);
+  const header = signHeader(W, H, frame, logoURI, dates, small, noLogo, elemScale(spec, "logo"));
+  const footer = skuFooter(W, H, frame, spec.sku, spec.detail, spec.storeLine, spec.barcode, elemScale(spec, "footer"), qrURLFor(spec));
+  const cx = W / 2;
+  const maxW = W - 2 * frame.margin - 2 * Math.max(10, W * 0.03);
+  const contentTop = header.contentTop;
+  const contentBottom = H - frame.margin - footer.reserved;
+  const contentH = contentBottom - contentTop;
+  const gap = Math.max(6, contentH * 0.02);
+  let markup = frame.markup + header.markup + footer.markup;
+
+  let imgURI = null, imgNat = { w: 1, h: 1 };
+  if (spec.image) {
+    try { imgURI = await toDataURI(spec.image, "jpeg"); imgNat = await imageSize(imgURI); } catch (e) {}
+  }
+
+  // --- loud CLEARANCE banner across the top ---
+  const bannerH = Math.max(28, contentH * 0.15);
+  const bannerText = "STIHL CLEARANCE";
+  const bSize = Math.min(bannerH * 0.6, fitTextSize(bannerText, "RobotoBlack", bannerH * 0.6, maxW - bannerH * 0.4));
+  markup += roundRect(cx - maxW / 2, contentTop, maxW, bannerH, Math.min(10, bannerH * 0.16), ACE_RED);
+  markup += svgText(cx, contentTop + bannerH / 2 + bSize * 0.35, bannerText, "RobotoBlack", bSize, "#fff",
+    { letterSpacing: (bSize * 0.04).toFixed(2) });
+
+  // --- policy fine print anchored to the bottom ---
+  const polSize = Math.max(7.5, Math.min(contentH * 0.032, maxW / 46));
+  const polLineH = polSize * 1.4;
+  const policyH = STIHL_POLICY.length * polLineH + polSize;
+  const policyTop = contentBottom - policyH;
+  markup += `<line x1="${(cx - maxW / 2).toFixed(2)}" y1="${policyTop.toFixed(2)}" x2="${(cx + maxW / 2).toFixed(2)}" y2="${policyTop.toFixed(2)}" stroke="${GRAY5}" stroke-width="1"/>`;
+  let py = policyTop + polSize + polLineH * 0.7;
+  for (const line of STIHL_POLICY) {
+    const ps = Math.min(polSize, fitTextSize(line, "RobotoMedium", polSize, maxW));
+    markup += svgText(cx, py, line, "RobotoMedium", ps, GRAY11);
+    py += polLineH;
+  }
+
+  // --- middle: product name, optional photo, price ---
+  const midTop = contentTop + bannerH + gap;
+  const midBottom = policyTop - gap;
+  const midH = Math.max(40, midBottom - midTop);
+  const hasPrice = !!String(spec.price || "").trim();
+  const wasNow = spec.mode === "wasnow" && !!String(spec.regPrice || "").trim();
+
+  const nameFit = balancedLines(spec.name || "", "RobotoBold", midH * 0.2 * elemScale(spec, "name"), maxW, 2);
+  const nameH = spec.name ? nameFit.lines.length * (nameFit.size + nameFit.size * 0.16) : 0;
+  const priceH = hasPrice ? midH * (wasNow ? 0.42 : 0.36) : 0;
+  const imgH = imgURI ? Math.max(0, midH - nameH - priceH - gap * 2) * 0.96 : 0;
+
+  const parts = [];
+  if (spec.name) parts.push(nameH);
+  if (imgURI && imgH > 20) parts.push(imgH);
+  if (hasPrice) parts.push(priceH);
+  const st = stack(midTop, midH, parts, 0.04);
+  let y = st.start;
+  if (spec.name) {
+    const nb = nameBlock(cx, y, spec.name, maxW, nameFit.size);
+    markup += nb.markup;
+    y += nameH + st.gap;
+  }
+  if (imgURI && imgH > 20) {
+    const im = imageMarkup(imgURI, imgNat, cx, y, maxW * 0.8, imgH);
+    markup += im.markup;
+    y += imgH + st.gap;
+  }
+  if (hasPrice) {
+    let py2 = y;
+    if (wasNow) {
+      const wasText = `WAS ${fmtMoney(spec.regPrice)}`;
+      let wSz = Math.max(11, priceH * 0.26);
+      const wW = () => textWidth(wasText, "RobotoBold", wSz);
+      if (wW() > maxW * 0.8) wSz *= (maxW * 0.8) / wW();
+      markup += svgText(cx, py2 + wSz * 0.85, wasText, "RobotoBold", wSz, GRAY11);
+      const strikeY = py2 + wSz * 0.55, strikeW = wW();
+      markup += `<line x1="${(cx - strikeW / 2 - wSz * 0.12).toFixed(2)}" y1="${strikeY.toFixed(2)}" x2="${(cx + strikeW / 2 + wSz * 0.12).toFixed(2)}" y2="${strikeY.toFixed(2)}" stroke="${ACE_RED}" stroke-width="${Math.max(1.6, wSz * 0.09).toFixed(2)}"/>`;
+      py2 += wSz * 1.35;
+      const blk = priceBlockMarkup(cx, py2, spec.price, priceH - wSz * 1.35, maxW, { pre: "NOW " });
+      markup += blk.markup;
+    } else {
+      const blk = priceBlockMarkup(cx, py2, spec.price, priceH, maxW, {});
+      markup += blk.markup;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
+};
+
 AceRenderers.large_text = async (spec, W_in, H_in) => {
   const W = W_in * PPI, H = H_in * PPI;
   const frame = signFrame(W, H);
