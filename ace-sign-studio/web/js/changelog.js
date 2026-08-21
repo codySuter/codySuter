@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.10.1",
+    date: "August 2026",
+    notes: [
+      "The dashed laminate cut line now has squared corners instead of rounded ones — same line, same spot, just easier to follow with a straightedge into the corners.",
+    ],
+  },
+  {
     version: "3.10.0",
     date: "August 2026",
     notes: [

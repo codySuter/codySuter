@@ -412,7 +412,7 @@ function withCutGuide(svg, Win, Hin, cutIn) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
     `<rect width="${W}" height="${H}" fill="#ffffff"/>` +
     `<g transform="translate(${c.toFixed(2)},${c.toFixed(2)})">${body}</g>` +
-    `<rect x="${c.toFixed(2)}" y="${c.toFixed(2)}" width="${(W - 2 * c).toFixed(2)}" height="${(H - 2 * c).toFixed(2)}" rx="${(8 * k).toFixed(2)}" fill="none" stroke="#AAAAAA" stroke-width="${(0.6 * k).toFixed(2)}" stroke-dasharray="${(4 * k).toFixed(2)} ${(2 * k).toFixed(2)}"/>` +
+    `<rect x="${c.toFixed(2)}" y="${c.toFixed(2)}" width="${(W - 2 * c).toFixed(2)}" height="${(H - 2 * c).toFixed(2)}" fill="none" stroke="#AAAAAA" stroke-width="${(0.6 * k).toFixed(2)}" stroke-dasharray="${(4 * k).toFixed(2)} ${(2 * k).toFixed(2)}"/>` +
     `</svg>`;
 }
 
