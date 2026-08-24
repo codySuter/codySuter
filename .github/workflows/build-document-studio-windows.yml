@@ -39,6 +39,9 @@ jobs:
       - name: Build renderer
         run: npm run build
 
+      - name: Sync merge-semantics unit tests
+        run: npm run test:merge
+
       - name: Renderer E2E (Playwright)
         run: |
           npx playwright install chromium

@@ -14,6 +14,29 @@ export interface BackupEntry {
   count: number;
 }
 
+// Multi-PC sync (desktop app only): the library and saved templates are
+// shared through a private GitHub repo — see electron/sync.cjs.
+export interface SyncSettings {
+  on: boolean;
+  repo: string;
+  token: string;
+  name: string;
+}
+
+export interface SyncStatus {
+  supported: boolean;
+  enabled: boolean;
+  configured: boolean;
+  busy: boolean;
+  lastSyncAt: number | null;
+  lastError: string | null;
+}
+
+export interface SyncEvent {
+  kind: 'remote-update' | 'status';
+  applied?: number;
+}
+
 export interface StudioApi {
   isElectron: boolean;
   listDocs(): Promise<StudioDoc[]>;
@@ -45,6 +68,12 @@ export interface StudioApi {
   // OS clipboard (block copy/paste works across documents and windows).
   readClipboardText(): Promise<string>;
   writeClipboardText(text: string): Promise<void>;
+  // Multi-PC library sync (null / unsupported in the browser build).
+  syncGetSettings(): Promise<SyncSettings | null>;
+  syncSetSettings(next: SyncSettings): Promise<{ ok: boolean; error?: string }>;
+  syncStatus(): Promise<SyncStatus>;
+  syncNow(): Promise<SyncStatus | null>;
+  onSync(handler: (event: SyncEvent) => void): () => void;
 }
 
 declare global {
@@ -257,6 +286,28 @@ const browserApi: StudioApi = {
     } catch {
       // Clipboard unavailable (permissions) — copy silently fails.
     }
+  },
+  async syncGetSettings() {
+    return null;
+  },
+  async syncSetSettings() {
+    return { ok: false, error: 'Multi-PC sync is available in the desktop app.' };
+  },
+  async syncStatus() {
+    return {
+      supported: false,
+      enabled: false,
+      configured: false,
+      busy: false,
+      lastSyncAt: null,
+      lastError: null,
+    };
+  },
+  async syncNow() {
+    return null;
+  },
+  onSync() {
+    return () => {};
   },
 };
 

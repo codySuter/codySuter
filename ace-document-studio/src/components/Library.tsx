@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, BookCopy, Copy, Download, Pencil, Plus, Save, Trash2, Upload } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { api } from '../api';
+import { useEffect, useMemo, useState } from 'react';
+import { api, type SyncStatus } from '../api';
+import { syncStatusText } from './SyncSettings';
 import { runBackup, runImport } from '../App';
 import { plainText } from '../model/sanitize';
 import { docSearchText } from '../model/slots';
@@ -274,6 +275,21 @@ export function Library() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [compiling, setCompiling] = useState(false);
+  const [syncStat, setSyncStat] = useState<SyncStatus | null>(null);
+
+  // Small sync readout in the footer (desktop app, when sync is on).
+  useEffect(() => {
+    let dead = false;
+    const tick = () => void api.syncStatus().then((s) => !dead && setSyncStat(s));
+    tick();
+    const timer = setInterval(tick, 30_000);
+    const off = api.onSync(() => tick());
+    return () => {
+      dead = true;
+      clearInterval(timer);
+      off();
+    };
+  }, []);
 
   // Search runs over everything on the page — title, badges, bullets,
   // table cells — not just the header fields.
@@ -422,6 +438,19 @@ export function Library() {
             className="shrink-0 cursor-pointer font-bold tracking-[0.04em] text-[#C8102E] uppercase hover:underline"
           >
             {statusAction.label}
+          </button>
+        )}
+        {syncStat?.supported && (syncStat.enabled || syncStat.lastError) && (
+          <button
+            type="button"
+            data-testid="sync-footer"
+            title="Sync with the other store computers — click for settings"
+            onClick={() => setModal('sync')}
+            className={`ml-auto shrink-0 cursor-pointer text-[11px] hover:underline ${
+              syncStat.lastError ? 'font-semibold text-[#C8102E]' : 'text-[#6D6E71]'
+            }`}
+          >
+            {syncStatusText(syncStat)}
           </button>
         )}
       </footer>

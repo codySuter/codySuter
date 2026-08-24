@@ -33,4 +33,9 @@ contextBridge.exposeInMainWorld('aps', {
   restoreBackup: (file) => ipcRenderer.invoke('backups:restore', file),
   readClipboardText: async () => clipboard.readText(),
   writeClipboardText: async (text) => clipboard.writeText(String(text)),
+  syncGetSettings: () => ipcRenderer.invoke('sync:settings-get'),
+  syncSetSettings: (next) => ipcRenderer.invoke('sync:settings-set', next),
+  syncStatus: () => ipcRenderer.invoke('sync:status'),
+  syncNow: () => ipcRenderer.invoke('sync:now'),
+  onSync: on('sync'),
 });

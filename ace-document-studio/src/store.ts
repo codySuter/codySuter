@@ -32,6 +32,7 @@ export type ModalName =
   | 'history'
   | 'backups'
   | 'saveTemplate'
+  | 'sync'
   | null;
 
 export interface FocusedCell {

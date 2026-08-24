@@ -5,10 +5,11 @@
 // #/print/<id> and #/compile/<ids> routes) and use Chromium's print
 // engine: Letter paper, 0.4in margins, backgrounds on — identical
 // geometry to the original policy docs.
-const { app, BrowserWindow, Menu, dialog, ipcMain, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeImage, session, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
+const { createSync } = require('./sync.cjs');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || '';
 const isDev = !!DEV_URL;
@@ -26,6 +27,7 @@ const PAGE_W_PX = 816; // 8.5in at 96dpi
 const PNG_ZOOM = 2; // ~192dpi exports
 
 let mainWindow = null;
+let sync = null; // multi-PC library sync (created once settings are loaded)
 const printResolvers = new Map(); // webContents.id -> resolve(info)
 
 // ---- small file helpers ----
@@ -244,11 +246,10 @@ ipcMain.handle('docs:save', async (_e, doc) => {
   // so each editing stretch leaves a restorable trail.
   maybeSnapshot(doc.id);
   await writeJsonAtomic(path.join(docsDir(), `${safeId(doc.id)}.json`), doc);
+  sync?.request();
 });
 
-// Soft delete: the file moves to the trash and stays restorable for 30
-// days; the renderer offers an immediate Undo.
-ipcMain.handle('docs:delete', async (_e, id) => {
+async function moveDocToTrash(id) {
   const from = path.join(docsDir(), `${safeId(id)}.json`);
   if (!fs.existsSync(from)) return;
   const to = path.join(trashDir(), `${Date.now()}-${safeId(id)}.json`);
@@ -259,6 +260,14 @@ ipcMain.handle('docs:delete', async (_e, id) => {
     await fsp.copyFile(from, to);
     await fsp.rm(from, { force: true });
   }
+}
+
+// Soft delete: the file moves to the trash and stays restorable for 30
+// days; the renderer offers an immediate Undo. Sync records a tombstone
+// so the deletion propagates to the other computers.
+ipcMain.handle('docs:delete', async (_e, id) => {
+  await moveDocToTrash(id);
+  sync?.recordDocDelete(safeId(id));
 });
 
 function pruneTrash() {
@@ -302,6 +311,7 @@ ipcMain.handle('docs:import', async () => {
         added++;
       }
     }
+    if (added > 0) sync?.request();
     return { ok: true, added };
   } catch (err) {
     return { ok: false, error: String((err && err.message) || err) };
@@ -417,6 +427,7 @@ ipcMain.handle('backups:restore', async (_e, file) => {
       await writeJsonAtomic(path.join(dir, `${id}.json`), doc);
       count++;
     }
+    sync?.request();
     return { ok: true, count };
   } catch (err) {
     return { ok: false, error: String((err && err.message) || err) };
@@ -448,6 +459,7 @@ ipcMain.handle('templates:save', async (_e, { name, doc }) => {
       savedAt: Date.now(),
       doc,
     });
+    sync?.request();
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String((err && err.message) || err) };
@@ -456,6 +468,23 @@ ipcMain.handle('templates:save', async (_e, { name, doc }) => {
 
 ipcMain.handle('templates:delete', async (_e, id) => {
   await fsp.rm(path.join(templatesDir(), `${safeId(id)}.json`), { force: true });
+  sync?.recordTemplateDelete(safeId(id));
+});
+
+// ---- multi-PC sync (see electron/sync.cjs) ----
+
+ipcMain.handle('sync:settings-get', async () => (sync ? sync.getUISettings() : null));
+ipcMain.handle('sync:settings-set', async (_e, next) =>
+  sync ? sync.setUISettings(next || {}) : { ok: false, error: 'sync unavailable' },
+);
+ipcMain.handle('sync:status', async () =>
+  sync
+    ? sync.status()
+    : { supported: true, enabled: false, configured: false, busy: false, lastSyncAt: null, lastError: null },
+);
+ipcMain.handle('sync:now', async () => {
+  await sync?.sync();
+  return sync ? sync.status() : null;
 });
 
 // ---- update check ----
@@ -875,6 +904,7 @@ const menuTemplate = [
       { label: 'Back Up Library…', click: () => sendMenu('backup') },
       { label: 'Restore from Backup…', click: () => sendMenu('restore-backup') },
       { type: 'separator' },
+      { label: 'Sync Settings…', click: () => sendMenu('sync-settings') },
       { label: 'Choose Documents Folder…', click: () => void chooseDocumentsFolder() },
       { label: 'Use Default Documents Folder', click: () => useDefaultDocumentsFolder() },
       { label: 'Reveal Documents Folder', click: () => void shell.openPath(docsDir()) },
@@ -960,6 +990,26 @@ app.whenReady().then(() => {
   loadSettings();
   migrateLegacyDocs();
   pruneTrash();
+  sync = createSync({
+    nativeImage,
+    userDataDir: app.getPath('userData'),
+    getSettings: () => settings,
+    saveSettings,
+    docsDir,
+    templatesDir,
+    readAllDocsSync,
+    readJsonSafe,
+    writeJsonAtomic,
+    moveDocToTrash,
+    maybeSnapshot,
+    safeId,
+    notify: (payload) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('sync', payload);
+      }
+    },
+  });
+  sync.start();
   try {
     session.defaultSession.setSpellCheckerLanguages(['en-US']);
   } catch {

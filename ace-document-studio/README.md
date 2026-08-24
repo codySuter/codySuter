@@ -119,9 +119,21 @@ only take space when they exist), and **page breaks**.
 - **Import & export.** Every document exports as a file; Import accepts single
   documents or whole backups. Imported files pass through the same formatting
   allowlist as in-app edits.
-- **A shared documents folder.** **File → Choose Documents Folder…** points the
-  library at any folder — a network share or synced drive lets every register
-  run the same library.
+- **Sync between store computers** — the same sharing model as Ace Sign
+  Studio's batches. **File → Sync Settings…** points every computer at the same
+  private GitHub repo with a fine-grained token (Contents read & write on that
+  repo only), and the library and saved templates stay merged across all of
+  them: newest edit wins per document, deletions carry 60-day tombstones so an
+  old copy can't bring a deleted document back — while editing (or Undo) after
+  a delete deliberately does. Writes are compare-and-swap guarded, so two
+  registers saving at once never tear the sync file; big in-document images are
+  downscaled in the pushed copy only, keeping the file under GitHub's limit
+  while this computer keeps its full-resolution originals. Version history,
+  the trash, and settings stay per-computer. The library footer shows sync
+  state at a glance.
+- **A shared documents folder** as a simpler alternative — **File → Choose
+  Documents Folder…** points the library at any folder, so a network share
+  works for registers on the same LAN (last write wins, no merge).
 - **Updates.** The installer build updates itself in the background and asks to
   restart when ready. The portable build checks on launch and points at the
   download.
