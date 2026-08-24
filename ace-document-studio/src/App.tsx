@@ -8,6 +8,7 @@ import { Editor } from './components/Editor';
 import { Library } from './components/Library';
 import { PrintView } from './components/PrintView';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
+import { SyncSettings } from './components/SyncSettings';
 import { TemplatePicker } from './components/TemplatePicker';
 
 export async function runImport(): Promise<void> {
@@ -56,6 +57,7 @@ export default function App() {
       else if (cmd === 'import') void runImport();
       else if (cmd === 'backup') void runBackup();
       else if (cmd === 'restore-backup') st.setModal('backups');
+      else if (cmd === 'sync-settings') st.setModal('sync');
       else if (cmd === 'shortcuts') st.setModal('shortcuts');
       else if (cmd === 'refresh-library') void st.toLibrary();
       else if (cmd === 'history' && st.route.name === 'editor') st.setModal('history');
@@ -99,6 +101,23 @@ export default function App() {
         .getState()
         .setStatus(`Update available — version ${version}. Help → Check for Updates… to download.`),
     );
+  }, []);
+
+  // Another computer's changes just landed on disk — refresh what's on
+  // screen (the library re-lists; an open editor keeps its document and
+  // newest-edit-wins settles it on the next save).
+  useEffect(() => {
+    return api.onSync((e) => {
+      if (e.kind !== 'remote-update') return;
+      const st = useStore.getState();
+      if (st.route.name === 'library') {
+        void st.toLibrary().then(() => {
+          useStore.getState().setStatus('Synced updates from another computer.');
+        });
+      } else if (st.route.name === 'editor') {
+        st.setStatus('Synced updates from another computer — the library reflects them.');
+      }
+    });
   }, []);
 
   // The autosave debounce waits 700ms; if the window closes inside that
@@ -151,6 +170,7 @@ export default function App() {
       {modal === 'templates' && <TemplatePicker onClose={() => setModal(null)} />}
       {modal === 'shortcuts' && <ShortcutsHelp onClose={() => setModal(null)} />}
       {modal === 'backups' && <BackupRestore onClose={() => setModal(null)} />}
+      {modal === 'sync' && <SyncSettings onClose={() => setModal(null)} />}
     </>
   );
 
