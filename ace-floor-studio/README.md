@@ -46,10 +46,12 @@ dropdown of other heatmaps to run over the same import.
   **colorblind-friendly** toggle swaps in a validated blue → red ramp,
   and "Print values on the map" puts the number on every bay.
 - **Locations that don't quite match still land.** `13r-5a` → `13R05`,
-  `EC4` → `EC04`-style padding fixes, shelf suffixes, and multi-code
-  cells (`BW05; EC03`) all resolve; codes that truly aren't on the plan
-  (receiving, outbuildings) are listed, with row counts, instead of
-  silently dropped.
+  `EC4` → `EC04`-style padding fixes, aisle-first endcaps (`04EC`),
+  shelf suffixes, and multi-code cells (`BW05; EC03`) all resolve; codes
+  that truly aren't on the plan (receiving, outbuildings) are listed,
+  with row counts, instead of silently dropped. Full item-file exports
+  are welcome — a 109k-row, 19 MB Eagle .xlsx parses in seconds, and
+  only the SKUs that land on the plan are kept in the save file.
 - **Work the worst first.** The side panel ranks the 15 most urgent
   bays for the current heatmap; click one to open its SKU list, sorted
   oldest-count-first with per-SKU freshness dots. Search finds a SKU,
@@ -107,11 +109,12 @@ One JSON document (`floor.json` in the app's user-data folder):
 { version: 1, updatedAt,
   settings: { metricId, ageMode: 'oldest'|'average'|'newest',
     ramp: 'classic'|'cvd', showValues, thresholds: { [metricId]: { lo, hi } } },
-  data: { fileName, importedAt, rowCount, unlocatedRows,
+  data: { fileName, importedAt, rowCount, totalSkus, unlocatedRows,
     unmatched: [{ code, rows }],
     skus: [{ sku, desc, locs: [fixtureId], qoh, cost, retail, sold,
              datePhys, dateSale, dateReceipt }] } }
 ```
 
-Dates are epoch ms at UTC midnight; `null` means never/blank in the
-export.
+`skus` holds only records that resolved to at least one plan location;
+`totalSkus` remembers how many the export contained overall. Dates are
+epoch ms at UTC midnight; `null` means never/blank in the export.

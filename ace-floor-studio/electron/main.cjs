@@ -38,8 +38,10 @@ ipcMain.handle('doc:load', async () => readDocSync());
 ipcMain.handle('doc:save', async (_e, doc) => {
   if (!doc || doc.version !== 1 || typeof doc.settings !== 'object') throw new Error('Invalid doc');
   // Write-then-rename so a crash mid-write can't corrupt the only copy.
+  // Compact JSON — a real item-file import runs to tens of thousands of
+  // SKUs and pretty-printing triples the file.
   const tmp = `${docFile()}.tmp`;
-  await fsp.writeFile(tmp, JSON.stringify(doc, null, 2), 'utf8');
+  await fsp.writeFile(tmp, JSON.stringify(doc), 'utf8');
   await fsp.rename(tmp, docFile());
 });
 
@@ -92,7 +94,7 @@ function autoBackup() {
     const dir = path.join(app.getPath('userData'), 'backups');
     fs.mkdirSync(dir, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    fs.writeFileSync(path.join(dir, `auto-${stamp}.json`), JSON.stringify(doc, null, 2), 'utf8');
+    fs.writeFileSync(path.join(dir, `auto-${stamp}.json`), JSON.stringify(doc), 'utf8');
     const autos = fs
       .readdirSync(dir)
       .filter((f) => f.startsWith('auto-') && f.endsWith('.json'))

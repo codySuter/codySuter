@@ -239,15 +239,28 @@ const AISLE_BAY = /^0*(\d{1,2})(L|R)0*(\d{1,2})([A-Z]\d*)?$/;
 
 const idsByLength = [...byId.keys()].sort((a, b) => b.length - a.length);
 
+// A full item-file export repeats the same few thousand codes across
+// 100k+ rows — memoize so the slow unmatched path runs once per code.
+const resolveCache = new Map<string, string | null>();
+
 /**
  * Resolve one Compass location code to a fixture id, tolerating the ways
  * real location fields drift: lowercase, dashes/spaces ("13R-05"),
- * missing zero padding ("13R5", "EC4"), and shelf/sub-position suffixes
- * ("13R05A", "EC12B2"). Returns null when the code matches nothing.
+ * missing zero padding ("13R5", "EC4"), aisle-first endcaps ("04EC"),
+ * and shelf/sub-position suffixes ("13R05A", "EC12B2"). Returns null
+ * when the code matches nothing.
  */
 export function resolveLocation(raw: string): string | null {
   const norm = normalizeLocation(raw);
   if (norm === '') return null;
+  const cached = resolveCache.get(norm);
+  if (cached !== undefined) return cached;
+  const id = resolveNormalized(norm);
+  resolveCache.set(norm, id);
+  return id;
+}
+
+function resolveNormalized(norm: string): string | null {
   if (byId.has(norm)) return norm;
 
   let m = AISLE_BAY.exec(norm);
@@ -263,6 +276,13 @@ export function resolveLocation(raw: string): string | null {
   m = BARE_FAMILY.exec(norm);
   if (m) {
     const id = `${m[1]}${Number(m[2])}`;
+    if (byId.has(id)) return id;
+  }
+
+  // Aisle-first endcap spelling: "04EC" (with optional suffix) → EC04.
+  m = /^0*(\d{1,2})EC([A-Z]\d*)?$/.exec(norm);
+  if (m) {
+    const id = `EC${pad2(Number(m[1]))}`;
     if (byId.has(id)) return id;
   }
 

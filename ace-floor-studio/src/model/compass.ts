@@ -205,7 +205,10 @@ export function buildFloorData(grid: string[][], cols: ColumnMap, fileName: stri
       fileName,
       importedAt: Date.now(),
       rowCount: Math.max(0, grid.length - 1 - blankRows),
-      skus,
+      totalSkus: skus.length,
+      // A 100k-row item file is mostly SKUs the map can't paint — keep
+      // the doc (and its save file) down to the ones that landed.
+      skus: skus.filter((s) => s.locs.length > 0),
       unmatched: unmatchedList,
       unlocatedRows,
     },

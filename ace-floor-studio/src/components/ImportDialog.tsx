@@ -61,7 +61,7 @@ export default function ImportDialog({ pending, onClose }: { pending: PendingImp
 
   const preview = useMemo(() => buildFloorData(pending.grid, cols, pending.fileName), [pending, cols]);
   const matched = new Set(preview.data.skus.flatMap((s) => s.locs)).size;
-  const rowsWithLoc = preview.data.skus.filter((s) => s.locs.length > 0).length;
+  const rowsWithLoc = preview.data.skus.length;
 
   const setField = (field: keyof Omit<ColumnMap, 'locs'>, i: number) => setCols((c) => ({ ...c, [field]: i }));
   const toggleLoc = (i: number) =>
@@ -116,7 +116,7 @@ export default function ImportDialog({ pending, onClose }: { pending: PendingImp
         </div>
 
         <div className="mt-4 rounded-lg bg-[#f5f6f7] px-3 py-2 text-[12px] leading-relaxed" data-testid="import-summary">
-          <b>{preview.data.skus.length.toLocaleString()}</b> SKUs · <b>{rowsWithLoc.toLocaleString()}</b> place into{' '}
+          <b>{preview.data.totalSkus.toLocaleString()}</b> SKUs · <b>{rowsWithLoc.toLocaleString()}</b> place into{' '}
           <b>{matched}</b> of {FIXTURES.length} plan locations
           {preview.data.unlocatedRows > 0 && <> · {preview.data.unlocatedRows.toLocaleString()} rows without a location</>}
           {preview.skippedRows > 0 && <> · {preview.skippedRows.toLocaleString()} rows skipped (no SKU)</>}
@@ -149,6 +149,7 @@ export default function ImportDialog({ pending, onClose }: { pending: PendingImp
               );
               onClose();
             }}
+            title={`${(preview.data.totalSkus - preview.data.skus.length).toLocaleString()} SKUs with no plan location are counted but not kept`}
           >
             Apply import
           </Button>
