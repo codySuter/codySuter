@@ -1,8 +1,8 @@
 {
   "name": "ace-document-studio",
   "productName": "Ace Document Studio",
-  "version": "1.4.0",
-  "description": "Design Snyder's Ace Hardware policy, procedure & store documents — drag-and-drop sections, brand fonts, one-page fit meter, print-ready PDF export.",
+  "version": "2.0.0",
+  "description": "Design Snyder's Ace Hardware store documents — policies, procedures, postings, agreements — with drag-and-drop sections, brand fonts, templates, revision history, and print-ready PDF/PNG export.",
   "author": "Cody Suter",
   "license": "MIT",
   "private": true,
@@ -16,9 +16,10 @@
     "preview": "vite preview --port 4173 --strictPort",
     "test": "playwright test",
     "icon": "node ../ace-studio-brand/icons.mjs document",
-    "dist:win": "vite build && electron-builder --win portable"
+    "dist:win": "vite build && electron-builder --win nsis portable"
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -59,10 +60,24 @@
     ],
     "win": {
       "target": [
+        "nsis",
         "portable"
       ],
-      "icon": "build/icon.ico",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "artifactName": "AceDocumentStudio-Setup.exe",
+      "oneClick": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
       "artifactName": "AceDocumentStudio.exe"
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows"
+      }
+    ]
   }
 }

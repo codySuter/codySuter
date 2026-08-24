@@ -135,6 +135,59 @@ export function Seg<T extends string>({
   );
 }
 
+// App-level modal shell: dark scrim, white card, Esc / scrim-click to close.
+export function Modal({
+  title,
+  onClose,
+  children,
+  wide,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#15181D]/55 p-6"
+      data-testid="modal-scrim"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-label={title}
+        className={clsx(
+          'flex max-h-[86vh] w-full flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_18px_60px_rgba(21,24,29,0.45)]',
+          wide ? 'max-w-[880px]' : 'max-w-[560px]',
+        )}
+      >
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#E1E3E6] pr-2 pl-4">
+          <h2
+            className="text-[13px] font-extrabold tracking-[0.08em] text-[#15181D] uppercase"
+            style={{ fontFamily: "'Barlow Semi Condensed', sans-serif" }}
+          >
+            {title}
+          </h2>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="cursor-pointer rounded p-1.5 text-[#6D6E71] hover:bg-[#F0F1F2] hover:text-[#15181D]"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="mb-2.5 block">

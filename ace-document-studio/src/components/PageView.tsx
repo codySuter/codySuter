@@ -13,8 +13,13 @@ import {
   makeStyles,
   type DocStyles,
 } from '../model/docstyle';
+import { loadImageScaled } from '../model/image';
+import { newBlock } from '../model/blocks';
+import { escapeHtml } from '../model/textImport';
 import type {
   Block,
+  BlockAlign,
+  BlockFormat,
   BulletsBlock,
   ChecklistBlock,
   ColumnsBlock,
@@ -24,17 +29,31 @@ import type {
   StepsBlock,
   TableBlock,
 } from '../model/types';
-import { COLUMN_CHILD_TYPES, FOOTER_FIELDS, PAGE_MARGIN_PX, PRINTABLE_H_PX } from '../model/types';
+import {
+  COLUMN_CHILD_TYPES,
+  FOOTER_FIELDS,
+  HEADER_DND_ID,
+  MIN_TABLE_COL_PCT,
+  PAGE_MARGIN_PX,
+  PRINTABLE_H_PX,
+} from '../model/types';
 import { useStore } from '../store';
 import { Editable, type EditableHandle } from './Editable';
 
 export type PageMode = 'edit' | 'print' | 'thumb';
 
-type ListBlock = BulletsBlock | StepsBlock | ChecklistBlock;
+type ListBlock = (BulletsBlock | StepsBlock | ChecklistBlock) & BlockFormat;
 
 function Html({ html, style, className }: { html: string; style?: CSSProperties; className?: string }) {
   return <div className={className} style={style} dangerouslySetInnerHTML={{ __html: html }} />;
 }
+
+// Horizontal alignment helpers — text blocks set text-align, flex rows
+// (badges, list rows, section heads) shift their justification.
+const textAlign = (a?: BlockAlign): CSSProperties =>
+  a && a !== 'left' ? { textAlign: a } : {};
+const justify = (a?: BlockAlign): CSSProperties =>
+  a === 'center' ? { justifyContent: 'center' } : a === 'right' ? { justifyContent: 'flex-end' } : {};
 
 // ---------------------------------------------------------------- lists
 
@@ -51,6 +70,7 @@ function EditableList({
 }) {
   const setListItem = useStore((s) => s.setListItem);
   const addListItem = useStore((s) => s.addListItem);
+  const addListItems = useStore((s) => s.addListItems);
   const removeListItem = useStore((s) => s.removeListItem);
   const refs = useRef<(EditableHandle | null)[]>([]);
   const pending = useRef<number | null>(null);
@@ -67,9 +87,16 @@ function EditableList({
     if (block.type === 'steps') return <span style={st.stepNumber(doc.accent)}>{i + 1}.</span>;
     return <span style={st.checkBox} />;
   };
-  const rowStyle =
-    block.type === 'bullets' ? st.bulletRow : block.type === 'steps' ? st.stepRow : st.checkRow;
-  const textStyle: CSSProperties = { ...st.bodyText, flex: 1, minWidth: 0 };
+  const aligned = !!block.align && block.align !== 'left';
+  const rowStyle: CSSProperties = {
+    ...(block.type === 'bullets' ? st.bulletRow : block.type === 'steps' ? st.stepRow : st.checkRow),
+    ...justify(block.align),
+  };
+  const textStyle: CSSProperties = {
+    ...st.bodyText,
+    ...(aligned ? { flex: '0 1 auto' } : { flex: 1 }),
+    minWidth: 0,
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -97,6 +124,10 @@ function EditableList({
                   removeListItem(block.id, i);
                 }
               }}
+              onPasteLines={(lines) => {
+                pending.current = i + lines.length;
+                addListItems(block.id, i, lines.map(escapeHtml));
+              }}
             />
           )}
         </div>
@@ -117,13 +148,63 @@ function TableView({
   readOnly: boolean;
 }) {
   const setCell = useStore((s) => s.setCell);
+  const setFocusedCell = useStore((s) => s.setFocusedCell);
+  const selected = useStore((s) => s.selectedId === block.id);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  const n = block.header.length;
+  const hasCustomWidths = !!block.widths && block.widths.length === n;
+  const widths = hasCustomWidths ? block.widths! : Array.from({ length: n }, () => 100 / n);
+  const alignOf = (c: number): CSSProperties => textAlign(block.aligns?.[c]);
+
+  // Drag a column boundary to resize the two columns it separates.
+  const startDivider = (j: number) => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const wrapW = wrapRef.current?.clientWidth || 1;
+    const startX = e.clientX;
+    const w0 = [...widths];
+    const move = (ev: PointerEvent) => {
+      const dpct = ((ev.clientX - startX) / wrapW) * 100;
+      const pair = w0[j] + w0[j + 1];
+      const wi = Math.max(MIN_TABLE_COL_PCT, Math.min(w0[j] + dpct, pair - MIN_TABLE_COL_PCT));
+      const next = [...w0];
+      next[j] = wi;
+      next[j + 1] = pair - wi;
+      useStore.getState().tableSetWidths(block.id, next, `tw:${block.id}`);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      useStore.getState().breakHistory();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  let cum = 0;
+  const boundaries = widths.slice(0, -1).map((w) => (cum += w));
+
   return (
-    <div style={st.tableWrap}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div ref={wrapRef} style={{ ...st.tableWrap, position: 'relative' }}>
+      <table
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          tableLayout: hasCustomWidths ? 'fixed' : undefined,
+        }}
+      >
+        {hasCustomWidths && (
+          <colgroup>
+            {widths.map((w, c) => (
+              <col key={c} style={{ width: `${w}%` }} />
+            ))}
+          </colgroup>
+        )}
         <thead>
           <tr>
             {block.header.map((h, c) => (
-              <th key={c} style={st.th}>
+              <th key={c} style={{ ...st.th, ...alignOf(c) }}>
                 {readOnly ? (
                   <Html html={h} />
                 ) : (
@@ -132,6 +213,7 @@ function TableView({
                     singleLine
                     placeholder="Column"
                     onCommit={(v) => setCell(block.id, -1, c, v, `th:${block.id}:${c}`)}
+                    onFocus={() => setFocusedCell({ blockId: block.id, row: -1, col: c })}
                   />
                 )}
               </th>
@@ -142,7 +224,7 @@ function TableView({
           {block.rows.map((row, r) => (
             <tr key={r}>
               {row.map((cell, c) => (
-                <td key={c} style={st.td}>
+                <td key={c} style={{ ...st.td, ...alignOf(c) }}>
                   {readOnly ? (
                     <Html html={cell} />
                   ) : (
@@ -150,6 +232,7 @@ function TableView({
                       html={cell}
                       placeholder="—"
                       onCommit={(v) => setCell(block.id, r, c, v, `td:${block.id}:${r}:${c}`)}
+                      onFocus={() => setFocusedCell({ blockId: block.id, row: r, col: c })}
                     />
                   )}
                 </td>
@@ -158,6 +241,39 @@ function TableView({
           ))}
         </tbody>
       </table>
+      {!readOnly &&
+        selected &&
+        boundaries.map((pct, j) => (
+          <div
+            key={j}
+            role="separator"
+            aria-label={`Resize column ${j + 1}`}
+            title="Drag to resize columns"
+            onPointerDown={startDivider(j)}
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: `${pct}%`,
+              width: 9,
+              transform: 'translateX(-50%)',
+              cursor: 'col-resize',
+              zIndex: 20,
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: '50%',
+                width: 2,
+                marginLeft: -1,
+                background: 'rgba(200, 16, 46, 0.35)',
+              }}
+            />
+          </div>
+        ))}
     </div>
   );
 }
@@ -364,39 +480,18 @@ function ColumnsView({
 
 // ---------------------------------------------------------------- image
 
-async function loadImageScaled(file: File): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = reject;
-      el.src = url;
-    });
-    const maxW = 1400;
-    const scale = Math.min(1, maxW / img.naturalWidth);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(img.naturalWidth * scale);
-    canvas.height = Math.round(img.naturalHeight * scale);
-    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const isPng = file.type === 'image/png';
-    return canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', 0.88);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
 function ImageView({
   block,
   st,
   readOnly,
 }: {
-  block: ImageBlock;
+  block: ImageBlock & BlockFormat;
   st: DocStyles;
   readOnly: boolean;
 }) {
   const updateBlock = useStore((s) => s.updateBlock);
   const setStatus = useStore((s) => s.setStatus);
+  const selected = useStore((s) => s.selectedId === block.id);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const pick = async (file: File | undefined) => {
@@ -409,6 +504,12 @@ function ImageView({
     }
   };
 
+  const margin =
+    block.align === 'left' ? '0 auto 0 0' : block.align === 'right' ? '0 0 0 auto' : '0 auto';
+  // An uncaptioned image takes no caption space; the caption line only
+  // appears while the block is selected (or once a caption exists).
+  const showCaptionEditor = !readOnly && (selected || block.caption !== '');
+
   return (
     <div>
       {block.src ? (
@@ -417,7 +518,7 @@ function ImageView({
           alt=""
           style={{
             display: 'block',
-            margin: '0 auto',
+            margin,
             width: `${block.widthPct}%`,
             maxWidth: '100%',
             borderRadius: 4,
@@ -452,7 +553,7 @@ function ImageView({
           >
             Choose an image…
           </button>
-          <div style={{ marginTop: 6 }}>PNG or JPG — it’s stored inside the document.</div>
+          <div style={{ marginTop: 6 }}>PNG or JPG — or drag a file onto the page, or paste one.</div>
         </div>
       )}
       {!readOnly && (
@@ -466,17 +567,17 @@ function ImageView({
       )}
       {readOnly ? (
         block.caption ? (
-          <Html html={block.caption} style={st.imageCaption} />
+          <Html html={block.caption} style={{ ...st.imageCaption, ...textAlign(block.align) }} />
         ) : null
-      ) : (
+      ) : showCaptionEditor ? (
         <Editable
           html={block.caption}
           singleLine
-          style={st.imageCaption}
+          style={{ ...st.imageCaption, ...textAlign(block.align) }}
           placeholder="Add a caption (optional)"
           onCommit={(h) => updateBlock(block.id, { caption: h }, `cap:${block.id}`)}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -497,27 +598,35 @@ function BlockContent({
   readOnly: boolean;
 }) {
   const updateBlock = useStore((s) => s.updateBlock);
+  const insertBlocksAfter = useStore((s) => s.insertBlocksAfter);
 
   switch (block.type) {
     case 'section':
+    case 'header': {
+      const aligned = !!block.align && block.align !== 'left';
+      const titleStyle: CSSProperties = {
+        ...st.sectionTitle,
+        ...(aligned ? { flex: '0 1 auto', ...textAlign(block.align) } : {}),
+      };
       return (
-        <div style={st.sectionHead}>
-          <span style={st.sectionNumber}>{number}</span>
+        <div style={{ ...st.sectionHead, ...justify(block.align) }}>
+          {block.type === 'section' && <span style={st.sectionNumber}>{number}</span>}
           {readOnly ? (
-            <Html html={block.title} style={st.sectionTitle} />
+            <Html html={block.title} style={titleStyle} />
           ) : (
             <Editable
               html={block.title}
               singleLine
-              style={st.sectionTitle}
-              placeholder="Section title"
+              style={titleStyle}
+              placeholder={block.type === 'section' ? 'Section title' : 'Header'}
               onCommit={(h) => updateBlock(block.id, { title: h }, `sec:${block.id}`)}
             />
           )}
         </div>
       );
+    }
     case 'paragraph': {
-      const style = block.muted ? st.mutedText : st.bodyText;
+      const style = { ...(block.muted ? st.mutedText : st.bodyText), ...textAlign(block.align) };
       const cls = block.muted ? 'aps-muted' : undefined;
       return readOnly ? (
         <Html html={block.html} style={style} className={cls} />
@@ -528,14 +637,33 @@ function BlockContent({
           className={cls}
           placeholder="Write a paragraph…"
           onCommit={(h) => updateBlock(block.id, { html: h }, `p:${block.id}`)}
+          onPasteLines={(lines) =>
+            insertBlocksAfter(
+              block.id,
+              lines.map((line) => {
+                const p = newBlock('paragraph');
+                if (p.type === 'paragraph') {
+                  p.html = escapeHtml(line);
+                  p.muted = block.muted;
+                  if (block.align) p.align = block.align;
+                }
+                return p;
+              }),
+            )
+          }
         />
       );
     }
     case 'badgeRow': {
       const bg = block.badgeColor === 'ink' ? INK : doc.accent;
-      const textStyle: CSSProperties = { ...st.bodyText, flex: 1, minWidth: 0 };
+      const aligned = !!block.align && block.align !== 'left';
+      const textStyle: CSSProperties = {
+        ...st.bodyText,
+        ...(aligned ? { flex: '0 1 auto' } : { flex: 1 }),
+        minWidth: 0,
+      };
       return (
-        <div style={st.badgeRow}>
+        <div style={{ ...st.badgeRow, ...justify(block.align) }}>
           {readOnly ? (
             <Html html={block.badge} style={st.badge(bg)} />
           ) : (
@@ -567,7 +695,7 @@ function BlockContent({
     case 'callout':
       return (
         <div style={st.calloutBox}>
-          <div style={st.calloutHead}>
+          <div style={{ ...st.calloutHead, ...textAlign(block.align) }}>
             {readOnly ? (
               <Html html={block.heading} />
             ) : (
@@ -580,7 +708,7 @@ function BlockContent({
               />
             )}
           </div>
-          <div style={st.calloutBody}>
+          <div style={{ ...st.calloutBody, ...textAlign(block.align) }}>
             {readOnly ? (
               <Html html={block.body} />
             ) : (
@@ -602,9 +730,10 @@ function BlockContent({
     case 'columns':
       return <ColumnsView block={block} doc={doc} st={st} readOnly={readOnly} />;
     case 'pageBreak':
-      // Prints as an invisible break; shows as a labeled divider in the editor.
+      // Prints as an invisible break; shows as a labeled divider in the
+      // editor. data-pagebreak lets PNG export find the page boundaries.
       return readOnly ? (
-        <div style={{ breakAfter: 'page', height: 0 }} />
+        <div data-pagebreak style={{ breakAfter: 'page', height: 0 }} />
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#8A9099' }}>
           <div style={{ flex: 1, borderTop: '2px dashed #C4C9CE' }} />
@@ -673,8 +802,8 @@ function FooterArea({
 
 // ------------------------------------------------------- edit-mode chrome
 
-function DropSlot({ index, tall }: { index: number; tall?: boolean }) {
-  const { isOver, setNodeRef } = useDroppable({ id: `slot:${index}` });
+function DropSlot({ id, tall }: { id: string; tall?: boolean }) {
+  const { isOver, setNodeRef } = useDroppable({ id });
   return (
     <div
       ref={setNodeRef}
@@ -776,6 +905,9 @@ function SortableBlock({
 
 // ---------------------------------------------------------------- header
 
+// The title section (kicker, title, subtitle, chip). The accent bar stays
+// fixed at the very top of the page; this part is draggable in the editor
+// so blocks — a banner image, a notice — can sit above the title.
 function HeaderArea({
   doc,
   st,
@@ -787,60 +919,88 @@ function HeaderArea({
 }) {
   const setDocField = useStore((s) => s.setDocField);
   return (
-    <>
-      <div style={st.accentBar} />
-      <div style={st.headerRow}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+    <div style={st.headerRow}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {readOnly ? (
+          <Html html={doc.kicker} style={st.kicker} />
+        ) : (
+          <Editable
+            html={doc.kicker}
+            singleLine
+            style={st.kicker}
+            placeholder="Kicker line"
+            onCommit={(h) => setDocField('kicker', h, 'doc:kicker')}
+          />
+        )}
+        {readOnly ? (
+          <Html html={doc.title} style={st.title} />
+        ) : (
+          <Editable
+            html={doc.title}
+            singleLine
+            style={st.title}
+            placeholder="Document title"
+            onCommit={(h) => setDocField('title', h, 'doc:title')}
+          />
+        )}
+        {readOnly ? (
+          <Html html={doc.subtitle} style={st.subtitle} />
+        ) : (
+          <Editable
+            html={doc.subtitle}
+            singleLine
+            style={st.subtitle}
+            placeholder="Subtitle — what this document covers"
+            onCommit={(h) => setDocField('subtitle', h, 'doc:subtitle')}
+          />
+        )}
+      </div>
+      {doc.chip && (
+        <div style={st.chip(doc.chip.color)}>
           {readOnly ? (
-            <Html html={doc.kicker} style={st.kicker} />
+            <Html html={doc.chip.text} />
           ) : (
             <Editable
-              html={doc.kicker}
+              html={doc.chip.text}
               singleLine
-              style={st.kicker}
-              placeholder="Kicker line"
-              onCommit={(h) => setDocField('kicker', h, 'doc:kicker')}
-            />
-          )}
-          {readOnly ? (
-            <Html html={doc.title} style={st.title} />
-          ) : (
-            <Editable
-              html={doc.title}
-              singleLine
-              style={st.title}
-              placeholder="Document title"
-              onCommit={(h) => setDocField('title', h, 'doc:title')}
-            />
-          )}
-          {readOnly ? (
-            <Html html={doc.subtitle} style={st.subtitle} />
-          ) : (
-            <Editable
-              html={doc.subtitle}
-              singleLine
-              style={st.subtitle}
-              placeholder="Subtitle — what this document covers"
-              onCommit={(h) => setDocField('subtitle', h, 'doc:subtitle')}
+              placeholder="CHIP"
+              onCommit={(h) => setDocField('chip', { ...doc.chip!, text: h }, 'doc:chip')}
             />
           )}
         </div>
-        {doc.chip && (
-          <div style={st.chip(doc.chip.color)}>
-            {readOnly ? (
-              <Html html={doc.chip.text} />
-            ) : (
-              <Editable
-                html={doc.chip.text}
-                singleLine
-                placeholder="CHIP"
-                onCommit={(h) => setDocField('chip', { ...doc.chip!, text: h }, 'doc:chip')}
-              />
-            )}
-          </div>
-        )}
-      </div>
-    </>
+      )}
+    </div>
+  );
+}
+
+function SortableHeader({ children }: { children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: HEADER_DND_ID });
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid="doc-header-item"
+      className="aps-block"
+      style={{
+        position: 'relative',
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.35 : 1,
+        zIndex: isDragging ? 40 : undefined,
+      }}
+    >
+      <button
+        type="button"
+        className="aps-chrome aps-handle"
+        aria-label="Drag the title section"
+        title="Drag the title section — blocks can sit above it"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={13} />
+      </button>
+      {children}
+    </div>
   );
 }
 
@@ -871,6 +1031,10 @@ export function PageView({ doc, mode }: { doc: StudioDoc; mode: PageMode }) {
   // overflow lines would mislead — the fit meter explains instead.
   const manualBreaks = doc.blocks.some((b) => b.type === 'pageBreak');
 
+  const h = Math.max(0, Math.min(doc.headerAt ?? 0, doc.blocks.length));
+  const above = doc.blocks.slice(0, h);
+  const below = doc.blocks.slice(h);
+
   const pageStyle: CSSProperties =
     mode === 'print'
       ? { ...st.page, width: '7.7in', padding: 0 }
@@ -887,34 +1051,54 @@ export function PageView({ doc, mode }: { doc: StudioDoc; mode: PageMode }) {
 
   const extraPages = Math.max(0, Math.ceil(contentH / PRINTABLE_H_PX) - 1);
 
+  const readOnlyRun = (blocks: Block[], offset: number) =>
+    blocks.map((block, i) => (
+      <div
+        key={block.id}
+        className="aps-keep"
+        style={{
+          marginTop: effectiveMarginTop(i === 0 ? null : blocks[i - 1].type, block.type, block.spaceBefore),
+        }}
+      >
+        <BlockContent block={block} doc={doc} st={st} number={numbers[offset + i]} readOnly />
+      </div>
+    ));
+
+  const editableRun = (blocks: Block[], offset: number, aboveHeader: boolean) =>
+    blocks.map((block, i) => (
+      <div key={block.id}>
+        {dragging === 'palette' && <DropSlot id={`slot:${offset + i}:${aboveHeader ? 1 : 0}`} />}
+        <SortableBlock
+          block={block}
+          marginTop={effectiveMarginTop(i === 0 ? null : blocks[i - 1].type, block.type, block.spaceBefore)}
+        >
+          <BlockContent block={block} doc={doc} st={st} number={numbers[offset + i]} readOnly={false} />
+        </SortableBlock>
+      </div>
+    ));
+
   return (
     <div className="aps-doc" style={pageStyle} data-testid={`page-${mode}`}>
       <div ref={mode === 'edit' ? contentRef : undefined}>
-        <HeaderArea doc={doc} st={st} readOnly={readOnly} />
+        <div style={st.accentBar} />
         {readOnly ? (
-          doc.blocks.map((block, i) => (
-            <div
-              key={block.id}
-              className="aps-keep"
-              style={{ marginTop: effectiveMarginTop(i === 0 ? null : doc.blocks[i - 1].type, block.type, block.spaceBefore) }}
-            >
-              <BlockContent block={block} doc={doc} st={st} number={numbers[i]} readOnly />
-            </div>
-          ))
+          <>
+            {readOnlyRun(above, 0)}
+            <HeaderArea doc={doc} st={st} readOnly />
+            {readOnlyRun(below, h)}
+          </>
         ) : (
-          <SortableContext items={doc.blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-            {doc.blocks.map((block, i) => (
-              <div key={block.id}>
-                {dragging === 'palette' && <DropSlot index={i} />}
-                <SortableBlock
-                  block={block}
-                  marginTop={effectiveMarginTop(i === 0 ? null : doc.blocks[i - 1].type, block.type, block.spaceBefore)}
-                >
-                  <BlockContent block={block} doc={doc} st={st} number={numbers[i]} readOnly={false} />
-                </SortableBlock>
-              </div>
-            ))}
-            {dragging === 'palette' && <DropSlot index={doc.blocks.length} tall />}
+          <SortableContext
+            items={[...above.map((b) => b.id), HEADER_DND_ID, ...below.map((b) => b.id)]}
+            strategy={verticalListSortingStrategy}
+          >
+            {editableRun(above, 0, true)}
+            {dragging === 'palette' && <DropSlot id={`slot:${h}:1`} />}
+            <SortableHeader>
+              <HeaderArea doc={doc} st={st} readOnly={false} />
+            </SortableHeader>
+            {editableRun(below, h, false)}
+            {dragging === 'palette' && <DropSlot id={`slot:${doc.blocks.length}:0`} tall />}
             {doc.blocks.length === 0 && (
               <button
                 type="button"

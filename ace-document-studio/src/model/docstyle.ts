@@ -304,14 +304,15 @@ export function makeStyles(accent: string, typeScale: number): DocStyles {
 // Vertical rhythm between blocks, matching the source documents:
 // sections open a 12px break, callouts 9px, everything else 6px, and the
 // first block after a section header sits 8px under its red rule.
+// Unnumbered headers share the section rhythm exactly.
 export function blockMarginTop(
   prevType: string | null,
   type: string,
 ): number {
   if (prevType === null) return 0;
-  if (type === 'section') return 12;
+  if (type === 'section' || type === 'header') return 12;
   if (type === 'signoff') return 10; // radio contract: agreement sits 10px under content
-  if (prevType === 'section') return 8;
+  if (prevType === 'section' || prevType === 'header') return 8;
   if (type === 'callout') return 9;
   return 6;
 }

@@ -2,9 +2,13 @@ import { useEffect } from 'react';
 import { api } from './api';
 import { plainText } from './model/sanitize';
 import { useStore } from './store';
+import { BackupRestore } from './components/BackupRestore';
+import { CompileView } from './components/CompileView';
 import { Editor } from './components/Editor';
 import { Library } from './components/Library';
 import { PrintView } from './components/PrintView';
+import { ShortcutsHelp } from './components/ShortcutsHelp';
+import { TemplatePicker } from './components/TemplatePicker';
 
 export async function runImport(): Promise<void> {
   const st = useStore.getState();
@@ -33,31 +37,53 @@ export async function runBackup(): Promise<void> {
 
 export default function App() {
   const route = useStore((s) => s.route);
+  const modal = useStore((s) => s.modal);
+  const setModal = useStore((s) => s.setModal);
 
   useEffect(() => {
     void useStore.getState().init();
   }, []);
 
-  // Native menu (Electron): File → New / Export PDF / Print / Library /
-  // Import / Back up.
+  // Native menu (Electron): File → New / Export / Print / Library /
+  // Import / Back up / Restore, Help → Shortcuts…
   useEffect(() => {
     return api.onMenu((cmd) => {
       const st = useStore.getState();
-      if (cmd === 'new-doc') void st.createNewDoc();
+      if (cmd === 'new-doc') st.setModal('templates');
       else if (cmd === 'library') void st.toLibrary();
       else if (cmd === 'undo') st.undo();
       else if (cmd === 'redo') st.redo();
       else if (cmd === 'import') void runImport();
       else if (cmd === 'backup') void runBackup();
-      else if ((cmd === 'export-pdf' || cmd === 'print') && st.route.name === 'editor' && st.current) {
+      else if (cmd === 'restore-backup') st.setModal('backups');
+      else if (cmd === 'shortcuts') st.setModal('shortcuts');
+      else if (cmd === 'refresh-library') void st.toLibrary();
+      else if (cmd === 'history' && st.route.name === 'editor') st.setModal('history');
+      else if (cmd === 'save-template' && st.route.name === 'editor') st.setModal('saveTemplate');
+      else if (
+        (cmd === 'export-pdf' || cmd === 'export-png' || cmd === 'print') &&
+        st.route.name === 'editor' &&
+        st.current
+      ) {
         const doc = st.current;
         void (async () => {
-          st.setStatus(cmd === 'export-pdf' ? 'Exporting PDF…' : 'Opening print dialog…');
+          st.setStatus(
+            cmd === 'export-pdf'
+              ? 'Exporting PDF…'
+              : cmd === 'export-png'
+                ? 'Exporting PNG…'
+                : 'Opening print dialog…',
+          );
           await st.saveNow();
           if (cmd === 'export-pdf') {
             const r = await api.exportPdf(doc.id, plainText(doc.title) || 'Document');
             if (r.ok && r.path) st.setStatus(`Saved PDF → ${r.path}`);
             else if (r.canceled) st.setStatus('PDF export canceled.');
+          } else if (cmd === 'export-png') {
+            const r = await api.exportPng(doc.id, plainText(doc.title) || 'Document');
+            if (r.ok && r.paths?.length) st.setStatus(`Saved PNG → ${r.paths[0]}`);
+            else if (r.canceled) st.setStatus('PNG export canceled.');
+            else if (!r.ok) st.setStatus(`PNG export failed: ${r.error ?? 'unknown error'}`);
           } else {
             await api.printDoc(doc.id);
           }
@@ -86,13 +112,23 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', flush);
   }, []);
 
-  // Hash routing: the hidden print window deep-links to #/print/<id>, and
-  // browser back/forward (e.g. returning from the print view) restores
-  // the editor or library.
+  // Hash routing: the hidden print/compile windows deep-link to
+  // #/print/<id> and #/compile/<ids>, and browser back/forward (e.g.
+  // returning from the print view) restores the editor or library.
   useEffect(() => {
     const onHash = () => {
       const st = useStore.getState();
       const hash = window.location.hash;
+      const compileMatch = hash.match(/^#\/compile\/([^?]+)(?:\?(.*))?$/);
+      if (compileMatch) {
+        const params = new URLSearchParams(compileMatch[2] ?? '');
+        void st.loadCompile(
+          decodeURIComponent(compileMatch[1]).split(',').filter(Boolean),
+          params.get('title') ?? 'Store Documents',
+          params.get('toc') !== '0',
+        );
+        return;
+      }
       const printMatch = hash.match(/^#\/print\/(.+)$/);
       if (printMatch) {
         void st.loadPrint(decodeURIComponent(printMatch[1]));
@@ -110,6 +146,14 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  const overlays = (
+    <>
+      {modal === 'templates' && <TemplatePicker onClose={() => setModal(null)} />}
+      {modal === 'shortcuts' && <ShortcutsHelp onClose={() => setModal(null)} />}
+      {modal === 'backups' && <BackupRestore onClose={() => setModal(null)} />}
+    </>
+  );
+
   switch (route.name) {
     case 'boot':
       return (
@@ -118,10 +162,22 @@ export default function App() {
         </div>
       );
     case 'library':
-      return <Library />;
+      return (
+        <>
+          <Library />
+          {overlays}
+        </>
+      );
     case 'editor':
-      return <Editor />;
+      return (
+        <>
+          <Editor />
+          {overlays}
+        </>
+      );
     case 'print':
       return <PrintView />;
+    case 'compile':
+      return <CompileView />;
   }
 }

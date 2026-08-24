@@ -10,6 +10,14 @@ export interface SectionBlock {
   title: string; // rendered uppercase, auto-numbered by position
 }
 
+// Same red-rule header style as a section, but never numbered — for
+// documents that aren't a numbered procedure (memos, postings, notices).
+export interface HeaderBlock {
+  id: string;
+  type: 'header';
+  title: string;
+}
+
 export interface ParagraphBlock {
   id: string;
   type: 'paragraph';
@@ -55,6 +63,10 @@ export interface TableBlock {
   type: 'table';
   header: string[];
   rows: string[][];
+  /** Per-column text alignment; missing entries render left. */
+  aligns?: BlockAlign[];
+  /** Per-column widths as percentages (summing ~100); omitted = equal. */
+  widths?: number[];
 }
 
 export interface SignLine {
@@ -96,6 +108,8 @@ export interface ImageBlock {
   widthPct: number; // 20–100
 }
 
+export const MIN_TABLE_COL_PCT = 8;
+
 // Forces everything after it onto a new printed page. Shows as a labeled
 // divider in the editor; prints as an invisible break.
 export interface PageBreakBlock {
@@ -103,15 +117,22 @@ export interface PageBreakBlock {
   type: 'pageBreak';
 }
 
-// Every block carries an optional spacing nudge, added to (or subtracted
-// from) the type-based default gap above it. Undefined/0 = use the default.
-export interface BlockSpacing {
+export type BlockAlign = 'left' | 'center' | 'right';
+export const BLOCK_ALIGNS: readonly BlockAlign[] = ['left', 'center', 'right'];
+
+// Every block carries optional formatting shared across types: a spacing
+// nudge added to (or subtracted from) the type-based default gap above it
+// (undefined/0 = default), and a horizontal alignment (undefined = left).
+export interface BlockFormat {
   /** Points added to the automatic gap above this block. May be negative. */
   spaceBefore?: number;
+  /** Horizontal alignment; honored by text, header, badge, list, callout & image blocks. */
+  align?: BlockAlign;
 }
 
 export type Block = (
   | SectionBlock
+  | HeaderBlock
   | ParagraphBlock
   | BadgeRowBlock
   | BulletsBlock
@@ -124,7 +145,21 @@ export type Block = (
   | ColumnsBlock
   | PageBreakBlock
 ) &
-  BlockSpacing;
+  BlockFormat;
+
+// Block types whose alignment control makes sense (tables align per
+// column; signoff, columns and page breaks are structural).
+export const ALIGNABLE_TYPES: readonly string[] = [
+  'section',
+  'header',
+  'paragraph',
+  'badgeRow',
+  'bullets',
+  'steps',
+  'checklist',
+  'callout',
+  'image',
+];
 
 // Block types allowed inside a column.
 export const COLUMN_CHILD_TYPES = ['paragraph', 'bullets', 'steps', 'checklist'] as const;
@@ -179,8 +214,25 @@ export interface StudioDoc {
   audience?: Audience;
   footer: DocFooter;
   blocks: Block[];
+  /**
+   * How many blocks render ABOVE the built-in title header (accent bar,
+   * kicker, title, subtitle, chip). 0 = header first, the historical
+   * layout. The header itself is draggable in the editor.
+   */
+  headerAt?: number;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Sortable id the editor uses for the draggable title header. */
+export const HEADER_DND_ID = '__doc-header__';
+
+// A user-saved template: a full document body reused as a starting point.
+export interface UserTemplate {
+  id: string;
+  name: string;
+  savedAt: number;
+  doc: StudioDoc;
 }
 
 export const ACCENT_PRESETS = ['#C8102E', '#9E0620', '#15181D'] as const;
@@ -188,6 +240,7 @@ export const ACCENT_PRESETS = ['#C8102E', '#9E0620', '#15181D'] as const;
 export const DEFAULT_KICKER = "Snyder's Ace Hardware · Store Policy & Procedures";
 export const SOP_KICKER = "Snyder's Ace Hardware · Standard Operating Procedure";
 export const CUSTOMER_KICKER = "Snyder's Ace Hardware · Media, PA";
+export const MEMO_KICKER = "Snyder's Ace Hardware · Store Memo";
 
 // Letter page geometry at CSS 96dpi, matching the printed documents
 // (0.4in margins on letter paper).
