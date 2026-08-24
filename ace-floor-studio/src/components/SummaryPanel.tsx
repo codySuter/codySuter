@@ -197,7 +197,8 @@ export default function SummaryPanel({
             <div className="font-bold">{data.fileName}</div>
             <div className="text-[#6d6e71]">
               {new Date(data.importedAt).toLocaleDateString()} · {data.rowCount.toLocaleString()} rows ·{' '}
-              {data.skus.length.toLocaleString()} SKUs
+              {data.skus.length.toLocaleString()} of {(data.totalSkus ?? data.skus.length).toLocaleString()} SKUs on
+              the plan
             </div>
             <div className="mt-1" data-testid="coverage">
               <b>{covered}</b> of {FIXTURES.length} locations covered

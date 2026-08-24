@@ -71,7 +71,7 @@ export default function App() {
     const { doc: current } = useFloor.getState();
     if (!current) return;
     const stamp = new Date().toISOString().slice(0, 10);
-    const res = await api.saveFile(`AceFloorStudio-${stamp}.json`, JSON.stringify(current, null, 2), 'json');
+    const res = await api.saveFile(`AceFloorStudio-${stamp}.json`, JSON.stringify(current), 'json');
     if (res.ok) showToast('Floor data backed up.');
   }, [showToast]);
 

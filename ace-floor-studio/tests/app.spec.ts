@@ -53,10 +53,10 @@ test('CSV import: mapping detected, edge-case locations resolve, heatmap colors 
   // Auto-mapping picked the right columns.
   await expect(dialog.getByTestId('map-sku')).toHaveValue('0');
   await expect(dialog.getByTestId('map-datePhys')).toHaveValue('6');
-  await expect(dialog.getByTestId('import-summary')).toContainText('place into 6 of 340');
+  await expect(dialog.getByTestId('import-summary')).toContainText('7 SKUs · 6 place into 6 of 340');
   await expect(dialog.getByTestId('import-summary')).toContainText('Codes not on the plan: ZZ99');
   await dialog.getByTestId('import-apply').click();
-  await expect(page.getByTestId('toast')).toContainText('Imported 7 SKUs across 6 locations');
+  await expect(page.getByTestId('toast')).toContainText('Imported 6 SKUs across 6 locations');
 
   // Oldest-count mode is the default: BW01 holds a 5d and a 200d SKU.
   const bw01 = page.locator('[data-loc="BW01"]');

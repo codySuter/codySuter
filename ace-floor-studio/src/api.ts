@@ -88,7 +88,18 @@ const browserApi: FloorApi = {
     }
   },
   async saveDoc(doc) {
-    localStorage.setItem(LS_KEY, JSON.stringify(doc));
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(doc));
+    } catch {
+      // A full item-file import can blow past the browser's storage
+      // quota. Keep the settings at least — the Electron build persists
+      // to disk and never hits this.
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify({ ...doc, data: null }));
+      } catch {
+        // Storage unavailable entirely — run in-memory.
+      }
+    }
   },
   async pickFile(kind) {
     const file = await pickBrowserFile(

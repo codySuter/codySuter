@@ -28,6 +28,10 @@ export interface FloorData {
   fileName: string;
   importedAt: number;
   rowCount: number;
+  /** Every SKU the export contained, placed on the plan or not. */
+  totalSkus: number;
+  /** Only the SKUs that resolved to at least one plan location — the
+   * rest (warehouse codes, ZZZZZ…) are counted, not stored. */
   skus: SkuRecord[];
   /** Location codes in the export that match nothing on the plan. */
   unmatched: UnmatchedLocation[];
