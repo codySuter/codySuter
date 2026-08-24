@@ -18,7 +18,6 @@ contextBridge.exposeInMainWorld('aps', {
   printReady: (info) => ipcRenderer.send('print:ready', info),
   onMenu: on('menu'),
   onUpdate: on('update'),
-  openSupport: (kind) => ipcRenderer.send('app:support', kind),
   importDocs: () => ipcRenderer.invoke('docs:import'),
   exportDocJson: (doc) => ipcRenderer.invoke('doc:export-json', doc),
   backupLibrary: () => ipcRenderer.invoke('library:backup'),

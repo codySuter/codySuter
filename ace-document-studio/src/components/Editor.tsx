@@ -41,6 +41,12 @@ import {
   TYPE_SCALE_MAX,
   TYPE_SCALE_MIN,
 } from '../model/types';
+import {
+  SPACE_MAX,
+  SPACE_MIN,
+  SPACE_STEP,
+  clampSpaceBefore,
+} from '../model/docstyle';
 import { useStore, type Zoom } from '../store';
 import { toggleHighlightSelection } from './Editable';
 import { PageView } from './PageView';
@@ -126,7 +132,73 @@ function FitMeter() {
   );
 }
 
+// The "Space above" stepper — shown for every block so authors can open up
+// or tighten the gap above it beyond the automatic vertical rhythm. Stored
+// as `spaceBefore` (points added to the type default; may be negative).
+function SpaceAboveControl({ block }: { block: Block }) {
+  const updateBlock = useStore((s) => s.updateBlock);
+  const current = block.spaceBefore || 0;
+  const set = (v: number) =>
+    updateBlock(block.id, { spaceBefore: clampSpaceBefore(v) }, `space:${block.id}`);
+  const label =
+    current === 0 ? 'Default' : `${current > 0 ? '+' : '−'}${Math.abs(current)} pt`;
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[11.5px] text-[#6D6E71]">Space above</span>
+        {current !== 0 && (
+          <button
+            type="button"
+            onClick={() => set(0)}
+            className="cursor-pointer text-[11px] font-semibold tracking-[0.03em] text-[#C8102E] uppercase hover:underline"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Btn
+          variant="ghost"
+          className="border-[1.5px] border-[#15181D] px-2.5 py-[3px]"
+          disabled={current <= SPACE_MIN}
+          onClick={() => set(current - SPACE_STEP)}
+          aria-label="Less space above"
+        >
+          −
+        </Btn>
+        <span className="min-w-[64px] text-center text-[12px] font-semibold text-[#20242B] tabular-nums">
+          {label}
+        </span>
+        <Btn
+          variant="ghost"
+          className="border-[1.5px] border-[#15181D] px-2.5 py-[3px]"
+          disabled={current >= SPACE_MAX}
+          onClick={() => set(current + SPACE_STEP)}
+          aria-label="More space above"
+        >
+          +
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 function Inspector({ block }: { block: Block }) {
+  const controls = <BlockControls block={block} />;
+  // Page breaks force a new page, so a gap above one is meaningless; every
+  // other block gets the spacing stepper under its type-specific controls.
+  if (block.type === 'pageBreak') return controls;
+  return (
+    <div className="flex flex-col gap-3">
+      {controls}
+      <div className="border-t border-[#E1E3E6] pt-2.5">
+        <SpaceAboveControl block={block} />
+      </div>
+    </div>
+  );
+}
+
+function BlockControls({ block }: { block: Block }) {
   const updateBlock = useStore((s) => s.updateBlock);
   const addListItem = useStore((s) => s.addListItem);
   const tableOp = useStore((s) => s.tableOp);

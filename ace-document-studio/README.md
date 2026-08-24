@@ -42,6 +42,10 @@ controls on the left, a live page on the right, and Print / Export PDF one click
 - **New Document goes straight to work.** One click opens the editor with a
   ready-to-edit policy outline — title, numbered sections, badge rows, and the
   warning callout already in place. No forms first.
+- **Tune the spacing.** Every block keeps the document's built-in vertical
+  rhythm by default, but a **Space above** stepper in the block inspector lets
+  you open up a gap to separate ideas or tighten it flush — per block, without
+  touching the rest of the page. **Reset** returns any block to the default.
 - **One-page focus.** A live meter shows how full the page is; if content
   spills, a dashed "PAGE 2 STARTS" line appears right where the break lands.
 - **Multi-page when you mean it.** Drop a **Page break** block anywhere and
@@ -69,9 +73,6 @@ controls on the left, a live page on the right, and Print / Export PDF one click
   the toolbar or File menu — single documents or whole backups). **Back up**
   writes the entire library to one file, and the app also keeps rotating
   automatic backups of everything on every quit.
-- **Support & feedback**: the ✉ Support button (or Help menu) files a bug
-  report or feature request to csuter@snydersace.net with version info
-  prefilled.
 - **Update check.** On launch the app quietly checks for a newer build and
   points at Help → Check for Updates… when one is available.
 

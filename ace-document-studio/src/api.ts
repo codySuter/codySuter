@@ -12,7 +12,6 @@ export interface StudioApi {
   printReady(info: { multiPage: boolean }): void;
   onMenu(handler: (cmd: string) => void): () => void;
   onUpdate(handler: (version: string) => void): () => void;
-  openSupport(kind: 'bug' | 'feature'): void;
   importDocs(): Promise<{ ok: boolean; added?: number; canceled?: boolean; error?: string }>;
   exportDocJson(doc: StudioDoc): Promise<FileResult>;
   backupLibrary(): Promise<FileResult & { count?: number }>;
@@ -28,18 +27,6 @@ declare global {
 // print/PDF go through the browser's own print dialog, and file tools
 // use downloads / a file picker.
 const LS_KEY = 'aps.docs.v1';
-
-const SUPPORT_EMAIL = 'csuter@snydersace.net';
-
-export function supportMailto(kind: 'bug' | 'feature', detail: string): string {
-  const label = kind === 'bug' ? 'Bug report' : 'Feature request';
-  const subject = `Ace Document Studio — ${label}`;
-  const body =
-    kind === 'bug'
-      ? `What happened?\n\n\nWhat did you expect?\n\n\nSteps to see it again:\n1. \n2. \n\n${detail}`
-      : `What should the app do?\n\n\nWhy it helps the store:\n\n\n${detail}`;
-  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
 
 function readAll(): Record<string, StudioDoc> {
   try {
@@ -119,9 +106,6 @@ const browserApi: StudioApi = {
   },
   onUpdate() {
     return () => {};
-  },
-  openSupport(kind) {
-    window.location.href = supportMailto(kind, 'Sent from the browser build.');
   },
   async importDocs() {
     const files = await pickJsonFiles();

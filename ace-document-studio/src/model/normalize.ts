@@ -1,10 +1,12 @@
 import type { StudioDoc, SignoffBlock } from './types';
 import { emptyFooter, FOOTER_FIELDS, TYPE_SCALE_MAX, TYPE_SCALE_MIN } from './types';
+import { clampSpaceBefore } from './docstyle';
 
 // Upgrades documents saved by older versions in place:
 // - audience ('employee' | 'customer') → typeScale (% slider)
 // - signoff { rows: N } → signoff { body, lines: [...] } (radio-contract style)
 // - missing footer (pre-1.3) → hidden metadata footer
+// - clamps any per-block spaceBefore nudge into range (drops garbage)
 export function normalizeDoc(doc: StudioDoc): StudioDoc {
   if (typeof doc.typeScale !== 'number' || Number.isNaN(doc.typeScale)) {
     doc.typeScale = doc.audience === 'customer' ? 116 : 100;
@@ -21,6 +23,12 @@ export function normalizeDoc(doc: StudioDoc): StudioDoc {
   }
 
   for (const block of doc.blocks ?? []) {
+    if (block.spaceBefore == null || Number.isNaN(block.spaceBefore)) {
+      delete block.spaceBefore;
+    } else {
+      block.spaceBefore = clampSpaceBefore(block.spaceBefore);
+      if (block.spaceBefore === 0) delete block.spaceBefore;
+    }
     if (block.type === 'signoff') {
       const b = block as SignoffBlock;
       if (!Array.isArray(b.lines)) {

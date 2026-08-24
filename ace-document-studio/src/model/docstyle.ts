@@ -315,3 +315,24 @@ export function blockMarginTop(
   if (type === 'callout') return 9;
   return 6;
 }
+
+// Per-block spacing nudge: how far a single "Space above" step moves the
+// gap, and the range the control (and stored value) is clamped to. The gap
+// can be pulled tighter than the default (down to flush) or opened up to
+// separate ideas, without ever going negative on the page.
+export const SPACE_STEP = 4;
+export const SPACE_MIN = -24;
+export const SPACE_MAX = 96;
+
+export const clampSpaceBefore = (n: number): number =>
+  Math.max(SPACE_MIN, Math.min(SPACE_MAX, Math.round(n)));
+
+// Final gap above a block: its type-based default plus the author's nudge,
+// never less than zero so blocks can sit flush but never overlap.
+export function effectiveMarginTop(
+  prevType: string | null,
+  type: string,
+  spaceBefore?: number,
+): number {
+  return Math.max(0, blockMarginTop(prevType, type) + (spaceBefore || 0));
+}

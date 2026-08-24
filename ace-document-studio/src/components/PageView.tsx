@@ -8,7 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, Copy, GripVertical, Trash2 } from 'lucide-react';
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import {
-  blockMarginTop,
+  effectiveMarginTop,
   INK,
   makeStyles,
   type DocStyles,
@@ -318,7 +318,7 @@ function ColumnsView({
             <BlockContent block={child} doc={doc} st={st} number={0} readOnly={readOnly} />
           );
           return (
-            <div key={child.id} style={{ marginTop: i === 0 ? 0 : 6 }}>
+            <div key={child.id} style={{ marginTop: Math.max(0, (i === 0 ? 0 : 6) + (child.spaceBefore || 0)) }}>
               {readOnly ? content : <NestedBlock block={child}>{content}</NestedBlock>}
             </div>
           );
@@ -896,7 +896,7 @@ export function PageView({ doc, mode }: { doc: StudioDoc; mode: PageMode }) {
             <div
               key={block.id}
               className="aps-keep"
-              style={{ marginTop: blockMarginTop(i === 0 ? null : doc.blocks[i - 1].type, block.type) }}
+              style={{ marginTop: effectiveMarginTop(i === 0 ? null : doc.blocks[i - 1].type, block.type, block.spaceBefore) }}
             >
               <BlockContent block={block} doc={doc} st={st} number={numbers[i]} readOnly />
             </div>
@@ -908,7 +908,7 @@ export function PageView({ doc, mode }: { doc: StudioDoc; mode: PageMode }) {
                 {dragging === 'palette' && <DropSlot index={i} />}
                 <SortableBlock
                   block={block}
-                  marginTop={blockMarginTop(i === 0 ? null : doc.blocks[i - 1].type, block.type)}
+                  marginTop={effectiveMarginTop(i === 0 ? null : doc.blocks[i - 1].type, block.type, block.spaceBefore)}
                 >
                   <BlockContent block={block} doc={doc} st={st} number={numbers[i]} readOnly={false} />
                 </SortableBlock>
