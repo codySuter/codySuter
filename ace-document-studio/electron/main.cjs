@@ -5,14 +5,12 @@
 // backgrounds on — identical geometry to the original policy docs.
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('node:path');
-const os = require('node:os');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || '';
 const isDev = !!DEV_URL;
 
-const SUPPORT_EMAIL = 'csuter@snydersace.net';
 const VERSION_URL =
   'https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows/version.txt';
 const RELEASE_PAGE = 'https://github.com/codysuter/codysuter/releases/tag/ace-document-studio-windows';
@@ -189,23 +187,6 @@ function autoBackup() {
     // Backups must never block quitting.
   }
 }
-
-// ---- support ----
-
-function supportMailto(kind) {
-  const label = kind === 'feature' ? 'Feature request' : 'Bug report';
-  const subject = `Ace Document Studio ${app.getVersion()} — ${label}`;
-  const diag = `App version: ${app.getVersion()} · Windows ${os.release()}`;
-  const body =
-    kind === 'feature'
-      ? `What should the app do?\n\n\nWhy it helps the store:\n\n\n${diag}`
-      : `What happened?\n\n\nWhat did you expect?\n\n\nSteps to see it again:\n1. \n2. \n\n${diag}`;
-  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
-ipcMain.on('app:support', (_e, kind) => {
-  void shell.openExternal(supportMailto(kind));
-});
 
 // ---- update check ----
 
@@ -422,12 +403,6 @@ const menuTemplate = [
     label: 'Help',
     submenu: [
       { label: 'Check for Updates…', click: () => void checkForUpdatesInteractive() },
-      { type: 'separator' },
-      { label: 'Report a Bug…', click: () => void shell.openExternal(supportMailto('bug')) },
-      {
-        label: 'Request a Feature…',
-        click: () => void shell.openExternal(supportMailto('feature')),
-      },
       { type: 'separator' },
       {
         label: 'About Ace Document Studio',

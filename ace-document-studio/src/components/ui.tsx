@@ -1,47 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import clsx from 'clsx';
-import { api } from '../api';
-
-// Support & feedback, matching Ace Sign Studio: bug reports and feature
-// requests emailed to csuter@snydersace.net with a prefilled template.
-function SupportButton() {
-  const [open, setOpen] = useState(false);
-  const send = (kind: 'bug' | 'feature') => {
-    setOpen(false);
-    api.openSupport(kind);
-  };
-  return (
-    <div className="relative">
-      <Btn variant="topbar" data-testid="support-btn" onClick={() => setOpen((o) => !o)}>
-        ✉ Support
-      </Btn>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-[115%] z-50 w-[216px] overflow-hidden rounded-[6px] border border-[#D8DBDE] bg-white py-1 text-[#20242B] shadow-lg">
-            <button
-              type="button"
-              className="block w-full cursor-pointer px-3 py-2 text-left text-[12.5px] hover:bg-[#F3F4F5]"
-              onClick={() => send('bug')}
-            >
-              Report a bug…
-            </button>
-            <button
-              type="button"
-              className="block w-full cursor-pointer px-3 py-2 text-left text-[12.5px] hover:bg-[#F3F4F5]"
-              onClick={() => send('feature')}
-            >
-              Request a feature…
-            </button>
-            <div className="border-t border-[#EDEEF0] px-3 py-1.5 text-[10.5px] text-[#9AA1A8]">
-              Emails csuter@snydersace.net
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 export function AppHeader({ left, right }: { left?: ReactNode; right?: ReactNode }) {
   return (
@@ -57,7 +15,6 @@ export function AppHeader({ left, right }: { left?: ReactNode; right?: ReactNode
         </span>
       </div>
       <div className="ml-auto flex items-center gap-2">
-        <SupportButton />
         {right}
       </div>
     </header>

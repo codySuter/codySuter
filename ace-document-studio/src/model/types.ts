@@ -103,7 +103,14 @@ export interface PageBreakBlock {
   type: 'pageBreak';
 }
 
-export type Block =
+// Every block carries an optional spacing nudge, added to (or subtracted
+// from) the type-based default gap above it. Undefined/0 = use the default.
+export interface BlockSpacing {
+  /** Points added to the automatic gap above this block. May be negative. */
+  spaceBefore?: number;
+}
+
+export type Block = (
   | SectionBlock
   | ParagraphBlock
   | BadgeRowBlock
@@ -115,7 +122,9 @@ export type Block =
   | SignoffBlock
   | ImageBlock
   | ColumnsBlock
-  | PageBreakBlock;
+  | PageBreakBlock
+) &
+  BlockSpacing;
 
 // Block types allowed inside a column.
 export const COLUMN_CHILD_TYPES = ['paragraph', 'bullets', 'steps', 'checklist'] as const;

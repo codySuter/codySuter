@@ -171,14 +171,6 @@ test('metadata footer toggles on, edits inline, and persists', async ({ page }) 
   await expect(page.getByTestId('doc-footer').getByText('01/15/2026')).toBeVisible();
 });
 
-test('support button offers bug report and feature request', async ({ page }) => {
-  await boot(page);
-  await page.getByTestId('support-btn').click();
-  await expect(page.getByText('Report a bug…')).toBeVisible();
-  await expect(page.getByText('Request a feature…')).toBeVisible();
-  await expect(page.getByText('csuter@snydersace.net')).toBeVisible();
-});
-
 test('nested column blocks move with the toolbar arrows', async ({ page }) => {
   await boot(page);
   await page.getByText('Special Orders for Pickup').first().click();
@@ -193,6 +185,32 @@ test('nested column blocks move with the toolbar arrows', async ({ page }) => {
   await nested.filter({ hasText: 'First point' }).first().click();
   await page.getByRole('button', { name: 'Move up' }).click();
   await expect(nested.first()).toContainText('First point');
+});
+
+test('space-above stepper widens and resets the gap above a block', async ({ page }) => {
+  await boot(page);
+  await page.getByText('Special Orders for Pickup').first().click();
+  const pageEl = page.getByTestId('page-edit');
+  await expect(pageEl).toBeVisible();
+
+  // The first block has no gap above it; pick the second so the default
+  // margin is non-zero and a nudge is measurable.
+  const block = pageEl.getByTestId('block').nth(1);
+  await block.click();
+  const marginPx = () =>
+    block.evaluate((el) => parseFloat(getComputedStyle(el).marginTop));
+  const base = await marginPx();
+
+  // Two +4pt steps open the gap by 8px.
+  await page.getByRole('button', { name: 'More space above' }).click();
+  await page.getByRole('button', { name: 'More space above' }).click();
+  await expect(page.getByText('+8 pt')).toBeVisible();
+  expect(await marginPx()).toBeCloseTo(base + 8, 0);
+
+  // Reset returns it to the type default.
+  await page.getByRole('button', { name: 'Reset' }).click();
+  await expect(page.getByText('Default')).toBeVisible();
+  expect(await marginPx()).toBeCloseTo(base, 0);
 });
 
 test('move up/down reorders and renumbers sections', async ({ page }) => {
