@@ -8,19 +8,37 @@ import {
   topLevelIndexOf,
   uid,
 } from './model/blocks';
+import { replaceAll, replaceMatch, type FindMatch } from './model/find';
 import { normalizeDoc } from './model/normalize';
 import { starterDocs } from './model/starter';
-import { newDocument } from './model/templates';
-import type { Block, BlockType, ColumnChildType, StudioDoc } from './model/types';
+import { documentFromTemplate, newDocument } from './model/templates';
+import type { Block, BlockAlign, BlockType, ColumnChildType, StudioDoc } from './model/types';
+import { MIN_TABLE_COL_PCT } from './model/types';
 
 export type Route =
   | { name: 'boot' }
   | { name: 'library' }
   | { name: 'editor'; id: string }
-  | { name: 'print'; id: string };
+  | { name: 'print'; id: string }
+  | { name: 'compile'; ids: string[]; title: string; toc: boolean };
 
 export type SaveState = 'saved' | 'saving' | 'dirty';
 export type Zoom = 'fit' | 1 | 1.25 | 1.5;
+
+/** App-level overlays; opened from buttons and the native menu alike. */
+export type ModalName =
+  | 'templates'
+  | 'shortcuts'
+  | 'history'
+  | 'backups'
+  | 'saveTemplate'
+  | null;
+
+export interface FocusedCell {
+  blockId: string;
+  row: number; // -1 = header row
+  col: number;
+}
 
 const SEED_FLAG = 'aps.seeded.v1';
 const HISTORY_CAP = 100;
@@ -37,17 +55,22 @@ interface StoreState {
   future: StudioDoc[];
   saveState: SaveState;
   status: string;
+  statusAction: { label: string; run: () => void } | null;
   dragging: 'palette' | 'block' | null;
   contentH: number;
   zoom: Zoom;
+  modal: ModalName;
+  focusedCell: FocusedCell | null;
 
   init(): Promise<void>;
   toLibrary(): Promise<void>;
   openDoc(id: string): Promise<void>;
   loadPrint(id: string): Promise<void>;
-  createNewDoc(): Promise<void>;
+  loadCompile(ids: string[], title: string, toc: boolean): Promise<void>;
+  createNewDoc(from?: StudioDoc): Promise<void>;
   deleteDoc(id: string): Promise<void>;
   duplicateDoc(id: string): Promise<void>;
+  renameDoc(id: string, titleHtml: string): Promise<void>;
 
   mutate(fn: (doc: StudioDoc) => void, histKey?: string): void;
   saveNow(): Promise<void>;
@@ -60,25 +83,43 @@ interface StoreState {
   setContentH(h: number): void;
   setZoom(z: Zoom): void;
   setStatus(s: string): void;
+  setStatusAction(s: string, action: { label: string; run: () => void } | null): void;
+  setModal(m: ModalName): void;
+  setFocusedCell(c: FocusedCell | null): void;
 
   setDocField<K extends keyof StudioDoc>(field: K, value: StudioDoc[K], histKey?: string): void;
   updateBlock(id: string, patch: Partial<Block>, histKey?: string): void;
-  insertBlock(type: BlockType, index?: number): void;
+  insertBlock(type: BlockType, index?: number, aboveHeader?: boolean): void;
+  insertBlocks(blocks: Block[], index?: number, aboveHeader?: boolean): void;
   removeBlock(id: string): void;
   duplicateBlock(id: string): void;
+  pasteBlock(block: Block): void;
+  insertBlocksAfter(id: string, blocks: Block[]): void;
   moveBlockTo(activeId: string, overId: string): void;
+  moveHeaderTo(index: number): void;
+  moveBlockToHeader(activeId: string): void;
   moveBlockBy(id: string, delta: number): void;
   setListItem(id: string, index: number, html: string, histKey?: string): void;
   addListItem(id: string, afterIndex: number): void;
+  addListItems(id: string, afterIndex: number, items: string[]): void;
   removeListItem(id: string, index: number): void;
   setCell(id: string, row: number, col: number, html: string, histKey?: string): void;
-  tableOp(id: string, op: 'addRow' | 'removeRow' | 'addCol' | 'removeCol'): void;
+  tableInsertRow(id: string, at: number): void;
+  tableRemoveRow(id: string, at: number): void;
+  tableInsertCol(id: string, at: number): void;
+  tableRemoveCol(id: string, at: number): void;
+  tableSetAlign(id: string, col: number, align: BlockAlign): void;
+  tableSetWidths(id: string, widths: number[], histKey?: string): void;
 
   addColumnChild(columnsId: string, side: 'left' | 'right', type: ColumnChildType): void;
   setColumnHeading(columnsId: string, side: 'left' | 'right', html: string, histKey?: string): void;
   addSignLine(id: string, withDate: boolean): void;
   removeSignLine(id: string, index: number): void;
   setSignLineLabel(id: string, index: number, html: string, histKey?: string): void;
+
+  replaceCurrent(doc: StudioDoc, statusMsg: string): void;
+  runReplaceOne(match: FindMatch, query: string, replacement: string): boolean;
+  runReplaceAll(query: string, replacement: string): number;
 }
 
 const findBlock = findBlockDeep;
@@ -92,11 +133,24 @@ export const useStore = create<StoreState>((set, get) => ({
   future: [],
   saveState: 'saved',
   status: 'Welcome to Ace Document Studio.',
+  statusAction: null,
   dragging: null,
   contentH: 0,
   zoom: 'fit',
+  modal: null,
+  focusedCell: null,
 
   async init() {
+    const compile = window.location.hash.match(/^#\/compile\/([^?]+)(?:\?(.*))?$/);
+    if (compile) {
+      const params = new URLSearchParams(compile[2] ?? '');
+      await get().loadCompile(
+        decodeURIComponent(compile[1]).split(',').filter(Boolean),
+        params.get('title') ?? 'Store Documents',
+        params.get('toc') !== '0',
+      );
+      return;
+    }
     const m = window.location.hash.match(/^#\/print\/(.+)$/);
     if (m) {
       await get().loadPrint(decodeURIComponent(m[1]));
@@ -124,6 +178,9 @@ export const useStore = create<StoreState>((set, get) => ({
       future: [],
       saveState: 'saved',
       status: `${docs.length} document${docs.length === 1 ? '' : 's'} in your library.`,
+      statusAction: null,
+      modal: null,
+      focusedCell: null,
     });
     window.location.hash = '#/library';
   },
@@ -141,6 +198,9 @@ export const useStore = create<StoreState>((set, get) => ({
       future: [],
       saveState: 'saved',
       status: `Opened “${doc.title}”.`,
+      statusAction: null,
+      modal: null,
+      focusedCell: null,
     });
     window.location.hash = `#/editor/${id}`;
   },
@@ -151,8 +211,13 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ route: { name: 'print', id }, current: doc, docs });
   },
 
-  async createNewDoc() {
-    const doc = newDocument();
+  async loadCompile(ids, title, toc) {
+    const docs = (await api.listDocs()).map(normalizeDoc);
+    set({ route: { name: 'compile', ids, title, toc }, current: null, docs });
+  },
+
+  async createNewDoc(from) {
+    const doc = documentFromTemplate(from ?? newDocument());
     await api.saveDoc(doc);
     lastHistKey = null;
     set({
@@ -164,13 +229,36 @@ export const useStore = create<StoreState>((set, get) => ({
       future: [],
       saveState: 'saved',
       status: 'New document — click the title to name it, and edit any text on the page.',
+      statusAction: null,
+      modal: null,
+      focusedCell: null,
     });
     window.location.hash = `#/editor/${doc.id}`;
   },
 
   async deleteDoc(id) {
+    const doc = get().docs.find((d) => d.id === id);
     await api.deleteDoc(id);
-    set({ docs: get().docs.filter((d) => d.id !== id), status: 'Document deleted.' });
+    set({ docs: get().docs.filter((d) => d.id !== id) });
+    if (!doc) {
+      set({ status: 'Document deleted.', statusAction: null });
+      return;
+    }
+    // Soft delete: the file moved to the trash (desktop) and the document
+    // stays restorable right from the status bar.
+    get().setStatusAction(`Deleted “${doc.title || 'Untitled'}”.`, {
+      label: 'Undo',
+      run: () => {
+        void (async () => {
+          await api.saveDoc(doc);
+          set({
+            docs: [doc, ...get().docs.filter((d) => d.id !== doc.id)],
+            status: `Restored “${doc.title || 'Untitled'}”.`,
+            statusAction: null,
+          });
+        })();
+      },
+    });
   },
 
   async duplicateDoc(id) {
@@ -184,6 +272,17 @@ export const useStore = create<StoreState>((set, get) => ({
     copy.updatedAt = Date.now();
     await api.saveDoc(copy);
     set({ docs: [copy, ...get().docs], status: `Duplicated “${src.title}”.` });
+  },
+
+  async renameDoc(id, titleHtml) {
+    const doc = get().docs.find((d) => d.id === id);
+    if (!doc) return;
+    const renamed = { ...doc, title: titleHtml, updatedAt: Date.now() };
+    await api.saveDoc(renamed);
+    set({
+      docs: get().docs.map((d) => (d.id === id ? renamed : d)),
+      status: 'Document renamed.',
+    });
   },
 
   mutate(fn, histKey) {
@@ -270,7 +369,16 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ zoom: z });
   },
   setStatus(s) {
-    set({ status: s });
+    set({ status: s, statusAction: null });
+  },
+  setStatusAction(s, action) {
+    set({ status: s, statusAction: action });
+  },
+  setModal(m) {
+    set({ modal: m });
+  },
+  setFocusedCell(c) {
+    set({ focusedCell: c });
   },
 
   setDocField(field, value, histKey) {
@@ -286,20 +394,35 @@ export const useStore = create<StoreState>((set, get) => ({
     }, histKey);
   },
 
-  insertBlock(type, index) {
-    const block = newBlock(type);
+  insertBlock(type, index, aboveHeader) {
+    get().insertBlocks([newBlock(type)], index, aboveHeader);
+    set({ status: 'Block added — click its text to edit.' });
+  },
+
+  insertBlocks(blocks, index, aboveHeader) {
+    if (blocks.length === 0) return;
     get().mutate((doc) => {
-      const i = index === undefined ? doc.blocks.length : Math.max(0, Math.min(index, doc.blocks.length));
-      doc.blocks.splice(i, 0, block);
+      const h = doc.headerAt ?? 0;
+      const i =
+        index === undefined ? doc.blocks.length : Math.max(0, Math.min(index, doc.blocks.length));
+      // A block landing inside the above-header run stays above the header.
+      const above = aboveHeader ?? (h > 0 && i <= h);
+      doc.blocks.splice(i, 0, ...blocks);
+      if (above && i <= h) doc.headerAt = h + blocks.length;
     });
-    set({ selectedId: block.id, status: 'Block added — click its text to edit.' });
+    set({ selectedId: blocks[0].id });
   },
 
   removeBlock(id) {
     get().mutate((doc) => {
       const arr = containerOf(doc, id);
       if (!arr) return;
-      arr.splice(arr.findIndex((b) => b.id === id), 1);
+      const i = arr.findIndex((b) => b.id === id);
+      arr.splice(i, 1);
+      if (arr === doc.blocks && i < (doc.headerAt ?? 0)) {
+        doc.headerAt = (doc.headerAt ?? 0) - 1;
+        if (doc.headerAt === 0) delete doc.headerAt;
+      }
     });
     if (get().selectedId === id) set({ selectedId: null });
     set({ status: 'Block removed.' });
@@ -314,8 +437,38 @@ export const useStore = create<StoreState>((set, get) => ({
       const copy = cloneBlock(arr[i]);
       newId = copy.id;
       arr.splice(i + 1, 0, copy);
+      if (arr === doc.blocks && i + 1 <= (doc.headerAt ?? 0)) {
+        doc.headerAt = (doc.headerAt ?? 0) + 1;
+      }
     });
     if (newId) set({ selectedId: newId, status: 'Block duplicated.' });
+  },
+
+  // Paste a block copied to the clipboard — after the selection, or at the end.
+  pasteBlock(block) {
+    const st = get();
+    const doc = st.current;
+    if (!doc) return;
+    const copy = cloneBlock(block);
+    const sel = st.selectedId;
+    const idx = sel ? topLevelIndexOf(doc, sel) + 1 : doc.blocks.length;
+    st.insertBlocks([copy], idx > 0 ? idx : doc.blocks.length);
+    set({ status: 'Block pasted.' });
+  },
+
+  // Insert blocks right after an existing one, wherever it lives (top
+  // level or inside a column). Used by multi-line paragraph paste.
+  insertBlocksAfter(id, blocks) {
+    if (blocks.length === 0) return;
+    get().mutate((doc) => {
+      const arr = containerOf(doc, id);
+      if (!arr) return;
+      const i = arr.findIndex((b) => b.id === id);
+      arr.splice(i + 1, 0, ...blocks);
+      if (arr === doc.blocks && i + 1 <= (doc.headerAt ?? 0)) {
+        doc.headerAt = (doc.headerAt ?? 0) + blocks.length;
+      }
+    });
   },
 
   moveBlockTo(activeId, overId) {
@@ -325,20 +478,68 @@ export const useStore = create<StoreState>((set, get) => ({
       const from = arr.findIndex((b) => b.id === activeId);
       const to = arr.findIndex((b) => b.id === overId);
       if (from === -1 || to === -1 || from === to) return;
+      // Crossing the title header adjusts how many blocks sit above it.
+      if (arr === doc.blocks) {
+        const h = doc.headerAt ?? 0;
+        const fromAbove = from < h;
+        const toAbove = to < h;
+        const next = h - (fromAbove ? 1 : 0) + (toAbove ? 1 : 0);
+        if (next === 0) delete doc.headerAt;
+        else doc.headerAt = next;
+      }
       const [moved] = arr.splice(from, 1);
       arr.splice(to, 0, moved);
     });
   },
 
+  // A block dropped onto the title header lands directly above it.
+  moveBlockToHeader(activeId) {
+    get().mutate((doc) => {
+      const from = doc.blocks.findIndex((b) => b.id === activeId);
+      if (from === -1) return;
+      const h = doc.headerAt ?? 0;
+      const target = h - (from < h ? 1 : 0);
+      const [moved] = doc.blocks.splice(from, 1);
+      doc.blocks.splice(target, 0, moved);
+      doc.headerAt = target + 1;
+    });
+  },
+
+  // Place the draggable title header so that `index` top-level blocks
+  // render above it.
+  moveHeaderTo(index) {
+    get().mutate((doc) => {
+      const next = Math.max(0, Math.min(doc.blocks.length, index));
+      if (next === 0) delete doc.headerAt;
+      else doc.headerAt = next;
+    });
+  },
+
   // Works at the top level and inside a column: the block moves within
-  // whatever array contains it.
+  // whatever array contains it. At the top level, a block adjacent to the
+  // title header steps across it instead of jumping past it.
   moveBlockBy(id, delta) {
     get().mutate((doc) => {
       const arr = containerOf(doc, id);
       if (!arr) return;
       const from = arr.findIndex((b) => b.id === id);
+      if (from === -1) return;
+      if (arr === doc.blocks) {
+        const h = doc.headerAt ?? 0;
+        if (delta > 0 && from === h - 1) {
+          // Just above the header, moving down → slide below the header.
+          if (h - 1 === 0) delete doc.headerAt;
+          else doc.headerAt = h - 1;
+          return;
+        }
+        if (delta < 0 && from === h && h < doc.blocks.length) {
+          // First block below the header, moving up → slide above it.
+          doc.headerAt = h + 1;
+          return;
+        }
+      }
       const to = from + delta;
-      if (from === -1 || to < 0 || to >= arr.length) return;
+      if (to < 0 || to >= arr.length) return;
       const [moved] = arr.splice(from, 1);
       arr.splice(to, 0, moved);
     });
@@ -358,6 +559,15 @@ export const useStore = create<StoreState>((set, get) => ({
     });
   },
 
+  // Multi-line paste into a list: the extra lines become items of their own.
+  addListItems(id, afterIndex, items) {
+    if (items.length === 0) return;
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (b && 'items' in b) b.items.splice(afterIndex + 1, 0, ...items);
+    });
+  },
+
   removeListItem(id, index) {
     get().mutate((doc) => {
       const b = findBlock(doc, id);
@@ -374,21 +584,76 @@ export const useStore = create<StoreState>((set, get) => ({
     }, histKey);
   },
 
-  tableOp(id, op) {
+  tableInsertRow(id, at) {
     get().mutate((doc) => {
       const b = findBlock(doc, id);
       if (!b || b.type !== 'table') return;
-      if (op === 'addRow') b.rows.push(b.header.map(() => ''));
-      if (op === 'removeRow' && b.rows.length > 1) b.rows.pop();
-      if (op === 'addCol') {
-        b.header.push('');
-        b.rows.forEach((r) => r.push(''));
-      }
-      if (op === 'removeCol' && b.header.length > 1) {
-        b.header.pop();
-        b.rows.forEach((r) => r.pop());
+      const i = Math.max(0, Math.min(at, b.rows.length));
+      b.rows.splice(i, 0, b.header.map(() => ''));
+    });
+  },
+
+  tableRemoveRow(id, at) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (!b || b.type !== 'table' || b.rows.length <= 1) return;
+      if (at < 0 || at >= b.rows.length) return;
+      b.rows.splice(at, 1);
+    });
+    set({ focusedCell: null });
+  },
+
+  tableInsertCol(id, at) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (!b || b.type !== 'table') return;
+      const i = Math.max(0, Math.min(at, b.header.length));
+      b.header.splice(i, 0, '');
+      b.rows.forEach((r) => r.splice(i, 0, ''));
+      if (b.aligns) b.aligns.splice(i, 0, 'left');
+      if (b.widths) {
+        // Give the new column an equal share and re-normalize to 100.
+        b.widths.splice(i, 0, 100 / b.header.length);
+        const sum = b.widths.reduce((a, w) => a + w, 0);
+        b.widths = b.widths.map((w) => Math.max(MIN_TABLE_COL_PCT, (w / sum) * 100));
       }
     });
+  },
+
+  tableRemoveCol(id, at) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (!b || b.type !== 'table' || b.header.length <= 1) return;
+      if (at < 0 || at >= b.header.length) return;
+      b.header.splice(at, 1);
+      b.rows.forEach((r) => r.splice(at, 1));
+      if (b.aligns) b.aligns.splice(at, 1);
+      if (b.widths) {
+        b.widths.splice(at, 1);
+        const sum = b.widths.reduce((a, w) => a + w, 0);
+        b.widths = b.widths.map((w) => (w / sum) * 100);
+      }
+    });
+    set({ focusedCell: null });
+  },
+
+  tableSetAlign(id, col, align) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (!b || b.type !== 'table' || col < 0 || col >= b.header.length) return;
+      const aligns = b.aligns ?? b.header.map(() => 'left' as BlockAlign);
+      aligns[col] = align;
+      if (aligns.every((a) => a === 'left')) delete b.aligns;
+      else b.aligns = aligns;
+    });
+  },
+
+  tableSetWidths(id, widths, histKey) {
+    get().mutate((doc) => {
+      const b = findBlock(doc, id);
+      if (!b || b.type !== 'table' || widths.length !== b.header.length) return;
+      b.widths = widths.map((w) => Math.max(MIN_TABLE_COL_PCT, Math.round(w * 10) / 10));
+    }, histKey);
   },
 
   addColumnChild(columnsId, side, type) {
@@ -431,5 +696,35 @@ export const useStore = create<StoreState>((set, get) => ({
       const b = findBlock(doc, id);
       if (b && b.type === 'signoff' && b.lines[index]) b.lines[index].label = html;
     }, histKey);
+  },
+
+  // Swap the open document's content for another saved state (a restored
+  // revision). Runs through mutate, so it lands on the undo stack too.
+  replaceCurrent(doc, statusMsg) {
+    get().mutate((cur) => {
+      const restored = structuredClone(doc);
+      restored.id = cur.id;
+      // Clear optionals the snapshot may not carry, then copy everything over.
+      delete cur.headerAt;
+      delete cur.audience;
+      Object.assign(cur, restored);
+    });
+    set({ selectedId: null, status: statusMsg });
+  },
+
+  runReplaceOne(match, query, replacement) {
+    let ok = false;
+    get().mutate((doc) => {
+      ok = replaceMatch(doc, match, query, replacement);
+    });
+    return ok;
+  },
+
+  runReplaceAll(query, replacement) {
+    let n = 0;
+    get().mutate((doc) => {
+      n = replaceAll(doc, query, replacement);
+    });
+    return n;
   },
 }));

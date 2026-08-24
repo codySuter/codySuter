@@ -17,7 +17,10 @@ import {
   Columns2,
   FileDown,
   Heading1,
+  Heading2,
+  History as HistoryIcon,
   Image as ImageIcon,
+  ImageDown,
   List,
   ListChecks,
   ListOrdered,
@@ -32,11 +35,15 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { BLOCK_LABELS, findBlockDeep, topLevelIndexOf } from '../model/blocks';
+import { BLOCK_LABELS, findBlockDeep, newBlock, topLevelIndexOf } from '../model/blocks';
+import { loadImageScaled, isImageFile } from '../model/image';
 import { plainText } from '../model/sanitize';
-import type { Block, BlockType } from '../model/types';
+import { parseTextToBlocks } from '../model/textImport';
+import type { Block, BlockAlign, BlockType, ImageBlock, StudioDoc } from '../model/types';
 import {
   ACCENT_PRESETS,
+  ALIGNABLE_TYPES,
+  HEADER_DND_ID,
   PRINTABLE_H_PX,
   TYPE_SCALE_MAX,
   TYPE_SCALE_MIN,
@@ -49,11 +56,14 @@ import {
 } from '../model/docstyle';
 import { useStore, type Zoom } from '../store';
 import { toggleHighlightSelection } from './Editable';
+import { FindBar } from './FindBar';
+import { HistoryPanel } from './HistoryPanel';
 import { PageView } from './PageView';
-import { AppHeader, Btn, Panel, Seg, Swatches } from './ui';
+import { AppHeader, Btn, Modal, Panel, Seg, Swatches, inputCls } from './ui';
 
 const PALETTE: { type: BlockType; icon: React.ReactNode }[] = [
   { type: 'section', icon: <Heading1 size={15} /> },
+  { type: 'header', icon: <Heading2 size={15} /> },
   { type: 'paragraph', icon: <AlignLeft size={15} /> },
   { type: 'badgeRow', icon: <Tag size={15} /> },
   { type: 'bullets', icon: <List size={15} /> },
@@ -66,6 +76,22 @@ const PALETTE: { type: BlockType; icon: React.ReactNode }[] = [
   { type: 'image', icon: <ImageIcon size={15} /> },
   { type: 'pageBreak', icon: <Scissors size={15} /> },
 ];
+
+// The OS clipboard payload for a copied block, recognized on paste —
+// works across documents and across app windows.
+const BLOCK_CLIP_MARK = 'ace-document-studio/block';
+
+function parseBlockClip(text: string): Block | null {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && parsed.app === BLOCK_CLIP_MARK && parsed.block && parsed.block.type) {
+      return parsed.block as Block;
+    }
+  } catch {
+    // Not our payload.
+  }
+  return null;
+}
 
 const collision: CollisionDetection = (args) => {
   const within = pointerWithin(args);
@@ -183,6 +209,25 @@ function SpaceAboveControl({ block }: { block: Block }) {
   );
 }
 
+// Left / center / right for the block types where it makes sense.
+function AlignControl({ block }: { block: Block }) {
+  const updateBlock = useStore((s) => s.updateBlock);
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[11.5px] text-[#6D6E71]">Alignment</span>
+      <Seg
+        value={(block.align ?? 'left') as BlockAlign}
+        onChange={(v) => updateBlock(block.id, { align: v === 'left' ? undefined : v })}
+        options={[
+          { value: 'left', label: 'Left' },
+          { value: 'center', label: 'Center' },
+          { value: 'right', label: 'Right' },
+        ]}
+      />
+    </div>
+  );
+}
+
 function Inspector({ block }: { block: Block }) {
   const controls = <BlockControls block={block} />;
   // Page breaks force a new page, so a gap above one is meaningless; every
@@ -191,6 +236,11 @@ function Inspector({ block }: { block: Block }) {
   return (
     <div className="flex flex-col gap-3">
       {controls}
+      {ALIGNABLE_TYPES.includes(block.type) && (
+        <div className="border-t border-[#E1E3E6] pt-2.5">
+          <AlignControl block={block} />
+        </div>
+      )}
       <div className="border-t border-[#E1E3E6] pt-2.5">
         <SpaceAboveControl block={block} />
       </div>
@@ -198,16 +248,88 @@ function Inspector({ block }: { block: Block }) {
   );
 }
 
+// Row / column tools for the focused table cell.
+function TableControls({ block }: { block: Block & { type: 'table' } }) {
+  const focusedCell = useStore((s) => s.focusedCell);
+  const tableInsertRow = useStore((s) => s.tableInsertRow);
+  const tableRemoveRow = useStore((s) => s.tableRemoveRow);
+  const tableInsertCol = useStore((s) => s.tableInsertCol);
+  const tableRemoveCol = useStore((s) => s.tableRemoveCol);
+  const tableSetAlign = useStore((s) => s.tableSetAlign);
+  const updateBlock = useStore((s) => s.updateBlock);
+
+  const fc = focusedCell && focusedCell.blockId === block.id ? focusedCell : null;
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {fc ? (
+        <>
+          {fc.row >= 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[11.5px] text-[#6D6E71]">Row {fc.row + 1}</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                <Btn data-testid="row-above" onClick={() => tableInsertRow(block.id, fc.row)}>+ Above</Btn>
+                <Btn data-testid="row-below" onClick={() => tableInsertRow(block.id, fc.row + 1)}>+ Below</Btn>
+                <Btn data-testid="row-delete" onClick={() => tableRemoveRow(block.id, fc.row)}>− Delete</Btn>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11.5px] text-[#6D6E71]">Column {fc.col + 1}</span>
+            <div className="grid grid-cols-3 gap-1.5">
+              <Btn data-testid="col-left" onClick={() => tableInsertCol(block.id, fc.col)}>+ Left</Btn>
+              <Btn data-testid="col-right" onClick={() => tableInsertCol(block.id, fc.col + 1)}>+ Right</Btn>
+              <Btn data-testid="col-delete" onClick={() => tableRemoveCol(block.id, fc.col)}>− Delete</Btn>
+            </div>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-[11.5px] text-[#6D6E71]">Column text</span>
+              <Seg
+                value={(block.aligns?.[fc.col] ?? 'left') as BlockAlign}
+                onChange={(v) => tableSetAlign(block.id, fc.col, v)}
+                options={[
+                  { value: 'left', label: 'L' },
+                  { value: 'center', label: 'C' },
+                  { value: 'right', label: 'R' },
+                ]}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="text-[11.5px] text-[#6D6E71]">
+          Click any cell, then insert or remove rows and columns right there.
+        </p>
+      )}
+      <p className="text-[11px] text-[#6D6E71]">
+        Drag the red lines between columns to resize them.
+        {block.widths && (
+          <>
+            {' '}
+            <button
+              type="button"
+              onClick={() => updateBlock(block.id, { widths: undefined })}
+              className="cursor-pointer font-semibold tracking-[0.03em] text-[#C8102E] uppercase hover:underline"
+            >
+              Reset widths
+            </button>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
 function BlockControls({ block }: { block: Block }) {
   const updateBlock = useStore((s) => s.updateBlock);
   const addListItem = useStore((s) => s.addListItem);
-  const tableOp = useStore((s) => s.tableOp);
   const addSignLine = useStore((s) => s.addSignLine);
   const removeSignLine = useStore((s) => s.removeSignLine);
 
   switch (block.type) {
     case 'section':
       return <p className="text-[11.5px] text-[#6D6E71]">Sections number themselves — drag to reorder and the numbers follow.</p>;
+    case 'header':
+      return <p className="text-[11.5px] text-[#6D6E71]">Same style as a section, no number — numbered sections keep counting around it.</p>;
     case 'paragraph':
       return (
         <label className="flex items-center gap-2 text-[12px] text-[#20242B]">
@@ -239,7 +361,10 @@ function BlockControls({ block }: { block: Block }) {
       return (
         <div className="flex flex-col gap-1.5">
           <Btn onClick={() => addListItem(block.id, block.items.length - 1)}>+ Add item</Btn>
-          <p className="text-[11px] text-[#6D6E71]">Enter adds an item · Backspace on an empty item removes it.</p>
+          <p className="text-[11px] text-[#6D6E71]">
+            Enter adds an item · Backspace on an empty item removes it · pasting several
+            lines adds one item per line.
+          </p>
         </div>
       );
     case 'callout':
@@ -257,14 +382,7 @@ function BlockControls({ block }: { block: Block }) {
         </div>
       );
     case 'table':
-      return (
-        <div className="grid grid-cols-2 gap-1.5">
-          <Btn onClick={() => tableOp(block.id, 'addRow')}>+ Row</Btn>
-          <Btn onClick={() => tableOp(block.id, 'removeRow')}>− Row</Btn>
-          <Btn onClick={() => tableOp(block.id, 'addCol')}>+ Column</Btn>
-          <Btn onClick={() => tableOp(block.id, 'removeCol')}>− Column</Btn>
-        </div>
-      );
+      return <TableControls block={block} />;
     case 'signoff':
       return (
         <div className="flex flex-col gap-1.5">
@@ -331,14 +449,97 @@ function BlockControls({ block }: { block: Block }) {
   }
 }
 
+// Jump list over the document's section & header blocks.
+function OutlinePanel({ doc }: { doc: StudioDoc }) {
+  const select = useStore((s) => s.select);
+  let n = 0;
+  const entries = doc.blocks
+    .map((b) => {
+      if (b.type === 'section') return { id: b.id, num: ++n, title: b.title };
+      if (b.type === 'header') return { id: b.id, num: 0, title: b.title };
+      return null;
+    })
+    .filter((e) => e !== null);
+  if (entries.length === 0) return null;
+  return (
+    <Panel title="Outline">
+      <ul className="flex flex-col" data-testid="outline">
+        {entries.map((e) => (
+          <li key={e.id}>
+            <button
+              type="button"
+              onClick={() => {
+                select(e.id);
+                document
+                  .querySelector(`[data-block="${e.id}"]`)
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+              className="flex w-full cursor-pointer items-baseline gap-2 rounded px-1.5 py-[3px] text-left text-[12px] text-[#20242B] hover:bg-[#F3F4F5]"
+            >
+              <span
+                className="w-4 shrink-0 text-right text-[11px] font-bold text-[#C8102E]"
+                style={{ fontFamily: "'Barlow Semi Condensed', sans-serif" }}
+              >
+                {e.num > 0 ? e.num : '·'}
+              </span>
+              <span className="truncate">{plainText(e.title) || 'Untitled'}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+// "Save as template" naming dialog.
+function SaveTemplateModal({ doc, onClose }: { doc: StudioDoc; onClose: () => void }) {
+  const setStatus = useStore((s) => s.setStatus);
+  const [name, setName] = useState(plainText(doc.title) || 'My template');
+  const save = async () => {
+    const r = await api.saveTemplate(name.trim() || 'My template', doc);
+    setStatus(r.ok ? `Template “${name.trim()}” saved — it's in the New Document picker.` : `Couldn’t save the template: ${r.error ?? 'unknown error'}`);
+    onClose();
+  };
+  return (
+    <Modal title="Save as template" onClose={onClose}>
+      <p className="mb-2 text-[12.5px] text-[#4A4F57]">
+        This document's layout becomes a starting point in the New Document picker.
+      </p>
+      <input
+        data-testid="template-name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') void save();
+        }}
+        autoFocus
+        className={inputCls}
+        placeholder="Template name"
+      />
+      <div className="mt-3 flex justify-end gap-2">
+        <Btn onClick={onClose}>Cancel</Btn>
+        <Btn variant="primary" data-testid="template-save" onClick={() => void save()}>
+          Save template
+        </Btn>
+      </div>
+    </Modal>
+  );
+}
+
 export function Editor() {
   const doc = useStore((s) => s.current);
   const selectedId = useStore((s) => s.selectedId);
   const select = useStore((s) => s.select);
   const setDragging = useStore((s) => s.setDragging);
   const insertBlock = useStore((s) => s.insertBlock);
+  const insertBlocks = useStore((s) => s.insertBlocks);
+  const pasteBlock = useStore((s) => s.pasteBlock);
   const moveBlockTo = useStore((s) => s.moveBlockTo);
+  const moveBlockBy = useStore((s) => s.moveBlockBy);
+  const moveHeaderTo = useStore((s) => s.moveHeaderTo);
+  const moveBlockToHeader = useStore((s) => s.moveBlockToHeader);
   const removeBlock = useStore((s) => s.removeBlock);
+  const updateBlock = useStore((s) => s.updateBlock);
   const setDocField = useStore((s) => s.setDocField);
   const toLibrary = useStore((s) => s.toLibrary);
   const undo = useStore((s) => s.undo);
@@ -347,13 +548,18 @@ export function Editor() {
   const canRedo = useStore((s) => s.future.length > 0);
   const saveState = useStore((s) => s.saveState);
   const status = useStore((s) => s.status);
+  const statusAction = useStore((s) => s.statusAction);
   const setStatus = useStore((s) => s.setStatus);
   const saveNow = useStore((s) => s.saveNow);
   const contentH = useStore((s) => s.contentH);
   const zoom = useStore((s) => s.zoom);
   const setZoom = useStore((s) => s.setZoom);
+  const modal = useStore((s) => s.modal);
+  const setModal = useStore((s) => s.setModal);
 
   const [activeType, setActiveType] = useState<BlockType | null>(null);
+  const [draggingHeader, setDraggingHeader] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
   const deskRef = useRef<HTMLDivElement | null>(null);
   const [deskW, setDeskW] = useState(1000);
 
@@ -380,6 +586,21 @@ export function Editor() {
     else if (!r.ok) setStatus(`PDF export failed: ${r.error ?? 'unknown error'}`);
   };
 
+  const doExportPng = async () => {
+    if (!doc) return;
+    setStatus('Exporting PNG…');
+    await saveNow();
+    const r = await api.exportPng(doc.id, plainText(doc.title) || 'Document');
+    if (r.ok && r.paths?.length) {
+      setStatus(
+        r.paths.length === 1
+          ? `Saved PNG → ${r.paths[0]}`
+          : `Saved ${r.paths.length} PNGs → ${r.paths[0]} …`,
+      );
+    } else if (r.canceled) setStatus('PNG export canceled.');
+    else if (!r.ok) setStatus(`PNG export failed: ${r.error ?? 'unknown error'}`);
+  };
+
   const doPrint = async () => {
     if (!doc) return;
     setStatus('Opening print dialog…');
@@ -387,6 +608,40 @@ export function Editor() {
     const r = await api.printDoc(doc.id);
     if (!r.ok) setStatus(`Print failed: ${r.error ?? 'unknown error'}`);
     else setStatus('Sent to the print dialog.');
+  };
+
+  // Insert freshly loaded images after the selection — or into the
+  // selected image block when it's still empty. Reads live store state:
+  // the paste/drop listeners only re-subscribe when the document changes.
+  const insertImages = async (files: File[]) => {
+    if (files.length === 0) return;
+    const srcs: string[] = [];
+    for (const f of files) {
+      try {
+        srcs.push(await loadImageScaled(f));
+      } catch {
+        setStatus('Couldn’t read that image — try a PNG or JPG.');
+      }
+    }
+    const st = useStore.getState();
+    const cur = st.current;
+    if (srcs.length === 0 || !cur) return;
+    const sel = st.selectedId ? findBlockDeep(cur, st.selectedId) : null;
+    let rest = srcs;
+    if (sel && sel.type === 'image' && !sel.src) {
+      updateBlock(sel.id, { src: srcs[0] });
+      rest = srcs.slice(1);
+    }
+    if (rest.length > 0) {
+      const blocks = rest.map((src) => {
+        const b = newBlock('image') as ImageBlock;
+        b.src = src;
+        return b as Block;
+      });
+      const idx = st.selectedId ? topLevelIndexOf(cur, st.selectedId) + 1 : cur.blocks.length;
+      insertBlocks(blocks, idx > 0 ? idx : cur.blocks.length);
+    }
+    setStatus(`Added ${srcs.length} image${srcs.length === 1 ? '' : 's'}.`);
   };
 
   useEffect(() => {
@@ -408,10 +663,29 @@ export function Editor() {
         void saveNow();
       } else if (mod && e.key.toLowerCase() === 'e') {
         e.preventDefault();
-        void doExport();
+        if (e.shiftKey) void doExportPng();
+        else void doExport();
       } else if (mod && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         void doPrint();
+      } else if (mod && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setFindOpen(true);
+      } else if (mod && !editingText && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'x')) {
+        const st = useStore.getState();
+        const sel = st.selectedId && st.current ? findBlockDeep(st.current, st.selectedId) : null;
+        if (sel) {
+          e.preventDefault();
+          void api.writeClipboardText(JSON.stringify({ app: BLOCK_CLIP_MARK, block: sel }));
+          if (e.key.toLowerCase() === 'x') removeBlock(sel.id);
+          setStatus(e.key.toLowerCase() === 'x' ? 'Block cut — paste it anywhere.' : 'Block copied — paste it anywhere (even another document).');
+        }
+      } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !editingText) {
+        const sel = useStore.getState().selectedId;
+        if (sel) {
+          e.preventDefault();
+          moveBlockBy(sel, e.key === 'ArrowUp' ? -1 : 1);
+        }
       } else if ((e.key === 'Delete' || e.key === 'Backspace') && !editingText) {
         const sel = useStore.getState().selectedId;
         if (sel) {
@@ -427,7 +701,48 @@ export function Editor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc?.id]);
 
+  // Paste with nothing being edited: a copied block, an image, or plain
+  // text that becomes blocks (bullet lines → bullets, ALL CAPS → headers…).
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const editingText =
+        document.activeElement instanceof HTMLElement &&
+        (document.activeElement.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
+      if (editingText || !e.clipboardData) return;
+      const files = Array.from(e.clipboardData.files).filter(isImageFile);
+      if (files.length > 0) {
+        e.preventDefault();
+        void insertImages(files);
+        return;
+      }
+      const text = e.clipboardData.getData('text/plain');
+      if (!text.trim()) return;
+      e.preventDefault();
+      const block = parseBlockClip(text);
+      if (block) {
+        pasteBlock(block);
+        return;
+      }
+      const blocks = parseTextToBlocks(text);
+      if (blocks.length > 0) {
+        const st = useStore.getState();
+        const idx =
+          st.current && st.selectedId
+            ? topLevelIndexOf(st.current, st.selectedId) + 1
+            : undefined;
+        insertBlocks(blocks, idx !== undefined && idx > 0 ? idx : undefined);
+        setStatus(`Pasted ${blocks.length} block${blocks.length === 1 ? '' : 's'} from text.`);
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc?.id]);
+
   if (!doc) return null;
+
+  const headerAt = doc.headerAt ?? 0;
 
   const onDragStart = (e: DragStartEvent) => {
     const id = String(e.active.id);
@@ -436,24 +751,39 @@ export function Editor() {
       setActiveType(id.slice(4) as BlockType);
     } else {
       setDragging('block');
+      if (id === HEADER_DND_ID) setDraggingHeader(true);
     }
   };
 
   const onDragEnd = (e: DragEndEvent) => {
     setDragging(null);
     setActiveType(null);
+    setDraggingHeader(false);
     const { active, over } = e;
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
+    const slot = overId.match(/^slot:(\d+):([01])$/);
     if (activeId.startsWith('new:')) {
       const type = activeId.slice(4) as BlockType;
-      if (overId.startsWith('slot:')) {
-        insertBlock(type, Number(overId.slice(5)));
+      if (slot) {
+        insertBlock(type, Number(slot[1]), slot[2] === '1');
+      } else if (overId === HEADER_DND_ID) {
+        insertBlock(type, headerAt, true);
       } else {
         const idx = doc.blocks.findIndex((b) => b.id === overId);
-        insertBlock(type, idx === -1 ? undefined : idx + 1);
+        if (idx === -1) insertBlock(type);
+        else insertBlock(type, idx + 1, idx < headerAt);
       }
+    } else if (activeId === HEADER_DND_ID) {
+      if (slot) {
+        moveHeaderTo(Number(slot[1]));
+      } else if (overId !== HEADER_DND_ID) {
+        const j = doc.blocks.findIndex((b) => b.id === overId);
+        if (j !== -1) moveHeaderTo(j < headerAt ? j : j + 1);
+      }
+    } else if (overId === HEADER_DND_ID) {
+      moveBlockToHeader(activeId);
     } else if (activeId !== overId && !overId.startsWith('slot:')) {
       moveBlockTo(activeId, overId);
     }
@@ -473,6 +803,7 @@ export function Editor() {
       onDragCancel={() => {
         setDragging(null);
         setActiveType(null);
+        setDraggingHeader(false);
       }}
     >
       <div className="flex h-full flex-col">
@@ -511,6 +842,16 @@ export function Editor() {
               >
                 <Redo2 size={15} />
               </button>
+              <button
+                type="button"
+                aria-label="Version history"
+                title="Version history"
+                data-testid="history-btn"
+                onClick={() => setModal('history')}
+                className="cursor-pointer rounded p-1.5 text-white/85 hover:bg-white/10"
+              >
+                <HistoryIcon size={15} />
+              </button>
               <select
                 aria-label="Zoom"
                 value={String(zoom)}
@@ -528,12 +869,17 @@ export function Editor() {
               <Btn variant="topbar" onClick={() => void doPrint()} data-testid="print-btn">
                 <Printer size={14} /> Print
               </Btn>
+              <Btn variant="topbar" onClick={() => void doExportPng()} data-testid="export-png-btn" title="Export PNG (Ctrl+Shift+E)">
+                <ImageDown size={14} /> PNG
+              </Btn>
               <Btn variant="topbar-primary" onClick={() => void doExport()} data-testid="export-btn">
                 <FileDown size={14} /> Export PDF
               </Btn>
             </>
           }
         />
+
+        {findOpen && <FindBar onClose={() => setFindOpen(false)} />}
 
         <div className="flex min-h-0 flex-1">
           <aside className="w-[292px] shrink-0 overflow-y-auto border-r border-[#E1E3E6] bg-white">
@@ -601,6 +947,11 @@ export function Editor() {
                 />
                 Metadata footer (effective date, version…)
               </label>
+              <div className="mt-2.5 border-t border-[#E1E3E6] pt-2.5">
+                <Btn data-testid="save-template-btn" onClick={() => setModal('saveTemplate')}>
+                  Save as template
+                </Btn>
+              </div>
             </Panel>
 
             <Panel title="Add blocks">
@@ -610,7 +961,8 @@ export function Editor() {
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-[#8A9099]">
-                Click to add after the selected block — or drag onto the page and snap it anywhere.
+                Click to add after the selected block — or drag onto the page and snap it
+                anywhere, even above the title.
               </p>
             </Panel>
 
@@ -620,11 +972,13 @@ export function Editor() {
               </Panel>
             )}
 
+            <OutlinePanel doc={doc} />
+
             <Panel title="Format">
               <p className="text-[11px] leading-relaxed text-[#6D6E71]">
-                Click any text on the page to edit it. Select text and press{' '}
-                <b>Ctrl+B</b> for bold, <b>Ctrl+I</b> for italics. Drag the grip on a
-                block's left edge to move it — the red line shows where it snaps.
+                Click any text on the page to edit it — including the title. Select text and
+                press <b>Ctrl+B</b> for bold, <b>Ctrl+I</b> for italics, <b>Ctrl+F</b> to find
+                & replace. Drag the grip on a block's left edge to move it.
               </p>
             </Panel>
           </aside>
@@ -637,6 +991,16 @@ export function Editor() {
               const t = e.target as HTMLElement;
               if (!t.closest('[data-block]') && !t.closest('[data-panel]')) select(null);
             }}
+            onDragOver={(e) => {
+              if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              const files = Array.from(e.dataTransfer.files).filter(isImageFile);
+              if (files.length > 0) {
+                e.preventDefault();
+                void insertImages(files);
+              }
+            }}
           >
             <div style={{ width: 816 * scale, height: pageH * scale, margin: '28px auto 64px' }}>
               <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: 816 }}>
@@ -647,20 +1011,35 @@ export function Editor() {
         </div>
 
         <footer className="flex h-7 shrink-0 items-center justify-between border-t border-[#D8DBDE] bg-white px-3 text-[11.5px] text-[#4A4F57]">
-          <span className="truncate pr-4" data-testid="status-text">
-            {status}
+          <span className="flex min-w-0 items-center gap-2 pr-4">
+            <span className="truncate" data-testid="status-text">
+              {status}
+            </span>
+            {statusAction && (
+              <button
+                type="button"
+                data-testid="status-action"
+                onClick={statusAction.run}
+                className="shrink-0 cursor-pointer font-bold tracking-[0.04em] text-[#C8102E] uppercase hover:underline"
+              >
+                {statusAction.label}
+              </button>
+            )}
           </span>
           <FitMeter />
         </footer>
       </div>
 
+      {modal === 'history' && <HistoryPanel onClose={() => setModal(null)} />}
+      {modal === 'saveTemplate' && <SaveTemplateModal doc={doc} onClose={() => setModal(null)} />}
+
       <DragOverlay dropAnimation={null}>
-        {activeType && (
+        {(activeType || draggingHeader) && (
           <div
             className="rounded-[6px] border border-[#C8102E] bg-white px-3 py-1.5 text-[12px] font-bold text-[#C8102E] shadow-lg"
             style={{ fontFamily: "'Barlow Semi Condensed', sans-serif" }}
           >
-            {BLOCK_LABELS[activeType]}
+            {draggingHeader ? 'Title section' : BLOCK_LABELS[activeType!]}
           </div>
         )}
       </DragOverlay>

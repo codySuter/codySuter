@@ -14,9 +14,11 @@ test('library seeds with the three starter policies', async ({ page }) => {
   await expect(page.getByText('Special Orders for Pickup').first()).toBeVisible();
 });
 
-test('new document goes straight into the editor with an outline', async ({ page }) => {
+test('new document: template picker opens and the policy template lands in the editor', async ({ page }) => {
   await boot(page);
   await page.getByTestId('new-doc').click();
+  await expect(page.getByTestId('template-grid')).toBeVisible();
+  await page.getByTestId('template-policy').click();
 
   const pageEl = page.getByTestId('page-edit');
   await expect(pageEl).toBeVisible();

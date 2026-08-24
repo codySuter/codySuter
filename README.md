@@ -6,9 +6,12 @@
 > every sign in the store, with live acehardware.com pricing
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows/AceSignStudio.exe)) ·
 > [`ace-document-studio/`](ace-document-studio/) — **Ace Document Studio**
-> (formerly Ace Policy Studio), a Windows app for designing Snyder's Ace
-> Hardware policy, procedure & store documents
-> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows/AceDocumentStudio.exe)) ·
+> (formerly Ace Policy Studio), a Windows app for designing all of Snyder's Ace
+> Hardware store documents — policies, procedures & SOPs, customer postings,
+> memos, agreements & checklists — with templates, revision history, and
+> PDF/PNG export
+> ([installer](https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows/AceDocumentStudio-Setup.exe) ·
+> [portable .exe](https://github.com/codysuter/codysuter/releases/download/ace-document-studio-windows/AceDocumentStudio.exe)) ·
 > [`ace-bay-studio/`](ace-bay-studio/) — **Ace Bay Studio**, a Windows app
 > that maps every OPTI container in the back-room bay aisles, with color
 > overlays and per-OPTI contents

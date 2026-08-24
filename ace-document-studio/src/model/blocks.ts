@@ -7,7 +7,8 @@ export function uid(): string {
 }
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
-  section: 'Section header',
+  section: 'Numbered section',
+  header: 'Header (no number)',
   paragraph: 'Paragraph',
   badgeRow: 'Badge row',
   bullets: 'Bullet list',
@@ -26,6 +27,8 @@ export function newBlock(type: BlockType): Block {
   switch (type) {
     case 'section':
       return { id, type, title: 'New section' };
+    case 'header':
+      return { id, type, title: 'New header' };
     case 'paragraph':
       return {
         id,

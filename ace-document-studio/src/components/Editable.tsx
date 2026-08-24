@@ -23,6 +23,13 @@ interface Props {
   allowHighlight?: boolean;
   onEnter?: () => void;
   onEmptyBackspace?: () => void;
+  onFocus?: () => void;
+  /**
+   * Multi-line paste handler: the first pasted line is inserted at the
+   * caret; the remaining non-empty lines are handed here (lists turn them
+   * into items, paragraphs into new paragraph blocks).
+   */
+  onPasteLines?: (lines: string[]) => void;
 }
 
 // Toggle the brand-yellow highlight span on the current selection.
@@ -85,6 +92,8 @@ export const Editable = forwardRef<EditableHandle, Props>(function Editable(
     allowHighlight,
     onEnter,
     onEmptyBackspace,
+    onFocus,
+    onPasteLines,
   },
   outerRef,
 ) {
@@ -153,6 +162,7 @@ export const Editable = forwardRef<EditableHandle, Props>(function Editable(
         const el = ref.current;
         if (el) onCommit(el.innerHTML);
       }}
+      onFocus={onFocus}
       onBlur={() => {
         const el = ref.current;
         if (el) onCommit(sanitizeHtml(el.innerHTML));
@@ -163,7 +173,26 @@ export const Editable = forwardRef<EditableHandle, Props>(function Editable(
       onPaste={(e) => {
         e.preventDefault();
         const text = e.clipboardData.getData('text/plain');
-        document.execCommand('insertText', false, text);
+        const lines = text
+          .replace(/\r\n?/g, '\n')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l !== '');
+        if (lines.length === 0) return;
+        if (singleLine) {
+          document.execCommand('insertText', false, lines.join(' '));
+          return;
+        }
+        if (onPasteLines && lines.length > 1) {
+          document.execCommand('insertText', false, lines[0]);
+          onPasteLines(lines.slice(1));
+          return;
+        }
+        // Multi-line into one field: keep the line structure with breaks.
+        lines.forEach((line, i) => {
+          if (i > 0) document.execCommand('insertLineBreak');
+          document.execCommand('insertText', false, line);
+        });
       }}
     />
   );

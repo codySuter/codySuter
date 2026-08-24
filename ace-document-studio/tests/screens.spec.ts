@@ -28,12 +28,16 @@ test('capture app screens', async ({ page }) => {
 
   await page.getByTestId('back-to-library').click();
   await page.getByTestId('new-doc').click();
+  await page.getByTestId('template-grid').waitFor();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/4-template-picker.png` });
+  await page.getByTestId('template-policy').click();
   await page.getByTestId('page-edit').waitFor();
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/4-new-document.png` });
+  await page.screenshot({ path: `${OUT}/5-new-document.png` });
 
   await page.goto('/#/print/starter-stihl');
   await page.getByTestId('page-print').waitFor();
   await page.waitForTimeout(700);
-  await page.getByTestId('page-print').screenshot({ path: `${OUT}/5-stihl-document.png` });
+  await page.getByTestId('page-print').screenshot({ path: `${OUT}/6-stihl-document.png` });
 });
