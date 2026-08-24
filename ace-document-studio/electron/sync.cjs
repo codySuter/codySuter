@@ -65,14 +65,26 @@ function createSync(deps) {
   };
   const imgCache = new Map(); // original data URI -> shrunken data URI
 
+  // Release builds carry the store's token (CI writes builtin-sync.json
+  // next to this file before packaging — never committed to the repo), so
+  // the registers can leave the token box blank. A pasted token wins.
+  const builtin = (() => {
+    const b = readJsonSafe(path.join(__dirname, 'builtin-sync.json'));
+    if (!b || typeof b.token !== 'string' || !b.token.trim()) return null;
+    return {
+      token: b.token.trim(),
+      repo: typeof b.repo === 'string' ? b.repo.trim() : '',
+    };
+  })();
+
   // ---- settings ----
 
   const cfg = () => {
     const s = getSettings();
     return {
       on: !!s.syncOn,
-      repo: String(s.syncRepo || '').trim() || DEFAULT_REPO,
-      token: String(s.syncToken || '').trim(),
+      repo: String(s.syncRepo || '').trim() || (builtin && builtin.repo) || DEFAULT_REPO,
+      token: String(s.syncToken || '').trim() || (builtin ? builtin.token : ''),
       name: String(s.syncName || '').trim() || os.hostname(),
     };
   };
@@ -409,6 +421,7 @@ function createSync(deps) {
       supported: true,
       enabled: enabled(),
       configured: cfg().token !== '',
+      builtin: !!builtin,
       busy: state.busy,
       lastSyncAt: state.lastSyncAt,
       lastError: state.lastError,
@@ -419,9 +432,12 @@ function createSync(deps) {
     const s = getSettings();
     return {
       on: !!s.syncOn,
-      repo: String(s.syncRepo || '').trim() || DEFAULT_REPO,
+      repo: String(s.syncRepo || '').trim() || (builtin && builtin.repo) || DEFAULT_REPO,
+      // Only the token pasted on THIS computer shows in the box; the
+      // built-in store token never surfaces in the UI.
       token: String(s.syncToken || ''),
       name: String(s.syncName || '').trim() || os.hostname(),
+      hasBuiltin: !!builtin,
     };
   }
 

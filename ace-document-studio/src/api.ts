@@ -21,12 +21,16 @@ export interface SyncSettings {
   repo: string;
   token: string;
   name: string;
+  /** Release builds carry the store token — a blank token box uses it. */
+  hasBuiltin?: boolean;
 }
 
 export interface SyncStatus {
   supported: boolean;
   enabled: boolean;
   configured: boolean;
+  /** This build carries the store's built-in sync token. */
+  builtin?: boolean;
   busy: boolean;
   lastSyncAt: number | null;
   lastError: string | null;

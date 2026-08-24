@@ -5,3 +5,5 @@ test-results/
 playwright-report/
 *.local
 .DS_Store
+# Store sync token, baked in by CI at release time — never committed.
+electron/builtin-sync.json

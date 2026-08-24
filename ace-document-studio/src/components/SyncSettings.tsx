@@ -19,6 +19,7 @@ export function syncStatusText(s: SyncStatus | null): string {
 export function SyncSettings({ onClose }: { onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [supported, setSupported] = useState(true);
+  const [hasBuiltin, setHasBuiltin] = useState(false);
   const [on, setOn] = useState(false);
   const [repo, setRepo] = useState('');
   const [token, setToken] = useState('');
@@ -36,6 +37,7 @@ export function SyncSettings({ onClose }: { onClose: () => void }) {
         setRepo(s.repo);
         setToken(s.token);
         setName(s.name);
+        setHasBuiltin(!!s.hasBuiltin);
       }
       setLoaded(true);
     });
@@ -101,13 +103,19 @@ export function SyncSettings({ onClose }: { onClose: () => void }) {
               className={inputCls}
             />
           </Field>
-          <Field label="Fine-grained token — Contents read & write on that repo only">
+          <Field
+            label={
+              hasBuiltin
+                ? 'Fine-grained token — leave blank to use the built-in store token'
+                : 'Fine-grained token — Contents read & write on that repo only'
+            }
+          >
             <input
               data-testid="sync-token"
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="github_pat_…"
+              placeholder={hasBuiltin ? 'Built-in store token (leave blank)' : 'github_pat_…'}
               className={inputCls}
             />
           </Field>
@@ -121,10 +129,9 @@ export function SyncSettings({ onClose }: { onClose: () => void }) {
             />
           </Field>
           <p className="mb-3 text-[11px] leading-relaxed text-[#8A9099]">
-            The token stays on this computer and is sent only to api.github.com. It is never
-            included in backups or exported documents. Create one at GitHub → Settings →
-            Developer settings → Fine-grained tokens, limited to the sync repo with
-            “Contents” read & write.
+            {hasBuiltin
+              ? 'This build carries the store token — tick the box, Save, and you’re done. Paste a token only to override it.'
+              : 'The token stays on this computer and is sent only to api.github.com. It is never included in backups or exported documents. Create one at GitHub → Settings → Developer settings → Fine-grained tokens, limited to the sync repo with “Contents” read & write.'}
           </p>
           <div className="flex items-center gap-2">
             <Btn variant="primary" data-testid="sync-save" onClick={() => void save()}>
