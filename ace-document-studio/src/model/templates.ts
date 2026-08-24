@@ -118,13 +118,12 @@ function procedureOutline(): Block[] {
 
 function postingOutline(): Block[] {
   return [
-    { id: uid(), type: 'header', title: 'What you need to know', align: 'center' },
+    { id: uid(), type: 'header', title: 'What you need to know' },
     {
       id: uid(),
       type: 'paragraph',
       html: 'The message in one or two friendly sentences — big type, readable from a few feet away.',
       muted: false,
-      align: 'center',
     },
     {
       id: uid(),
@@ -222,8 +221,12 @@ export const BUILTIN_TEMPLATES: BuiltinTemplate[] = [
   {
     id: 'posting',
     name: 'Customer posting',
-    tagline: 'Big type for the sales floor or front door',
-    make: () => base(CUSTOMER_KICKER, 'A Note for Our Customers', postingOutline(), 124),
+    tagline: 'Big type, centered, for the sales floor or front door',
+    make: () => {
+      const doc = base(CUSTOMER_KICKER, 'A Note for Our Customers', postingOutline(), 124);
+      doc.docAlign = 'center';
+      return doc;
+    },
   },
   {
     id: 'agreement',

@@ -235,3 +235,66 @@ test('the title section drags below a block via Alt+ArrowUp', async ({ page }) =
   await page.keyboard.press('Alt+ArrowDown');
   await expect(items.first()).toHaveAttribute('data-testid', 'doc-header-item');
 });
+
+test('whole-document alignment centers blocks and the title; a block can override', async ({ page }) => {
+  await boot(page);
+  await openDoc(page, 'Grill Special Orders');
+  await page.getByTestId('doc-align').getByRole('button', { name: 'C', exact: true }).click();
+
+  const title = page.getByTestId('doc-header-item').locator('.aps-editable').nth(1);
+  await expect.poll(() => title.evaluate((el) => getComputedStyle(el).textAlign)).toBe('center');
+  const para = page
+    .getByTestId('page-edit')
+    .locator('.aps-editable')
+    .filter({ hasText: 'No grill is promised as in stock' });
+  await expect.poll(() => para.evaluate((el) => getComputedStyle(el).textAlign)).toBe('center');
+
+  // The inspector can pin one block back to the left.
+  await para.click();
+  await page.getByRole('button', { name: 'Left', exact: true }).click();
+  await expect
+    .poll(() => para.evaluate((el) => getComputedStyle(el).textAlign))
+    .toMatch(/^(left|start)$/);
+});
+
+test('title alignment control centers just the title section', async ({ page }) => {
+  await boot(page);
+  await openDoc(page, 'Grill Special Orders');
+  await page.getByTestId('header-align').getByRole('button', { name: 'C', exact: true }).click();
+
+  const title = page.getByTestId('doc-header-item').locator('.aps-editable').nth(1);
+  await expect.poll(() => title.evaluate((el) => getComputedStyle(el).textAlign)).toBe('center');
+  const para = page
+    .getByTestId('page-edit')
+    .locator('.aps-editable')
+    .filter({ hasText: 'No grill is promised as in stock' });
+  await expect
+    .poll(() => para.evaluate((el) => getComputedStyle(el).textAlign))
+    .toMatch(/^(left|start)$/);
+});
+
+test('an emptied kicker line stops taking space and can come back', async ({ page }) => {
+  await boot(page);
+  await openDoc(page, 'Grill Special Orders');
+  const header = page.getByTestId('doc-header-item');
+  // kicker, title, subtitle
+  await expect(header.locator('.aps-editable')).toHaveCount(3);
+
+  await header.locator('.aps-editable').first().click();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Delete');
+  await page.locator('main').click({ position: { x: 12, y: 300 } });
+  await expect(header.locator('.aps-editable')).toHaveCount(2);
+
+  // Hover the title section and bring the kicker line back.
+  await header.hover();
+  await header.getByLabel('Add kicker').click();
+  await expect(header.locator('.aps-editable')).toHaveCount(3);
+  await expect(header.locator('.aps-editable').first()).toBeFocused();
+  await page.keyboard.type('STORE NOTICE');
+  await page.locator('main').click({ position: { x: 12, y: 300 } });
+  await expect(page.getByTestId('save-state')).toHaveText('All changes saved', {
+    timeout: 5_000,
+  });
+  await expect(header.getByText('STORE NOTICE')).toBeVisible();
+});

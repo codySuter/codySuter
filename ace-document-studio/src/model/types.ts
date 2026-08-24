@@ -220,6 +220,13 @@ export interface StudioDoc {
    * layout. The header itself is draggable in the editor.
    */
   headerAt?: number;
+  /** Title section alignment (kicker, title, subtitle). Undefined = inherit docAlign. */
+  headerAlign?: BlockAlign;
+  /**
+   * Whole-document alignment: the default every block and the title
+   * inherit. A block's own align (or headerAlign) overrides it.
+   */
+  docAlign?: BlockAlign;
   createdAt: number;
   updatedAt: number;
 }
