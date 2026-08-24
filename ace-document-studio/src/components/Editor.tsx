@@ -209,15 +209,19 @@ function SpaceAboveControl({ block }: { block: Block }) {
   );
 }
 
-// Left / center / right for the block types where it makes sense.
+// Left / center / right for the block types where it makes sense. Shows
+// the effective alignment (the document default when the block has no
+// override); picking the document default clears the override so the
+// block keeps following the document setting.
 function AlignControl({ block }: { block: Block }) {
   const updateBlock = useStore((s) => s.updateBlock);
+  const docDefault = useStore((s) => s.current?.docAlign ?? 'left');
   return (
     <div className="flex items-center justify-between">
       <span className="text-[11.5px] text-[#6D6E71]">Alignment</span>
       <Seg
-        value={(block.align ?? 'left') as BlockAlign}
-        onChange={(v) => updateBlock(block.id, { align: v === 'left' ? undefined : v })}
+        value={(block.align ?? docDefault) as BlockAlign}
+        onChange={(v) => updateBlock(block.id, { align: v === docDefault ? undefined : v })}
         options={[
           { value: 'left', label: 'Left' },
           { value: 'center', label: 'Center' },
@@ -915,6 +919,36 @@ export function Editor() {
                   <span>100% standard</span>
                   <span>140% posting</span>
                 </div>
+              </div>
+              <div className="mb-2.5 flex items-center justify-between" data-testid="doc-align">
+                <span className="text-[11.5px] text-[#6D6E71]" title="Every block and the title follow this unless given their own alignment">
+                  Align · everything
+                </span>
+                <Seg
+                  value={(doc.docAlign ?? 'left') as BlockAlign}
+                  onChange={(v) => setDocField('docAlign', v === 'left' ? undefined : v)}
+                  options={[
+                    { value: 'left', label: 'L' },
+                    { value: 'center', label: 'C' },
+                    { value: 'right', label: 'R' },
+                  ]}
+                />
+              </div>
+              <div className="mb-2.5 flex items-center justify-between" data-testid="header-align">
+                <span className="text-[11.5px] text-[#6D6E71]" title="Kicker, title and subtitle only">
+                  Align · title
+                </span>
+                <Seg
+                  value={(doc.headerAlign ?? doc.docAlign ?? 'left') as BlockAlign}
+                  onChange={(v) =>
+                    setDocField('headerAlign', v === (doc.docAlign ?? 'left') ? undefined : v)
+                  }
+                  options={[
+                    { value: 'left', label: 'L' },
+                    { value: 'center', label: 'C' },
+                    { value: 'right', label: 'R' },
+                  ]}
+                />
               </div>
               <label className="flex items-center gap-2 text-[12px] text-[#20242B]">
                 <input

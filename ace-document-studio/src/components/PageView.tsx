@@ -6,7 +6,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, Copy, GripVertical, Trash2 } from 'lucide-react';
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   effectiveMarginTop,
   INK,
@@ -87,10 +87,11 @@ function EditableList({
     if (block.type === 'steps') return <span style={st.stepNumber(doc.accent)}>{i + 1}.</span>;
     return <span style={st.checkBox} />;
   };
-  const aligned = !!block.align && block.align !== 'left';
+  const align = block.align ?? doc.docAlign;
+  const aligned = !!align && align !== 'left';
   const rowStyle: CSSProperties = {
     ...(block.type === 'bullets' ? st.bulletRow : block.type === 'steps' ? st.stepRow : st.checkRow),
-    ...justify(block.align),
+    ...justify(align),
   };
   const textStyle: CSSProperties = {
     ...st.bodyText,
@@ -484,10 +485,12 @@ function ImageView({
   block,
   st,
   readOnly,
+  align,
 }: {
   block: ImageBlock & BlockFormat;
   st: DocStyles;
   readOnly: boolean;
+  align?: BlockAlign;
 }) {
   const updateBlock = useStore((s) => s.updateBlock);
   const setStatus = useStore((s) => s.setStatus);
@@ -504,8 +507,7 @@ function ImageView({
     }
   };
 
-  const margin =
-    block.align === 'left' ? '0 auto 0 0' : block.align === 'right' ? '0 0 0 auto' : '0 auto';
+  const margin = align === 'left' ? '0 auto 0 0' : align === 'right' ? '0 0 0 auto' : '0 auto';
   // An uncaptioned image takes no caption space; the caption line only
   // appears while the block is selected (or once a caption exists).
   const showCaptionEditor = !readOnly && (selected || block.caption !== '');
@@ -567,13 +569,13 @@ function ImageView({
       )}
       {readOnly ? (
         block.caption ? (
-          <Html html={block.caption} style={{ ...st.imageCaption, ...textAlign(block.align) }} />
+          <Html html={block.caption} style={{ ...st.imageCaption, ...textAlign(align) }} />
         ) : null
       ) : showCaptionEditor ? (
         <Editable
           html={block.caption}
           singleLine
-          style={{ ...st.imageCaption, ...textAlign(block.align) }}
+          style={{ ...st.imageCaption, ...textAlign(align) }}
           placeholder="Add a caption (optional)"
           onCommit={(h) => updateBlock(block.id, { caption: h }, `cap:${block.id}`)}
         />
@@ -599,17 +601,19 @@ function BlockContent({
 }) {
   const updateBlock = useStore((s) => s.updateBlock);
   const insertBlocksAfter = useStore((s) => s.insertBlocksAfter);
+  // A block's own alignment wins; otherwise the document-wide default.
+  const align = block.align ?? doc.docAlign;
 
   switch (block.type) {
     case 'section':
     case 'header': {
-      const aligned = !!block.align && block.align !== 'left';
+      const aligned = !!align && align !== 'left';
       const titleStyle: CSSProperties = {
         ...st.sectionTitle,
-        ...(aligned ? { flex: '0 1 auto', ...textAlign(block.align) } : {}),
+        ...(aligned ? { flex: '0 1 auto', ...textAlign(align) } : {}),
       };
       return (
-        <div style={{ ...st.sectionHead, ...justify(block.align) }}>
+        <div style={{ ...st.sectionHead, ...justify(align) }}>
           {block.type === 'section' && <span style={st.sectionNumber}>{number}</span>}
           {readOnly ? (
             <Html html={block.title} style={titleStyle} />
@@ -626,7 +630,7 @@ function BlockContent({
       );
     }
     case 'paragraph': {
-      const style = { ...(block.muted ? st.mutedText : st.bodyText), ...textAlign(block.align) };
+      const style = { ...(block.muted ? st.mutedText : st.bodyText), ...textAlign(align) };
       const cls = block.muted ? 'aps-muted' : undefined;
       return readOnly ? (
         <Html html={block.html} style={style} className={cls} />
@@ -656,14 +660,14 @@ function BlockContent({
     }
     case 'badgeRow': {
       const bg = block.badgeColor === 'ink' ? INK : doc.accent;
-      const aligned = !!block.align && block.align !== 'left';
+      const aligned = !!align && align !== 'left';
       const textStyle: CSSProperties = {
         ...st.bodyText,
         ...(aligned ? { flex: '0 1 auto' } : { flex: 1 }),
         minWidth: 0,
       };
       return (
-        <div style={{ ...st.badgeRow, ...justify(block.align) }}>
+        <div style={{ ...st.badgeRow, ...justify(align) }}>
           {readOnly ? (
             <Html html={block.badge} style={st.badge(bg)} />
           ) : (
@@ -695,7 +699,7 @@ function BlockContent({
     case 'callout':
       return (
         <div style={st.calloutBox}>
-          <div style={{ ...st.calloutHead, ...textAlign(block.align) }}>
+          <div style={{ ...st.calloutHead, ...textAlign(align) }}>
             {readOnly ? (
               <Html html={block.heading} />
             ) : (
@@ -708,7 +712,7 @@ function BlockContent({
               />
             )}
           </div>
-          <div style={{ ...st.calloutBody, ...textAlign(block.align) }}>
+          <div style={{ ...st.calloutBody, ...textAlign(align) }}>
             {readOnly ? (
               <Html html={block.body} />
             ) : (
@@ -726,7 +730,7 @@ function BlockContent({
     case 'signoff':
       return <SignoffView block={block} st={st} readOnly={readOnly} />;
     case 'image':
-      return <ImageView block={block} st={st} readOnly={readOnly} />;
+      return <ImageView block={block} st={st} readOnly={readOnly} align={align} />;
     case 'columns':
       return <ColumnsView block={block} doc={doc} st={st} readOnly={readOnly} />;
     case 'pageBreak':
@@ -908,6 +912,22 @@ function SortableBlock({
 // The title section (kicker, title, subtitle, chip). The accent bar stays
 // fixed at the very top of the page; this part is draggable in the editor
 // so blocks — a banner image, a notice — can sit above the title.
+// Empty kicker/subtitle lines take no space at all: hover the title
+// section for the "+ Kicker" / "+ Subtitle" chips to bring one back.
+const addLineChipStyle: CSSProperties = {
+  fontFamily: "'Barlow Semi Condensed', sans-serif",
+  fontWeight: 700,
+  fontSize: 10,
+  letterSpacing: '0.05em',
+  textTransform: 'uppercase',
+  border: '1px dashed #C4C9CE',
+  borderRadius: 4,
+  background: '#fff',
+  color: '#6D6E71',
+  padding: '2px 7px',
+  cursor: 'pointer',
+};
+
 function HeaderArea({
   doc,
   st,
@@ -918,42 +938,75 @@ function HeaderArea({
   readOnly: boolean;
 }) {
   const setDocField = useStore((s) => s.setDocField);
+  const [showKicker, setShowKicker] = useState(false);
+  const [showSubtitle, setShowSubtitle] = useState(false);
+  const kickerRef = useRef<EditableHandle | null>(null);
+  const subtitleRef = useRef<EditableHandle | null>(null);
+
+  const align = doc.headerAlign ?? doc.docAlign;
+  const alignStyle = textAlign(align);
+  const hasKicker = doc.kicker !== '' || showKicker;
+  const hasSubtitle = doc.subtitle !== '' || showSubtitle;
+
+  useEffect(() => {
+    if (showKicker) kickerRef.current?.focus();
+  }, [showKicker]);
+  useEffect(() => {
+    if (showSubtitle) subtitleRef.current?.focus();
+  }, [showSubtitle]);
+
   return (
-    <div style={st.headerRow}>
+    <div style={{ ...st.headerRow, position: 'relative' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         {readOnly ? (
-          <Html html={doc.kicker} style={st.kicker} />
-        ) : (
+          doc.kicker ? (
+            <Html html={doc.kicker} style={{ ...st.kicker, ...alignStyle }} />
+          ) : null
+        ) : hasKicker ? (
           <Editable
+            ref={kickerRef}
             html={doc.kicker}
             singleLine
-            style={st.kicker}
+            style={{ ...st.kicker, ...alignStyle }}
             placeholder="Kicker line"
             onCommit={(h) => setDocField('kicker', h, 'doc:kicker')}
+            // Stay mounted while the field is being emptied mid-edit;
+            // collapse only once it blurs empty.
+            onFocus={() => setShowKicker(true)}
+            onBlur={() => {
+              if ((useStore.getState().current?.kicker ?? '') === '') setShowKicker(false);
+            }}
           />
-        )}
+        ) : null}
         {readOnly ? (
-          <Html html={doc.title} style={st.title} />
+          <Html html={doc.title} style={{ ...st.title, ...alignStyle }} />
         ) : (
           <Editable
             html={doc.title}
             singleLine
-            style={st.title}
+            style={{ ...st.title, ...alignStyle }}
             placeholder="Document title"
             onCommit={(h) => setDocField('title', h, 'doc:title')}
           />
         )}
         {readOnly ? (
-          <Html html={doc.subtitle} style={st.subtitle} />
-        ) : (
+          doc.subtitle ? (
+            <Html html={doc.subtitle} style={{ ...st.subtitle, ...alignStyle }} />
+          ) : null
+        ) : hasSubtitle ? (
           <Editable
+            ref={subtitleRef}
             html={doc.subtitle}
             singleLine
-            style={st.subtitle}
+            style={{ ...st.subtitle, ...alignStyle }}
             placeholder="Subtitle — what this document covers"
             onCommit={(h) => setDocField('subtitle', h, 'doc:subtitle')}
+            onFocus={() => setShowSubtitle(true)}
+            onBlur={() => {
+              if ((useStore.getState().current?.subtitle ?? '') === '') setShowSubtitle(false);
+            }}
           />
-        )}
+        ) : null}
       </div>
       {doc.chip && (
         <div style={st.chip(doc.chip.color)}>
@@ -966,6 +1019,35 @@ function HeaderArea({
               placeholder="CHIP"
               onCommit={(h) => setDocField('chip', { ...doc.chip!, text: h }, 'doc:chip')}
             />
+          )}
+        </div>
+      )}
+      {!readOnly && (!hasKicker || !hasSubtitle) && (
+        <div
+          className="aps-chrome"
+          style={{ position: 'absolute', top: -6, left: 0, display: 'flex', gap: 4, zIndex: 10 }}
+        >
+          {!hasKicker && (
+            <button
+              type="button"
+              aria-label="Add kicker"
+              title="Add the small uppercase line above the title"
+              onClick={() => setShowKicker(true)}
+              style={addLineChipStyle}
+            >
+              + Kicker
+            </button>
+          )}
+          {!hasSubtitle && (
+            <button
+              type="button"
+              aria-label="Add subtitle"
+              title="Add the subtitle line under the title"
+              onClick={() => setShowSubtitle(true)}
+              style={addLineChipStyle}
+            >
+              + Subtitle
+            </button>
           )}
         </div>
       )}

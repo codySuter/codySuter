@@ -59,9 +59,14 @@ controls on the left, a live page on the right, and Print / Export one click awa
 - **Copy blocks between documents.** **Ctrl+C / Ctrl+X / Ctrl+V** on a selected
   block rides the real clipboard, so a callout can move from one document to
   another (or another window).
-- **Alignment & spacing per block.** Left / center / right alignment on
-  headers, text, badges, lists, callouts, and images — plus the **Space above**
-  stepper for opening up or tightening the gap over any block.
+- **Alignment — per block, per title, or the whole document.** Left / center /
+  right on headers, text, badges, lists, callouts, and images; an **Align ·
+  everything** setting flips the whole document at once (blocks with their own
+  alignment override it), and the title section has its own alignment control.
+  The **Space above** stepper opens up or tightens the gap over any block.
+- **A leaner title section when you want one.** Empty kicker and subtitle
+  lines take no space at all — hover the title and use **+ Kicker** /
+  **+ Subtitle** to bring one back.
 
 ### Blocks
 

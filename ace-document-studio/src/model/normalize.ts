@@ -48,12 +48,9 @@ function normalizeBlock(block: Block): void {
     block.spaceBefore = clampSpaceBefore(block.spaceBefore);
     if (block.spaceBefore === 0) delete block.spaceBefore;
   }
+  // An explicit 'left' stays: it overrides a centered document default.
   if (block.align !== undefined) {
-    if (
-      !BLOCK_ALIGNS.includes(block.align) ||
-      block.align === 'left' ||
-      !ALIGNABLE_TYPES.includes(block.type)
-    ) {
+    if (!BLOCK_ALIGNS.includes(block.align) || !ALIGNABLE_TYPES.includes(block.type)) {
       delete block.align;
     }
   }
@@ -111,6 +108,18 @@ export function normalizeDoc(doc: StudioDoc): StudioDoc {
   } else {
     doc.headerAt = Math.max(0, Math.min(doc.blocks.length, doc.headerAt));
     if (doc.headerAt === 0) delete doc.headerAt;
+  }
+
+  // headerAlign 'left' stays (it can override a centered docAlign);
+  // docAlign 'left' is the default and stores as absent.
+  if (doc.headerAlign !== undefined && !BLOCK_ALIGNS.includes(doc.headerAlign)) {
+    delete doc.headerAlign;
+  }
+  if (
+    doc.docAlign !== undefined &&
+    (!BLOCK_ALIGNS.includes(doc.docAlign) || doc.docAlign === 'left')
+  ) {
+    delete doc.docAlign;
   }
 
   // Imported/hand-edited files go through the same HTML allowlist as

@@ -24,6 +24,8 @@ interface Props {
   onEnter?: () => void;
   onEmptyBackspace?: () => void;
   onFocus?: () => void;
+  /** Called after the blur commit — the value in the store is final. */
+  onBlur?: () => void;
   /**
    * Multi-line paste handler: the first pasted line is inserted at the
    * caret; the remaining non-empty lines are handed here (lists turn them
@@ -93,6 +95,7 @@ export const Editable = forwardRef<EditableHandle, Props>(function Editable(
     onEnter,
     onEmptyBackspace,
     onFocus,
+    onBlur,
     onPasteLines,
   },
   outerRef,
@@ -168,6 +171,7 @@ export const Editable = forwardRef<EditableHandle, Props>(function Editable(
         if (el) onCommit(sanitizeHtml(el.innerHTML));
         // Each focus-edit-blur session becomes its own undo step.
         useStore.getState().breakHistory();
+        onBlur?.();
       }}
       onKeyDown={handleKeyDown}
       onPaste={(e) => {
