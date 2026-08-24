@@ -88,7 +88,7 @@ export default function SummaryPanel({
         <div
           data-testid="legend-bar"
           className="h-[14px] rounded-full border border-[#d9dbde]"
-          style={{ background: rampGradient(metric.kind, settings.ramp) }}
+          style={{ background: rampGradient(metric, settings.ramp) }}
         />
         <div className="mt-1 flex justify-between text-[11px] font-medium text-[#6d6e71]">
           {metric.kind === 'age' && (
@@ -105,7 +105,7 @@ export default function SummaryPanel({
           )}
           {metric.kind === 'magnitude' && (
             <>
-              <span>0</span>
+              <span>{formatValue(metric, 0)}</span>
               <span>{formatValue(metric, magTop)}+ (95th pct)</span>
             </>
           )}
@@ -248,7 +248,7 @@ export default function SummaryPanel({
       </Section>
 
       {data && worst.length > 0 && (
-        <Section title={`Most urgent — ${metric.label}`}>
+        <Section title={`${metric.kind === 'magnitude' ? 'Top locations' : 'Most urgent'} — ${metric.label}`}>
           <ol className="flex flex-col">
             {worst.map(([id, h]) => (
               <li key={id}>

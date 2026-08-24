@@ -91,6 +91,10 @@ for (const f of FIXTURES) {
     const retail = (cost * (1.35 + rand() * 0.6)).toFixed(2);
     const sold = dead ? 0 : ri(0, 120);
     const name = `${pick(ITEMS)} ${String.fromCharCode(65 + (i % 26))}`;
+    // Derived (no PRNG draw) so adding this column doesn't reshuffle the
+    // deterministic sample.
+    const salesDollars = (sold * Number(retail) * 0.92).toFixed(2);
+    const gpDollars = (Number(salesDollars) - sold * Number(cost)).toFixed(2);
     // A few SKUs live in two spots (endcap + home bay), Compass-style.
     const loc2 = rand() < 0.04 ? pick(FIXTURES.filter((g) => g.id.startsWith('EC'))).id : '';
     rows.push([
@@ -103,6 +107,8 @@ for (const f of FIXTURES) {
       `$${cost}`,
       `$${retail}`,
       String(sold),
+      `$${salesDollars}`,
+      `$${gpDollars}`,
       physDays === null ? '' : daysAgo(physDays),
       daysAgo(saleDays),
       daysAgo(receiptDays),
@@ -112,14 +118,14 @@ for (const f of FIXTURES) {
 
 // The messy rows every real export has: codes not on the plan, sloppy
 // location spellings, and a negative shown in parentheses.
-rows.push([newSku(), 'RECEIVING CAGE STOCK', '12', 'RECV', '', '4', '$12.99', '$19.99', '2', daysAgo(410), daysAgo(30), daysAgo(12)]);
-rows.push([newSku(), 'OUTBUILDING OVERSTOCK', '31', 'OUTBLDG', '', '9', '$8.49', '$14.99', '0', '', daysAgo(600), daysAgo(300)]);
-rows.push([newSku(), 'MYSTERY BAY ITEM', '9', '13R99', '', '1', '$5.00', '$9.99', '1', daysAgo(200), daysAgo(90), daysAgo(60)]);
-rows.push([newSku(), 'SLOPPY LOCATION SPELLING', '44', '13r-5a', '', '(3)', '$2.19', '$4.49', '7', daysAgo(500), daysAgo(45), daysAgo(20)]);
+rows.push([newSku(), 'RECEIVING CAGE STOCK', '12', 'RECV', '', '4', '$12.99', '$19.99', '2', '$36.78', '$10.80', daysAgo(410), daysAgo(30), daysAgo(12)]);
+rows.push([newSku(), 'OUTBUILDING OVERSTOCK', '31', 'OUTBLDG', '', '9', '$8.49', '$14.99', '0', '$0.00', '$0.00', '', daysAgo(600), daysAgo(300)]);
+rows.push([newSku(), 'MYSTERY BAY ITEM', '9', '13R99', '', '1', '$5.00', '$9.99', '1', '$9.19', '$4.19', daysAgo(200), daysAgo(90), daysAgo(60)]);
+rows.push([newSku(), 'SLOPPY LOCATION SPELLING', '44', '13r-5a', '', '(3)', '$2.19', '$4.49', '7', '$28.91', '$13.58', daysAgo(500), daysAgo(45), daysAgo(20)]);
 
 const HEADERS = [
   'SKU', 'DESCRIPTION', 'DEPT', 'LOC 1', 'LOC 2', 'QOH', 'AVG COST', 'RETAIL',
-  'UNITS SOLD 12MO', 'DATE LAST PHYSICAL', 'DATE LAST SALE', 'DATE LAST RECEIPT',
+  'UNITS SOLD 12MO', 'YTD SALES $', 'YTD GP$', 'DATE LAST PHYSICAL', 'DATE LAST SALE', 'DATE LAST RECEIPT',
 ];
 const csv = [HEADERS, ...rows].map((r) => r.join(',')).join('\n') + '\n';
 const out = path.join(HERE, '..', 'sample', 'compass-sample.csv');
