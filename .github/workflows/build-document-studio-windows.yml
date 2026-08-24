@@ -50,6 +50,22 @@ jobs:
       - name: Electron smoke test (seeding + printToPDF)
         run: node scripts/electron-smoke.mjs
 
+      # Release builds carry the store's sync token (like Ace Sign Studio):
+      # the ACE_DOC_SYNC_TOKEN repo secret is written into the packaged app
+      # so the registers can leave the token box blank. Local builds go
+      # without — the file is gitignored and never committed.
+      - name: Bake the store sync token into the build
+        shell: bash
+        env:
+          ACE_DOC_SYNC_TOKEN: ${{ secrets.ACE_DOC_SYNC_TOKEN }}
+        run: |
+          if [ -n "$ACE_DOC_SYNC_TOKEN" ]; then
+            node -e "require('fs').writeFileSync('electron/builtin-sync.json', JSON.stringify({ repo: 'codysuter/ace-document-sync', token: process.env.ACE_DOC_SYNC_TOKEN }))"
+            echo "built-in sync token embedded"
+          else
+            echo "no ACE_DOC_SYNC_TOKEN secret - building without a built-in token"
+          fi
+
       - name: Package installer + portable EXE
         run: npx electron-builder --win nsis portable --publish never
 

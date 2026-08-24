@@ -120,10 +120,11 @@ only take space when they exist), and **page breaks**.
   documents or whole backups. Imported files pass through the same formatting
   allowlist as in-app edits.
 - **Sync between store computers** — the same sharing model as Ace Sign
-  Studio's batches. **File → Sync Settings…** points every computer at the same
-  private GitHub repo with a fine-grained token (Contents read & write on that
-  repo only), and the library and saved templates stay merged across all of
-  them: newest edit wins per document, deletions carry 60-day tombstones so an
+  Studio's batches. **File → Sync Settings…** → tick the box and Save: release
+  builds carry the store's token (baked in by CI from a repo secret, never
+  committed), so no setup is needed on the registers — pasting your own
+  fine-grained token (Contents read & write on the sync repo) overrides it.
+  The library and saved templates stay merged across every computer: newest edit wins per document, deletions carry 60-day tombstones so an
   old copy can't bring a deleted document back — while editing (or Undo) after
   a delete deliberately does. Writes are compare-and-swap guarded, so two
   registers saving at once never tear the sync file; big in-document images are

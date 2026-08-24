@@ -440,7 +440,7 @@ export function Library() {
             {statusAction.label}
           </button>
         )}
-        {syncStat?.supported && (syncStat.enabled || syncStat.lastError) && (
+        {syncStat?.supported && (syncStat.enabled || syncStat.lastError || syncStat.builtin) && (
           <button
             type="button"
             data-testid="sync-footer"
@@ -450,7 +450,9 @@ export function Library() {
               syncStat.lastError ? 'font-semibold text-[#C8102E]' : 'text-[#6D6E71]'
             }`}
           >
-            {syncStatusText(syncStat)}
+            {!syncStat.enabled && !syncStat.lastError && syncStat.builtin
+              ? 'Sync available — click to turn on'
+              : syncStatusText(syncStat)}
           </button>
         )}
       </footer>
