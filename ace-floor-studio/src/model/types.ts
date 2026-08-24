@@ -13,6 +13,10 @@ export interface SkuRecord {
   retail: number | null;
   /** Units sold over the export's movement window (blank reads as 0). */
   sold: number | null;
+  /** Sales dollars over the export's movement window. */
+  salesDollars: number | null;
+  /** Gross-profit dollars, when the export carries them (Eagle "GP$"). */
+  gpDollars: number | null;
   /** Epoch ms at UTC midnight — null means never / blank in the export. */
   datePhys: number | null;
   dateSale: number | null;
@@ -51,7 +55,9 @@ export type MetricId =
   | 'units'
   | 'retailValue'
   | 'costValue'
-  | 'sold';
+  | 'sold'
+  | 'salesDollars'
+  | 'profitDollars';
 
 export type AgeMode = 'oldest' | 'newest' | 'average';
 export type RampId = 'classic' | 'cvd';

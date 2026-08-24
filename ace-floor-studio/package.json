@@ -1,7 +1,7 @@
 {
   "name": "ace-floor-studio",
   "productName": "Ace Floor Studio",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "The Media PA sales floor at a glance — every fixture on the blueprint, heat-colored by count currency, dead stock, on-hand accuracy, and more, straight from an Epicor Compass export.",
   "author": "Cody Suter",
   "license": "MIT",

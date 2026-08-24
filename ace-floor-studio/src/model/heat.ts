@@ -7,7 +7,7 @@ export const DAY = 86400000;
 
 export type MetricKind = 'age' | 'pct' | 'magnitude';
 
-type NumericField = 'qoh' | 'cost' | 'retail' | 'sold';
+type NumericField = 'qoh' | 'cost' | 'retail' | 'sold' | 'salesDollars' | 'gpDollars';
 type DateField = 'datePhys' | 'dateSale' | 'dateReceipt';
 
 export interface Metric {
@@ -17,6 +17,10 @@ export interface Metric {
   kind: MetricKind;
   /** Fields the export must actually contain for this metric to run. */
   needs: readonly (NumericField | DateField)[];
+  /** Overrides `needs` when the requirement isn't a simple AND. */
+  available?: (present: ReadonlySet<string>) => boolean;
+  /** Money magnitudes draw on the green ramp, not the red one. */
+  money?: boolean;
   /** age: green ≤ lo days / red ≥ hi days · pct: red ≥ hi %. */
   defaults: { lo: number; hi: number };
   unit: string;
@@ -131,6 +135,29 @@ export const METRICS: readonly Metric[] = [
     defaults: { lo: 0, hi: 0 },
     unit: 'units',
   },
+  {
+    id: 'salesDollars',
+    label: 'Sales $',
+    blurb: 'Revenue per bay over the export’s window — where the register money comes from.',
+    kind: 'magnitude',
+    money: true,
+    needs: ['salesDollars'],
+    defaults: { lo: 0, hi: 0 },
+    unit: '$',
+  },
+  {
+    id: 'profitDollars',
+    label: 'Gross profit $',
+    blurb: 'What each bay earns. Uses the export’s GP$ column when it has one; otherwise estimated as sales $ (or retail × sold) minus cost × sold.',
+    kind: 'magnitude',
+    money: true,
+    needs: ['gpDollars'],
+    available: (present) =>
+      present.has('gpDollars') ||
+      (present.has('cost') && present.has('sold') && (present.has('salesDollars') || present.has('retail'))),
+    defaults: { lo: 0, hi: 0 },
+    unit: '$',
+  },
 ];
 
 export const metricById = (id: MetricId): Metric => METRICS.find((m) => m.id === id) ?? METRICS[0];
@@ -139,16 +166,17 @@ export const metricById = (id: MetricId): Metric => METRICS.find((m) => m.id ===
 export function availableFields(data: FloorData | null): Set<NumericField | DateField> {
   const present = new Set<NumericField | DateField>();
   if (!data) return present;
-  const fields: (NumericField | DateField)[] = ['qoh', 'cost', 'retail', 'sold', 'datePhys', 'dateSale', 'dateReceipt'];
+  const fields: (NumericField | DateField)[] = ['qoh', 'cost', 'retail', 'sold', 'salesDollars', 'gpDollars', 'datePhys', 'dateSale', 'dateReceipt'];
   for (const s of data.skus) {
-    for (const f of fields) if (!present.has(f) && s[f] !== null) present.add(f);
+    // != null: docs saved before a field existed hold undefined, not null.
+    for (const f of fields) if (!present.has(f) && s[f] != null) present.add(f);
     if (present.size === fields.length) break;
   }
   return present;
 }
 
 export function metricAvailable(metric: Metric, present: Set<string>): boolean {
-  return metric.needs.every((f) => present.has(f));
+  return metric.available ? metric.available(present) : metric.needs.every((f) => present.has(f));
 }
 
 // ---- per-fixture heat ----
@@ -189,7 +217,7 @@ function aggAge(values: number[], mode: AgeMode): number {
 export function formatValue(metric: Metric, value: number | null): string {
   if (value === null) return 'never';
   if (metric.unit === '$')
-    return `$${Math.round(value).toLocaleString('en-US')}`;
+    return `${value < 0 ? '-' : ''}$${Math.abs(Math.round(value)).toLocaleString('en-US')}`;
   if (metric.unit === '%') return `${Math.round(value)}%`;
   if (metric.unit === 'days') return `${Math.round(value)}d`;
   return `${Math.round(value).toLocaleString('en-US')}`;
@@ -264,7 +292,16 @@ export function computeHeat(
       if (metric.id === 'skuCount') v += 1;
       else if (metric.id === 'units') v += s.qoh ?? 0;
       else if (metric.id === 'sold') v += s.sold ?? 0;
-      else if (metric.id === 'retailValue') v += (s.qoh ?? 0) * (s.retail ?? 0);
+      else if (metric.id === 'salesDollars') v += s.salesDollars ?? 0;
+      else if (metric.id === 'profitDollars') {
+        // The export's own GP$ wins; otherwise revenue minus estimated
+        // COGS, with retail × sold standing in for missing sales $.
+        if (s.gpDollars != null) v += s.gpDollars;
+        else if (s.cost != null && s.sold != null) {
+          const revenue = s.salesDollars ?? (s.retail != null ? s.sold * s.retail : null);
+          if (revenue != null) v += revenue - s.sold * s.cost;
+        }
+      } else if (metric.id === 'retailValue') v += (s.qoh ?? 0) * (s.retail ?? 0);
       else v += (s.qoh ?? 0) * (s.cost ?? 0);
     }
     sums.set(loc, { v, n: skus.length });
@@ -314,6 +351,15 @@ const MAGNITUDE: Stop[] = [
   [0, '#DF97A9'],
   [0.55, '#C22246'],
   [1, '#5B0014'],
+];
+
+// Money metrics get their own sequential hue — light → dark green, so
+// "dark = earns the most" never collides with the red staleness maps.
+// Dark end is the brand Green (#005238).
+const MONEY: Stop[] = [
+  [0, '#85B890'],
+  [0.55, '#2E8153'],
+  [1, '#005238'],
 ];
 
 export const NEVER_FILL = '#5B0014';
@@ -371,20 +417,20 @@ function sampleStops(stops: Stop[], t: number): string {
   return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
 }
 
-export function rampStops(kind: MetricKind, ramp: RampId): Stop[] {
-  if (kind === 'magnitude') return MAGNITUDE;
+export function rampStops(metric: Metric, ramp: RampId): Stop[] {
+  if (metric.kind === 'magnitude') return metric.money ? MONEY : MAGNITUDE;
   return ramp === 'cvd' ? CVD : CLASSIC;
 }
 
-export function heatColor(kind: MetricKind, ramp: RampId, t: number): string {
-  return sampleStops(rampStops(kind, ramp), t);
+export function heatColor(metric: Metric, ramp: RampId, t: number): string {
+  return sampleStops(rampStops(metric, ramp), t);
 }
 
 /** CSS gradient for the legend bar, sampled off the same ramp. */
-export function rampGradient(kind: MetricKind, ramp: RampId): string {
+export function rampGradient(metric: Metric, ramp: RampId): string {
   const steps = 12;
   const parts: string[] = [];
-  for (let i = 0; i <= steps; i++) parts.push(sampleStops(rampStops(kind, ramp), i / steps));
+  for (let i = 0; i <= steps; i++) parts.push(sampleStops(rampStops(metric, ramp), i / steps));
   return `linear-gradient(to right, ${parts.join(', ')})`;
 }
 

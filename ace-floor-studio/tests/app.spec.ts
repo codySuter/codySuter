@@ -131,6 +131,7 @@ test('metric picker: locked without its column, magnitude metrics recolor, value
   // The test CSV has no units-sold column, so sales metrics are locked.
   const soldOption = page.locator('[data-testid="metric-select"] option[value="sold"]');
   await expect(soldOption).toHaveJSProperty('disabled', true);
+  await expect(page.locator('[data-testid="metric-select"] option[value="salesDollars"]')).toHaveJSProperty('disabled', true);
   await expect(page.locator('[data-testid="metric-select"] option[value="units"]')).toHaveJSProperty('disabled', false);
 
   await page.getByTestId('metric-select').selectOption('skuCount');
@@ -235,10 +236,19 @@ test('sample data lights up the whole floor and flags its unmatched codes', asyn
   await expect(page.getByTestId('unmatched-list')).toContainText('OUTBLDG');
 
   // Every metric in the catalog is live on the sample.
-  for (const metric of ['sale', 'receipt', 'neverPct', 'oosPct', 'retailValue', 'sold']) {
+  for (const metric of ['sale', 'receipt', 'neverPct', 'oosPct', 'retailValue', 'sold', 'salesDollars', 'profitDollars']) {
     await page.getByTestId('metric-select').selectOption(metric);
     await expect(page.getByTestId('header-status')).toContainText('locations heat-mapped');
   }
+
+  // The money maps paint dollars per bay and rank the top earners.
+  await page.getByTestId('metric-select').selectOption('salesDollars');
+  await expect(page.locator('[data-loc="GRILL"]')).toHaveAttribute('data-value', /\d+/);
+  await expect(page.getByText('Top locations — Sales $')).toBeVisible();
+  // GRILL holds 8 SKUs — its bay contents show per-SKU sales dollars.
+  await page.locator('[data-loc="GRILL"]').click();
+  await expect(page.getByTestId('fixture-details')).toContainText('Sales $');
+  await page.getByTestId('details-close').click();
   await page.getByTestId('metric-select').selectOption('phys');
   const worst = page.getByTestId('worst-row').first();
   await expect(worst).toBeVisible();

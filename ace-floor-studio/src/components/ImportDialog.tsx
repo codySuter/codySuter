@@ -13,7 +13,7 @@ export interface PendingImport {
 }
 
 const CORE_FIELDS = ['sku', 'desc'] as const;
-const VALUE_FIELDS = ['qoh', 'cost', 'retail', 'sold'] as const;
+const VALUE_FIELDS = ['qoh', 'cost', 'retail', 'sold', 'salesDollars', 'gpDollars'] as const;
 const DATE_FIELDS = ['datePhys', 'dateSale', 'dateReceipt'] as const;
 
 function FieldSelect({
