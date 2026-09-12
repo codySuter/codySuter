@@ -38,9 +38,9 @@ function FixtureShape({
   // usable values" on a pct metric (neutral, still counted as covered).
   const never = !!heat && heat.value === null && metric.kind === 'age';
   const noValue = !!heat && heat.value === null && metric.kind !== 'age';
-  const fill = !heat || noValue ? NO_DATA_FILL : never ? 'url(#afs-never)' : heatColor(metric.kind, settings.ramp, heat.t);
+  const fill = !heat || noValue ? NO_DATA_FILL : never ? 'url(#afs-never)' : heatColor(metric, settings.ramp, heat.t);
   const ink =
-    !heat || noValue ? '#9AA1A8' : inkFor(never ? NEVER_FILL : heatColor(metric.kind, settings.ramp, heat.t));
+    !heat || noValue ? '#9AA1A8' : inkFor(never ? NEVER_FILL : heatColor(metric, settings.ramp, heat.t));
   const selected = selectedId === f.id;
   const hit = hits?.has(f.id) ?? false;
   const dimmed = hits !== null && !hit;

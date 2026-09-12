@@ -12,6 +12,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4173',
     viewport: { width: 1440, height: 920 },
+    // Block copy/paste rides the real clipboard, even in the browser build.
+    permissions: ['clipboard-read', 'clipboard-write'],
     ...(exe ? { launchOptions: { executablePath: exe } } : {}),
   },
   webServer: {

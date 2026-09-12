@@ -37,12 +37,16 @@ dropdown of other heatmaps to run over the same import.
   | Units on hand | total units | QOH |
   | Retail / Cost value | on-hand × price, per bay | QOH + retail/cost |
   | Units sold | where the traffic is | units sold |
+  | **Sales $** | revenue per bay — what makes the money | sales dollars |
+  | **Gross profit $** | what each bay earns | GP$ column, or cost + units sold (+ sales $ or retail) to estimate |
 
 - **Honest colors.** Age/percent maps run green → brand yellow → gold →
   Ace red with editable thresholds (defaults: green ≤ 30 days, red ≥
   365); a hatched deep red marks *never counted*, neutral gray marks
   *no SKUs in the import*. Magnitude maps use a light→dark sequential
-  red scaled to the floor's 95th percentile. A one-click
+  red scaled to the floor's 95th percentile, and the money maps (Sales $,
+  profit) use a light→dark sequential green — dark green = earns the
+  most, never confusable with the staleness reds. A one-click
   **colorblind-friendly** toggle swaps in a validated blue → red ramp,
   and "Print values on the map" puts the number on every bay.
 - **Locations that don't quite match still land.** `13r-5a` → `13R05`,

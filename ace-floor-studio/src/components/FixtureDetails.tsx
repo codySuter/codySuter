@@ -22,24 +22,27 @@ export default function FixtureDetails({
   const { select } = useFloor.getState();
   const metric = metricById(settings.metricId);
   const fixture = getFixture(id);
-  const [sortKey, setSortKey] = useState<'age' | 'sku' | 'qoh'>('age');
+  const [sortKey, setSortKey] = useState<'age' | 'sku' | 'qoh' | 'money'>(metric.money ? 'money' : 'age');
+  const hasMoney = skus.some((s) => s.salesDollars != null);
 
   const dateField = metric.id === 'sale' ? 'dateSale' : metric.id === 'receipt' ? 'dateReceipt' : 'datePhys';
   const dateHeader = metric.id === 'sale' ? 'Last sale' : metric.id === 'receipt' ? 'Last receipt' : 'Last counted';
   const today = Date.now();
-  const { lo, hi } = thresholdsFor(metric.kind === 'age' ? metric : metricById('phys'), settings);
+  const ageMetric = metric.kind === 'age' ? metric : metricById('phys');
+  const { lo, hi } = thresholdsFor(ageMetric, settings);
 
   const rows = useMemo(() => {
     const list = [...skus];
     if (sortKey === 'sku') list.sort((a, b) => a.sku.localeCompare(b.sku));
     else if (sortKey === 'qoh') list.sort((a, b) => (b.qoh ?? 0) - (a.qoh ?? 0));
+    else if (sortKey === 'money') list.sort((a, b) => (b.salesDollars ?? -Infinity) - (a.salesDollars ?? -Infinity));
     else list.sort((a, b) => (a[dateField] ?? -Infinity) - (b[dateField] ?? -Infinity));
     return list;
   }, [skus, sortKey, dateField]);
 
   const dot = (d: number | null) => {
     const t = d === null ? 1 : Math.min(1, Math.max(0, ((today - d) / DAY - lo) / Math.max(1, hi - lo)));
-    return heatColor('age', settings.ramp, t);
+    return heatColor(ageMetric, settings.ramp, t);
   };
 
   return (
@@ -85,6 +88,11 @@ export default function FixtureDetails({
                 <th className="cursor-pointer px-2 py-1.5 text-right" onClick={() => setSortKey('qoh')}>
                   QOH {sortKey === 'qoh' ? '▾' : ''}
                 </th>
+                {hasMoney && (
+                  <th className="cursor-pointer px-2 py-1.5 text-right" onClick={() => setSortKey('money')}>
+                    Sales $ {sortKey === 'money' ? '▾' : ''}
+                  </th>
+                )}
                 <th className="cursor-pointer px-2 py-1.5 pr-4 text-right" onClick={() => setSortKey('age')}>
                   {dateHeader} {sortKey === 'age' ? '▴' : ''}
                 </th>
@@ -99,6 +107,11 @@ export default function FixtureDetails({
                     <td className="px-2 py-1.5 pl-4 font-mono font-bold whitespace-nowrap text-[#15181d]">{s.sku}</td>
                     <td className="px-2 py-1.5 text-[#31353b]">{s.desc}</td>
                     <td className="px-2 py-1.5 text-right whitespace-nowrap text-[#31353b]">{s.qoh ?? '—'}</td>
+                    {hasMoney && (
+                      <td className="px-2 py-1.5 text-right whitespace-nowrap text-[#31353b]">
+                        {s.salesDollars == null ? '—' : `$${Math.round(s.salesDollars).toLocaleString('en-US')}`}
+                      </td>
+                    )}
                     <td className="px-2 py-1.5 pr-4 text-right whitespace-nowrap text-[#31353b]">
                       <span
                         className="mr-1.5 inline-block h-[8px] w-[8px] rounded-full align-middle"

@@ -13,6 +13,8 @@ export interface ColumnMap {
   cost: number;
   retail: number;
   sold: number;
+  salesDollars: number;
+  gpDollars: number;
   datePhys: number;
   dateSale: number;
   dateReceipt: number;
@@ -29,6 +31,8 @@ export const FIELD_LABELS: Record<SingleField, string> = {
   cost: 'Unit cost',
   retail: 'Retail price',
   sold: 'Units sold',
+  salesDollars: 'Sales dollars',
+  gpDollars: 'Gross profit dollars',
   datePhys: 'Date last physical',
   dateSale: 'Date last sale',
   dateReceipt: 'Date last receipt',
@@ -60,9 +64,24 @@ export function detectColumns(headers: string[]): ColumnMap {
   const dateReceipt = claim((h) => /rec(eipt|eived|pt|v|'d|d\b)/.test(h) && isDateName(h));
   const sku = claim((h) => h === 'sku' || h.includes('sku') || /^item ?(#|no|num|number)?$/.test(h) || h.includes('upc'));
   const desc = claim((h) => h.includes('desc'));
-  const qoh = claim((h) => h.includes('qoh') || h.includes('on hand') || h.includes('on-hand') || h === 'oh' || h.includes('quantity on'));
+  const qoh = claim(
+    (h) =>
+      !h.includes('order') &&
+      !h.includes('commit') &&
+      (h.includes('qoh') || h.includes('on hand') || h.includes('on-hand') || h === 'oh' || h.includes('quantity on')),
+  );
   const cost = claim((h) => h.includes('cost'));
   const retail = claim((h) => h.includes('retail') || h === 'price');
+  // "YTD GP$", "Gross Profit $", "GP Dollars".
+  const gpDollars = claim(
+    (h) => h.includes('gp$') || h.includes('gross profit') || (/\bgp\b/.test(h) && (h.includes('$') || h.includes('dollar'))),
+  );
+  // "YTD Sales Dollars", "$ Sales Last 12 Mo", "Sales $", "Revenue".
+  const salesDollars = claim(
+    (h) =>
+      h.includes('revenue') ||
+      ((h.includes('sales') || h.includes('sale')) && (h.includes('$') || h.includes('dollar') || h.includes('amount'))),
+  );
   const sold = claim(
     (h) =>
       !isDateName(h) &&
@@ -72,7 +91,7 @@ export function detectColumns(headers: string[]): ColumnMap {
     .map((h, i) => i)
     .filter((i) => !used.has(i) && (/(^|[^a-z])loc/.test(hs[i]) || hs[i].includes('location') || hs[i].includes('bin')));
 
-  return { sku, desc, locs, qoh, cost, retail, sold, datePhys, dateSale, dateReceipt };
+  return { sku, desc, locs, qoh, cost, retail, sold, salesDollars, gpDollars, datePhys, dateSale, dateReceipt };
 }
 
 /** Eagle numbers: "$1,299.99", "(3)" for negative, blank for nothing. */
@@ -190,6 +209,8 @@ export function buildFloorData(grid: string[][], cols: ColumnMap, fileName: stri
       cost: parseNumber(cell(row, cols.cost)),
       retail: parseNumber(cell(row, cols.retail)),
       sold: parseNumber(cell(row, cols.sold)),
+      salesDollars: parseNumber(cell(row, cols.salesDollars)),
+      gpDollars: parseNumber(cell(row, cols.gpDollars)),
       datePhys: cols.datePhys >= 0 ? parseDate(cell(row, cols.datePhys)) : null,
       dateSale: cols.dateSale >= 0 ? parseDate(cell(row, cols.dateSale)) : null,
       dateReceipt: cols.dateReceipt >= 0 ? parseDate(cell(row, cols.dateReceipt)) : null,
