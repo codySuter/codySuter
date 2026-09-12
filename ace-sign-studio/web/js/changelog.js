@@ -9,6 +9,14 @@
 
 const CHANGELOG = [
   {
+    version: "3.11.0",
+    date: "September 2026",
+    notes: [
+      "New: Multi Product sign (under Specialty) for the 11×7 sign holder — put 2, 3 or 4 products on one sheet, each in its own sign style. Mix a 2-for, a regular price, a sale and a percent-off on the same holder; the sheet lays itself out (2 or 3 stand side by side, 4 make a grid) and every product keeps its own SKU lookup, photo, sale dates and extras. Price refresh and the batch price check look after every product on it.",
+      "Removed the “Signage & pricing — all in one place” tagline under the app title.",
+    ],
+  },
+  {
     version: "3.10.1",
     date: "August 2026",
     notes: [

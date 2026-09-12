@@ -12,10 +12,13 @@ Replaces and unifies the three older tools:
 
 ## What it does
 
-- **13 sign types**, each following the official Ace price point formats
+- **19 sign types**, each following the official Ace price point formats
   (brand guidelines pp. 72–74): Regular, Sale, Percent Off, BOGO Free,
   BOGO %, 2-for-$X, Instant Savings (Ace Rewards), Buy 2 Get $X Off,
-  Was/Now (This Unit Only), Your Choice, Under $X, Large Text, Text Only.
+  This Unit Only Clearance (Was/Now), Final Sale, Your Choice, Under $X,
+  Big Text, STIHL Clearance, four Arrow pointers — and **Multi Product**,
+  which tiles 2–4 of the others onto one 11×7 sign holder, each in its own
+  style (a 2-for, a regular price, a sale and a percent-off on one sheet).
 - **Per-field toggles** on every sign: hide the photo, price, reg price,
   SKU, name, detail line, or the Ace logo — the layout reflows around
   whatever is hidden.

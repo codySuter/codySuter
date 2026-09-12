@@ -213,9 +213,47 @@ const SIGN_TYPES = [
     render: (spec, w, h) => AceRenderers.arrow_right(spec, w, h),
     sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
   },
+  {
+    // Multi Product: 2–4 standard signs tiled on one Sign Holder 11×7
+    // sheet. spec.products = [{typeId, spec}] — every product is a complete
+    // sign of its own type (SKU, photo, dates, hides, element sizes) drawn
+    // by that type's own renderer inside its cell, so a 2-for, a regular
+    // price, a sale and a percent-off can share one holder. Pinned to the
+    // 11×7 holder: the cell layout is designed for that sheet.
+    id: "multi", hideable: [], group: "Specialty", label: "Multi Product",
+    note: "2–4 products on one 11×7 sign — each in its own sign style",
+    sizes: ["holder-11x7"], defaultSize: "holder-11x7",
+    fields: [{ key: "products", kind: "products", label: "Products" }],
+    render: (spec, w, h) => AceRenderers.multi(spec, w, h),
+    sample: { products: [] }, // filled in by applyTemplateProduct
+  },
 ];
 
 const typeById = (id) => SIGN_TYPES.find((t) => t.id === id) || null;
+
+/* ---------- Multi Product helpers ----------
+   Shared by the editor (cards), the validator, and the renderer so the
+   three can never disagree about what a product list looks like. */
+const MULTI_MIN_PRODUCTS = 2, MULTI_MAX_PRODUCTS = 4;
+
+/* Sign types a Multi Product cell may use: every standard type. */
+function multiChildTypes() {
+  return SIGN_TYPES.filter((t) => t.id !== "multi");
+}
+
+/* The renderable products of a multi spec: {typeId, spec} pairs with a
+   registered (non-multi) type, capped at the sheet's maximum. Unknown
+   types fall back to Regular Price rather than dropping the product. */
+function normalizeMultiProducts(spec) {
+  const list = spec && Array.isArray(spec.products) ? spec.products : [];
+  return list
+    .filter((p) => p && typeof p === "object")
+    .slice(0, MULTI_MAX_PRODUCTS)
+    .map((p) => ({
+      typeId: typeById(p.typeId) && p.typeId !== "multi" ? p.typeId : "regular",
+      spec: p.spec && typeof p.spec === "object" ? p.spec : {},
+    }));
+}
 
 /* Every sign type that shows a SKU can also print it as a barcode, and a
    QR code linking customers to the product page (reviews, online order). */
@@ -260,6 +298,17 @@ function applyTemplateProduct(p) {
   set("final_sale", { price: now, note: "*No returns" });
   set("big_text", { price: price.toFixed(2), mode: "priced" });
   for (const d of ["up", "down", "left", "right"]) set("arrow_" + d, { price: price.toFixed(2) });
+  // the gallery's multi sample is the canonical mix: 2-for, regular, sale,
+  // percent-off — four styles on one holder
+  const sub = (extra) => Object.assign({}, base, extra);
+  set("multi", {
+    products: [
+      { typeId: "two_for", spec: sub({ qty: 2, price: Math.max(1, Math.round(price * 0.8)) + ".00" }) },
+      { typeId: "regular", spec: sub({ price: price.toFixed(2) }) },
+      { typeId: "sale", spec: sub({ price: now, regPrice: was }) },
+      { typeId: "percent_off", spec: sub({ percent: "25" }) },
+    ],
+  });
 }
 
 applyTemplateProduct(TEMPLATE_FALLBACK);
@@ -305,6 +354,9 @@ const SCALE_DEFS = {
 };
 
 function scalablesForType(t) {
+  // a Multi Product sign has no elements of its own — each product keeps
+  // its own sliders on its own sign type
+  if (t.id === "multi") return [];
   const has = (k) => t.fields.some((f) => f.key === k);
   const keys = ["logo"];
   if (has("image")) keys.push("image");

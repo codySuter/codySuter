@@ -315,6 +315,7 @@ async function buildGalleryThumbs() {
 function showEditor(typeId) {
   const t = typeById(typeId);
   if (!t) return;
+  const prevTypeId = App.typeId;
   App.view = "editor";
   App.typeId = typeId;
   App.userPickedType = true;
@@ -324,6 +325,32 @@ function showEditor(typeId) {
   // while editing a queued sign the spec is taken verbatim (no batch dates)
   const keep = App.spec || {};
   App.spec = App.editingUid ? keep : Object.assign({ startDate: App.batchStart, endDate: App.batchEnd }, keep);
+  if (!App.editingUid) {
+    if (t.id === "multi") {
+      // A multi spec holds only its products. Arriving from a single sign
+      // with something typed in it, that sign becomes product 1 — the same
+      // "keep your work when switching types" courtesy the shared fields
+      // get. Products parked when the user last left the Multi editor come
+      // back too.
+      let products = Array.isArray(keep.products) && keep.products.length ? keep.products : null;
+      if (!products && Array.isArray(App._multiParked) && App._multiParked.length) products = App._multiParked;
+      if (!products) {
+        const single = Object.assign({}, keep);
+        delete single.products;
+        const carried = prevTypeId && prevTypeId !== "multi" && typeById(prevTypeId) &&
+          (String(single.sku || "").trim() || String(single.name || "").trim());
+        products = carried ? [{ typeId: prevTypeId, spec: single }] : [];
+      }
+      App._multiParked = null;
+      App.spec = { products };
+    } else if (App.spec.products) {
+      // leaving Multi: park the products so coming back restores them, and
+      // keep that payload (photos included) off every single sign built
+      // in between
+      App._multiParked = App.spec.products;
+      delete App.spec.products;
+    }
+  }
   markActiveNav();
 
   const work = $("#work");
@@ -481,6 +508,20 @@ function validateSpec(t, spec) {
   if (need("category") && !String(spec.category || "").trim()) return "Enter the category name.";
   if (t.id === "was_now" && !String(spec.regPrice || "").trim()) return "Enter the was price.";
   if (t.id === "stihl_clearance" && spec.mode === "wasnow" && !String(spec.regPrice || "").trim()) return "Enter the was price.";
+  if (t.id === "multi") {
+    // every product is validated by its own type's rules, named by slot
+    // so the message points at the card to fix
+    const products = Array.isArray(spec.products) ? spec.products : [];
+    if (products.length < MULTI_MIN_PRODUCTS) return `Add at least ${MULTI_MIN_PRODUCTS} products.`;
+    if (products.length > MULTI_MAX_PRODUCTS) return `A Multi Product sign holds at most ${MULTI_MAX_PRODUCTS} products.`;
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i] || {};
+      const st = typeById(p.typeId);
+      if (!st || st.id === "multi") return `Product ${i + 1}: pick a sign style.`;
+      const err = validateSpec(st, p.spec || {});
+      if (err) return `Product ${i + 1}: ${err}`;
+    }
+  }
   return null;
 }
 
@@ -525,6 +566,7 @@ function buildEditorFields(t) {
     // Fields tagged with `modes` only appear in the matching style (see the
     // Big Text sign's "mode" selector).
     if (f.modes && !f.modes.includes(App.spec.mode)) continue;
+    if (f.kind === "products") { buildProductsEditor(t, host); continue; }
     const dest = FINE_KEYS[f.key] ? fineBody : host;
     if (f.kind === "seg") {
       // Segmented style picker; changing it re-filters the fields above.
@@ -899,6 +941,266 @@ function switchTypeKeepingSpec(newType) {
   App.spec = Object.assign(App.spec, keep);
 }
 
+/* ---------------- Multi Product editor ----------------
+   spec.products = [{typeId, spec}] — each product is a complete standard
+   sign edited in its own card: a style picker plus that style's own fields
+   (SKU lookup included). Cards write straight into their product's spec
+   and the preview re-renders the whole sheet. The field kinds mirror the
+   single-sign form, but every DOM lookup is scoped to the card — four
+   products mean four "price" inputs on one form. */
+function newMultiProduct(typeId) {
+  return { typeId: typeId || "regular", spec: { startDate: App.batchStart || "", endDate: App.batchEnd || "" } };
+}
+
+function buildProductsEditor(t, host) {
+  if (!Array.isArray(App.spec.products)) App.spec.products = [];
+  const products = App.spec.products;
+  while (products.length < MULTI_MIN_PRODUCTS) products.push(newMultiProduct("regular"));
+  if (products.length > MULTI_MAX_PRODUCTS) products.length = MULTI_MAX_PRODUCTS;
+  const wrap = el("div", "mp-list");
+  wrap.id = "multiProducts";
+  products.forEach((p, i) => wrap.appendChild(buildProductCard(t, p, i)));
+  host.appendChild(wrap);
+  if (products.length < MULTI_MAX_PRODUCTS) {
+    const add = el("button", "btn btn-ghost mp-add", `＋ Add a product (${products.length} of ${MULTI_MAX_PRODUCTS})`);
+    add.id = "mpAddBtn";
+    add.onclick = () => {
+      products.push(newMultiProduct("regular"));
+      buildEditorFields(t);
+      schedulePreview();
+    };
+    host.appendChild(add);
+  }
+  host.appendChild(el("div", "mp-help", "2 or 3 products stand side by side; 4 make a 2×2 grid. Each product is its own sign — style, price, photo and all."));
+}
+
+function buildProductCard(t, p, i) {
+  const products = App.spec.products;
+  if (!typeById(p.typeId) || p.typeId === "multi") p.typeId = "regular";
+  if (!p.spec || typeof p.spec !== "object") p.spec = {};
+  const st = typeById(p.typeId);
+  const card = el("div", "mp-card");
+  card.dataset.product = String(i);
+  const head = el("div", "mp-head");
+  head.appendChild(el("span", "mp-title", `Product ${i + 1}`));
+  const sel = el("select", "f-select mp-type");
+  sel.title = "Sign style for this product";
+  const groups = {};
+  for (const ct of multiChildTypes()) (groups[ct.group] = groups[ct.group] || []).push(ct);
+  for (const g of Object.keys(groups)) {
+    const og = el("optgroup");
+    og.label = g;
+    for (const ct of groups[g]) {
+      const o = el("option", null, ct.label);
+      o.value = ct.id;
+      if (ct.id === p.typeId) o.selected = true;
+      og.appendChild(o);
+    }
+    sel.appendChild(og);
+  }
+  sel.onchange = () => { p.typeId = sel.value; rebuildProductCard(t, p, i); schedulePreview(); };
+  head.appendChild(sel);
+  if (products.length > MULTI_MIN_PRODUCTS) {
+    const rm = el("button", "q-btn mp-remove", "✕");
+    rm.title = "Remove this product";
+    rm.onclick = () => { products.splice(i, 1); buildEditorFields(t); schedulePreview(); };
+    head.appendChild(rm);
+  }
+  card.appendChild(head);
+  const body = el("div", "mp-body");
+  // the single form's fine-tune extras (unit, barcode, QR) fold into a
+  // small per-card disclosure so four cards stay scannable
+  const extras = el("details", "mp-extras");
+  extras.appendChild(el("summary", null, "Extras — unit, barcode, QR"));
+  const extrasBody = el("div", "mp-extras-body");
+  extras.appendChild(extrasBody);
+  const FINE_KEYS = { unit: 1, barcode: 1, qr: 1 };
+  for (const f of st.fields) {
+    if (f.modes && !f.modes.includes(p.spec.mode)) continue;
+    buildProductField(t, p, i, st, f, FINE_KEYS[f.key] ? extrasBody : body, card);
+  }
+  card.appendChild(body);
+  if (extrasBody.childNodes.length) card.appendChild(extras);
+  return card;
+}
+
+function rebuildProductCard(t, p, i) {
+  const old = $(`#multiProducts .mp-card[data-product="${i}"]`);
+  const fresh = buildProductCard(t, p, i);
+  if (old) old.replaceWith(fresh);
+  return fresh;
+}
+
+function refreshProductImage(host, spec) {
+  const drop = host.classList && host.classList.contains("img-drop") ? host : host.querySelector(".img-drop");
+  if (!drop) return;
+  const prev = drop.querySelector("img"), note = drop.querySelector(".img-note"), clear = drop.querySelector(".img-clear");
+  if (spec.image) {
+    prev.src = /^https?:\/\//.test(spec.image) ? `/api/img?u=${encodeURIComponent(spec.image)}` : spec.image;
+    prev.style.display = "";
+    clear.style.display = "";
+    note.innerHTML = spec._customImage ? "Using your custom photo." : "Photo from acehardware.com.<br>Click to replace, or drag a new one here.";
+  } else {
+    prev.style.display = "none";
+    clear.style.display = "none";
+    note.innerHTML = "Auto-fetched on SKU lookup.<br>Click to use your own photo, or drag one here.";
+  }
+}
+
+function buildProductField(t, p, i, st, f, dest, card) {
+  const spec = p.spec;
+  const setSub = (key, value) => {
+    spec[key] = value;
+    const inp = card.querySelector(`[data-field="${key}"]`);
+    if (inp) inp.value = value;
+  };
+  if (f.kind === "seg") {
+    if (spec[f.key] == null) spec[f.key] = f.def;
+    dest.appendChild(labelEl(f.label));
+    const row = el("div", "seg");
+    for (const opt of f.options) {
+      const b = el("button", "seg-btn" + (spec[f.key] === opt.value ? " active" : ""), opt.label);
+      b.onclick = () => {
+        if (spec[f.key] === opt.value) return;
+        spec[f.key] = opt.value;
+        rebuildProductCard(t, p, i);
+        schedulePreview();
+      };
+      row.appendChild(b);
+    }
+    dest.appendChild(row);
+    return;
+  }
+  if (f.kind === "sku") {
+    dest.appendChild(labelEl(f.label));
+    const inp = inputEl("text", spec.sku || "", "e.g. 7135975 — or paste a product URL");
+    inp.dataset.field = "sku";
+    const status = el("div", "lookup-status");
+    inp.addEventListener("input", () => { spec.sku = inp.value.trim(); });
+    attachAutoLookup(inp, status, (res, si) => {
+      spec.sku = res.sku || inp.value.trim();
+      if (res.productUrl) spec.productUrl = res.productUrl; // QR target
+      spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
+      if (res.name) setSub("name", res.name);
+      let switched = false;
+      if (si.onSale) {
+        setSub("price", si.sale);
+        setSub("regPrice", si.reg);
+        // same courtesy as a single sign: an on-sale product becomes a
+        // Sale cell so the markdown shows
+        if (p.typeId === "regular") { p.typeId = "sale"; switched = true; }
+      } else {
+        if (res.price) setSub("price", res.price);
+        else if (res.listPrice) setSub("price", res.listPrice);
+        // a fresh non-sale lookup means any earlier reg price is stale
+        if (st.fields.some((x) => x.key === "regPrice") && p.typeId !== "was_now") setSub("regPrice", "");
+      }
+      if (res.imageUrl) { spec.image = res.imageUrl; refreshProductImage(card, spec); }
+      if (switched) {
+        const fresh = rebuildProductCard(t, p, i);
+        const s2 = fresh.querySelector(".lookup-status");
+        if (s2) {
+          s2.className = "lookup-status ok";
+          s2.innerHTML = `✓ ${esc(res.name || res.sku)} <span class="sale-flag">On Sale</span> — switched to a Sale style <span class="diag-link" onclick="showDiagnostics()">details</span>`;
+        }
+      }
+      schedulePreview();
+    });
+    dest.appendChild(inp);
+    dest.appendChild(status);
+    return;
+  }
+  if (f.kind === "image") {
+    dest.appendChild(labelEl(f.label));
+    const drop = el("div", "img-drop mp-img");
+    drop.innerHTML = `<img style="display:none"><div class="img-note"></div><button class="img-clear" title="Remove photo" style="display:none">✕</button>`;
+    const file = el("input");
+    file.type = "file";
+    file.accept = "image/*";
+    file.style.display = "none";
+    drop.appendChild(file);
+    drop.onclick = (e) => { if (!e.target.classList.contains("img-clear")) file.click(); };
+    const accept = (fl) => {
+      const r = new FileReader();
+      r.onload = async () => {
+        spec.image = await downscaleDataURL(r.result, CUSTOM_PHOTO_MAX_EDGE, 0.85);
+        spec._customImage = true;
+        refreshProductImage(drop, spec);
+        schedulePreview();
+      };
+      r.readAsDataURL(fl);
+    };
+    file.onchange = () => {
+      const fl = file.files && file.files[0];
+      if (fl) accept(fl);
+      file.value = "";
+    };
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); });
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const fl = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (fl && /^image\//.test(fl.type)) accept(fl);
+    });
+    drop.querySelector(".img-clear").onclick = () => { spec.image = null; spec._customImage = false; refreshProductImage(drop, spec); schedulePreview(); };
+    dest.appendChild(drop);
+    refreshProductImage(drop, spec);
+    return;
+  }
+  if (f.kind === "dates") {
+    dest.appendChild(labelEl("Sale dates (prints as a red pill — leave blank for none)"));
+    const row = el("div", "f-row");
+    const s = inputEl("date", spec.startDate || "");
+    const e2 = inputEl("date", spec.endDate || "");
+    const clr = el("button", "btn btn-ghost btn-sm", "Clear");
+    s.onchange = () => {
+      spec.startDate = s.value;
+      if (s.value && (!e2.value || e2.value < s.value)) { e2.value = plusDaysISO(s.value, 7); spec.endDate = e2.value; }
+      schedulePreview();
+    };
+    e2.onchange = () => { spec.endDate = e2.value; schedulePreview(); };
+    clr.onclick = () => { s.value = ""; e2.value = ""; spec.startDate = ""; spec.endDate = ""; schedulePreview(); };
+    row.appendChild(s); row.appendChild(e2); row.appendChild(clr);
+    dest.appendChild(row);
+    return;
+  }
+  if (f.kind === "check") {
+    const lab = el("label", "f-check");
+    const cb = el("input");
+    cb.type = "checkbox";
+    if (spec[f.key] == null && f.def != null) spec[f.key] = f.def;
+    cb.checked = !!spec[f.key];
+    cb.onchange = () => { spec[f.key] = cb.checked; schedulePreview(); };
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(f.label));
+    dest.appendChild(lab);
+    return;
+  }
+  dest.appendChild(labelEl(f.label));
+  let wrap = null, inp;
+  if (f.kind === "money") {
+    wrap = el("div", "prefix-wrap");
+    wrap.dataset.prefix = "$";
+    inp = inputEl("text", spec[f.key] != null ? spec[f.key] : (f.def != null ? f.def : ""));
+  } else if (f.kind === "percent") {
+    wrap = el("div", "suffix-wrap");
+    wrap.dataset.suffix = "%";
+    inp = inputEl("text", spec[f.key] || "");
+  } else if (f.kind === "int") {
+    inp = inputEl("number", spec[f.key] != null ? spec[f.key] : f.def || 2);
+    inp.min = "2"; inp.max = "9";
+  } else if (f.kind === "textarea") {
+    inp = el("textarea", "f-textarea");
+    inp.value = spec[f.key] || "";
+  } else {
+    if (spec[f.key] == null && f.def != null) spec[f.key] = f.def;
+    inp = inputEl("text", spec[f.key] || "");
+  }
+  inp.dataset.field = f.key;
+  inp.addEventListener("input", () => { spec[f.key] = inp.value; schedulePreview(); });
+  if (wrap) { wrap.appendChild(inp); dest.appendChild(wrap); }
+  else dest.appendChild(inp);
+}
+
 function showMsg(id, cls, text) {
   const m = $("#" + id);
   if (!m) return;
@@ -1062,6 +1364,50 @@ function priceAgeDays(spec) {
   return Math.floor((Date.now() - t) / 86400000);
 }
 
+/* The sign "units" a lookup can re-price inside a queue/batch item: the
+   item itself for a single sign, each product of a Multi Product sign.
+   Units are live {typeId, spec} references — applyPriceResult rewrites
+   them in place, and a product's typeId/spec are its own. */
+function priceUnits(q) {
+  if (!q || !q.spec) return [];
+  const refreshable = (u) => u && u.spec && String(u.spec.sku || "").trim() && PRICE_REFRESH_TYPES[u.typeId];
+  if (q.typeId === "multi") {
+    return (Array.isArray(q.spec.products) ? q.spec.products : []).filter((p) => p && typeById(p.typeId) && refreshable(p));
+  }
+  return refreshable(q) ? [q] : [];
+}
+
+/* Every SKU an item carries — a multi sign has one per product. */
+function itemSkus(q) {
+  if (q.typeId === "multi") {
+    return (Array.isArray(q.spec.products) ? q.spec.products : [])
+      .map((p) => String((p && p.spec && p.spec.sku) || "").trim())
+      .filter(Boolean);
+  }
+  const s = String(q.spec.sku || "").trim();
+  return s ? [s] : [];
+}
+
+/* Identity of a sign for "queue it once" dedupe across batches. */
+function itemSignKey(u) {
+  return `${u.typeId}|${u.sizeId}|${itemSkus(u).join(",")}`;
+}
+
+/* Price-check state of an item: null when nothing on it is refreshable,
+   else {age} — the oldest lookup in days, or null when any unit was never
+   checked. A multi sign is only as fresh as its stalest product. */
+function itemPriceAge(q) {
+  const units = priceUnits(q);
+  if (!units.length) return null;
+  let worst = 0;
+  for (const u of units) {
+    const a = priceAgeDays(u.spec);
+    if (a == null) return { age: null };
+    if (a > worst) worst = a;
+  }
+  return { age: worst };
+}
+
 /* Coalesce the *expensive* half of a queue render. The rows themselves are
    cheap text/button DOM and stay synchronous, so the count badge and row
    order are correct the instant a mutation happens. Thumbnails and sheet
@@ -1132,8 +1478,7 @@ function renderQueue() {
   // that appears more than once at the same size
   const dupCounts = {};
   for (const q of Queue.items) {
-    const sku = String(q.spec.sku || "").trim();
-    if (sku) dupCounts[`${sku}|${q.sizeId}`] = (dupCounts[`${sku}|${q.sizeId}`] || 0) + 1;
+    for (const sku of itemSkus(q)) dupCounts[`${sku}|${q.sizeId}`] = (dupCounts[`${sku}|${q.sizeId}`] || 0) + 1;
   }
   Queue.items.forEach((q, idx) => {
     const item = el("div", "q-item" + (q.uid === App.editingUid ? " editing" : ""));
@@ -1150,12 +1495,12 @@ function renderQueue() {
     // on a 300px row read as noise, and "needs Now price" (can't print
     // right) always outranks "duplicate" (prints twice) outranks "stale
     // price" (worth re-checking).
-    const age = priceAgeDays(q.spec);
+    const pa = itemPriceAge(q);
     let badge = null;
     if (q.typeId === "was_now" && !String(q.spec.price || "").trim()) badge = ["q-warn", "needs Now price"];
-    else if (String(q.spec.sku || "").trim() && dupCounts[`${String(q.spec.sku).trim()}|${q.sizeId}`] > 1) badge = ["q-warn", "duplicate"];
-    else if (age != null && age > 3) badge = ["q-stale", `price ${age}d old`];
-    else if (age == null && PRICE_REFRESH_TYPES[q.typeId] && String(q.spec.sku || "").trim()) {
+    else if (itemSkus(q).some((sku) => dupCounts[`${sku}|${q.sizeId}`] > 1)) badge = ["q-warn", "duplicate"];
+    else if (pa && pa.age != null && pa.age > 3) badge = ["q-stale", `price ${pa.age}d old`];
+    else if (pa && pa.age == null) {
       // pre-2.1 items carry no lookup timestamp — call that out rather
       // than silently skipping the badge on the stalest signs of all
       badge = ["q-stale", "price unchecked"];
@@ -1327,11 +1672,11 @@ function applyPriceResult(q, res) {
 
 async function refreshQueuePrices() {
   if (_refreshingPrices) return;
-  const refreshable = (q) => String(q.spec.sku || "").trim() && PRICE_REFRESH_TYPES[q.typeId] && q.uid !== App.editingUid;
+  const refreshable = (q) => q.uid !== App.editingUid && priceUnits(q).length > 0;
   const targets = Queue.items.filter(refreshable);
   const manual = Queue.items.filter((q) => !refreshable(q)).length;
   if (!targets.length) {
-    showToast("Nothing to refresh — no queued Regular/Sale/Large Text signs with a SKU.");
+    showToast("Nothing to refresh — no queued Regular/Sale/Big Text signs (or Multi Product cells) with a SKU.");
     return;
   }
   const btn = $("#refreshPricesBtn");
@@ -1345,12 +1690,17 @@ async function refreshQueuePrices() {
     if (!q) return;
     btn.textContent = `↻ ${++done}/${targets.length}`;
     try {
-      const res = await fetch(`/api/lookup?q=${encodeURIComponent(q.spec.sku)}&refresh=1&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
-      const r = applyPriceResult(q, res);
-      if (r == null) failed++;
+      // one lookup per unit — a multi sign refreshes each of its products
+      let gotData = false, moved = false;
+      for (const u of priceUnits(q)) {
+        const res = await fetch(`/api/lookup?q=${encodeURIComponent(u.spec.sku)}&refresh=1&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
+        const r = applyPriceResult(u, res);
+        if (r != null) { gotData = true; if (r) moved = true; }
+      }
+      if (!gotData) failed++;
       else {
         Queue._bumpRev(q); // spec mutated in place — drop its cached SVG
-        if (r) changed++;
+        if (moved) changed++;
       }
     } catch (e) { failed++; }
     await runOne();
@@ -1585,14 +1935,17 @@ async function scanBatchPrices() {
   for (const name of Batches.names()) {
     for (const q of Batches.data[name].items || []) {
       if (!q.spec) continue;
-      const sku = String(q.spec.sku || "").trim();
-      if (sku && PRICE_REFRESH_TYPES[q.typeId]) priceTargets.push({ name, q });
-      else if (isEnded(q)) (sku ? endedTargets : endedNoSku).push({ name, q });
+      if (priceUnits(q).length) priceTargets.push({ name, q });
+      else if (isEnded(q)) (String(q.spec.sku || "").trim() ? endedTargets : endedNoSku).push({ name, q });
     }
   }
   if (!priceTargets.length && !endedTargets.length) return null;
 
-  const skus = [...new Set(priceTargets.concat(endedTargets).map((t) => String(t.q.spec.sku).trim()))];
+  // one lookup per distinct SKU — a multi sign contributes one per product
+  const skus = [...new Set(
+    priceTargets.flatMap((t) => priceUnits(t.q).map((u) => String(u.spec.sku).trim()))
+      .concat(endedTargets.map((t) => String(t.q.spec.sku).trim()))
+  )];
   const bySku = new Map();
   const work = skus.slice();
   const runOne = async () => {
@@ -1612,10 +1965,17 @@ async function scanBatchPrices() {
   const changed = []; // {name, stored, updated} — price moved, batch gets the update
   const ended = [];   // {name, stored, updated} — promo over, replacement queued only
   for (const t of priceTargets) {
-    const res = bySku.get(String(t.q.spec.sku).trim());
-    if (!res) continue;
     const updated = JSON.parse(JSON.stringify(t.q));
-    if (applyPriceResult(updated, res)) {
+    // the copy yields the same units in the same order as the stored item
+    let answered = false, moved = false;
+    for (const u of priceUnits(updated)) {
+      const res = bySku.get(String(u.spec.sku).trim());
+      if (!res) continue;
+      answered = true;
+      if (applyPriceResult(u, res)) moved = true;
+    }
+    if (!answered) continue;
+    if (moved) {
       changed.push({ name: t.name, stored: t.q, updated });
     } else if (isEnded(t.q)) {
       // price still right, but the sign shows a sale-date pill that's over
@@ -1663,7 +2023,7 @@ function showBatchPriceBar(changed, ended, endedNoSkuCount) {
   // via sync — this string lands in innerHTML below.
   const bList = batches.slice(0, 3).map((b) => `“${esc(b)}”`).join(", ") + (batches.length > 3 ? ` +${batches.length - 3} more` : "");
   // a sign saved in several batches counts (and prints) once
-  const uniq = (list) => new Set(list.map((c) => `${c.updated.typeId}|${c.updated.sizeId}|${c.updated.spec.sku}`)).size;
+  const uniq = (list) => new Set(list.map((c) => itemSignKey(c.updated))).size;
   const nChanged = uniq(changed), nEnded = uniq(ended);
   const parts = [];
   if (nChanged) parts.push(`${nChanged} sign${nChanged === 1 ? "" : "s"} no longer match${nChanged === 1 ? "es" : ""} the shelf price`);
@@ -1690,7 +2050,7 @@ function applyBatchPriceChanges(changed, ended) {
   const seen = new Set();
   let added = 0;
   const queueOnce = (u) => {
-    const key = `${u.typeId}|${u.sizeId}|${u.spec.sku}`;
+    const key = itemSignKey(u);
     if (seen.has(key)) return;
     seen.add(key);
     Queue.add(u.typeId, u.sizeId, u.spec, u.copies || 1);
@@ -1884,9 +2244,8 @@ const STALE_PRICE_DAYS = 3;
    SKU to look up. */
 function stalePricedItems(items) {
   return (items || Queue.items).filter((q) => {
-    if (!PRICE_REFRESH_TYPES[q.typeId] || !String(q.spec.sku || "").trim()) return false;
-    const age = priceAgeDays(q.spec);
-    return age == null || age > STALE_PRICE_DAYS;
+    const pa = itemPriceAge(q);
+    return !!pa && (pa.age == null || pa.age > STALE_PRICE_DAYS);
   });
 }
 
@@ -1897,8 +2256,8 @@ function stalePricedItems(items) {
    first) rather than just blocking. */
 function promptStalePrices(stale, print) {
   const modal = $("#stalePriceModal");
-  const never = stale.filter((q) => priceAgeDays(q.spec) == null).length;
-  const ages = stale.map((q) => priceAgeDays(q.spec)).filter((d) => d != null);
+  const never = stale.filter((q) => itemPriceAge(q).age == null).length;
+  const ages = stale.map((q) => itemPriceAge(q).age).filter((d) => d != null);
   const oldest = ages.length ? Math.max(...ages) : null;
 
   const bits = [`<b>${stale.length} sign${stale.length === 1 ? "" : "s"}</b> in this queue `
@@ -1912,7 +2271,7 @@ function promptStalePrices(stale, print) {
   for (const q of stale.slice(0, 12)) {
     const row = el("div", "stale-row");
     row.appendChild(el("span", "sr-name", queueItemTitle(q)));
-    const age = priceAgeDays(q.spec);
+    const age = itemPriceAge(q).age;
     row.appendChild(el("span", "q-stale sr-age", age == null ? "never checked" : `${age}d old`));
     list.appendChild(row);
   }

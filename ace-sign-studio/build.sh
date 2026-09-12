@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.10.1"
+VERSION="3.11.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Cut lines now have squared corners instead of rounded, for cleaner straightedge trimming."
+NOTES="New Multi Product sign: put 2, 3 or 4 products on one 11x7 sign holder, each in its own sign style."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
