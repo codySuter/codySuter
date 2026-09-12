@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.11.1"
+VERSION="3.12.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Multi Product sign: up to 8 products, tighter spacing between them, and one Ace logo per sheet."
+NOTES="Click any text on a sign to edit it in place. Multi Product: drag products to swap them, reorder buttons, and paste a list of SKUs to fill the sign."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"

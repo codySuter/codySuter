@@ -175,6 +175,33 @@ async function run() {
     ok("preview tiles all four products with their own content", await page.evaluate(multiRendered, [4, ["DeWalt", "Scotts", "Weber", "Bird"]]));
     ok("one Ace logo for the whole sheet, none in the cells", await page.evaluate(() =>
       document.querySelectorAll('#signHolder svg g[data-elem="logo"]').length === 1));
+    ok("every product cell wears its slot number", await page.evaluate(() =>
+      document.querySelectorAll("#signHolder svg .mp-slot").length === 4));
+    // reorder from the cards: ▼ on product 1 moves DeWalt to slot 2
+    await page.click(`${card(0)} .mp-down`);
+    await page.waitForFunction(() => (App.spec.products[1].spec.name || "").includes("DeWalt"));
+    ok("▼ moves a product down a slot", await page.evaluate(() => App.spec.products[0].spec.name.includes("Scotts")));
+    await page.click(`${card(1)} .mp-up`);
+    await page.waitForFunction(() => (App.spec.products[0].spec.name || "").includes("DeWalt"));
+    ok("▲ moves it back", true);
+    // position from the preview: drag product 1's cell onto product 2's
+    const center = (sel) => page.$eval(sel, (g) => { const r = g.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    const c0 = await center('#signHolder svg g[data-product="0"]');
+    const c1 = await center('#signHolder svg g[data-product="1"]');
+    await page.mouse.move(c0.x, c0.y);
+    await page.mouse.down();
+    await page.mouse.move(c1.x, c1.y, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForFunction(() => (App.spec.products[0].spec.name || "").includes("Scotts"), null, { timeout: 5000 });
+    ok("dragging a product onto another swaps them", await page.evaluate(() => App.spec.products[1].spec.name.includes("DeWalt")));
+    await page.click(`${card(1)} .mp-up`);
+    await page.waitForFunction(() => (App.spec.products[0].spec.name || "").includes("DeWalt"));
+    // a click on a product's text (no drag) edits that product's field
+    await page.locator('#signHolder svg g[data-product="2"] text[data-field="percent"]').first().click();
+    await page.waitForSelector(".inline-edit input", { timeout: 5000 });
+    ok("clicking a cell's text edits that product", (await page.textContent(".inline-edit-label")).startsWith("Product 3") && (await page.inputValue(".inline-edit input")) === "25");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector(".inline-edit", { state: "detached" });
     ok("a product's hand-typed price beats the lookup's", await page.evaluate(() => App.spec.products[0].spec.price === "20.00"));
     await shot("01b-multi-4up");
     // eight-up: the sheet holds up to eight, in two rows
@@ -227,6 +254,19 @@ async function run() {
     await page.waitForFunction(() => document.querySelectorAll("#signHolder svg g[data-product]").length === 2, null, { timeout: 20000 });
     ok("two products can't be removed further", (await page.$$("#multiProducts .mp-remove")).length === 0);
     await shot("01d-multi-2up");
+    // paste-to-fill: a fresh sign from a list of SKUs
+    await page.evaluate(() => { App.spec.products = []; buildEditorFields(typeById("multi")); });
+    await page.click("#mpPaste > summary");
+    await fill("#mpPasteSkus", "3000003\n2000002\n81995\n4040404");
+    await page.click("#mpPasteBtn");
+    await page.waitForSelector("#mpPasteStatus.ok, #mpPasteStatus.err", { timeout: 30000 });
+    ok("paste fills a product per SKU (empty slots first, then new)", await page.evaluate(() => App.spec.products.length === 4));
+    ok("pasted products are looked up — names, prices, sale style", await page.evaluate(() =>
+      App.spec.products[0].spec.name.includes("DeWalt") && App.spec.products[1].typeId === "sale" && App.spec.products[2].spec.name.includes("Bird")));
+    ok("a SKU that doesn't resolve is reported and left in the box",
+      (await page.textContent("#mpPasteStatus")).includes("4040404") && (await page.inputValue("#mpPasteSkus")).trim() === "4040404");
+    await page.waitForFunction(() => document.querySelectorAll("#signHolder svg g[data-product]").length === 4, null, { timeout: 20000 });
+    await shot("01e-multi-paste");
     await page.evaluate(() => Queue.remove(Queue.items[0].uid));
     await page.waitForFunction(() => Queue.items.length === 0);
     await waitToastGone();
@@ -242,6 +282,29 @@ async function run() {
     ok("lookup stamps lookedUpAt", await page.evaluate(() => !!App.spec.lookedUpAt));
     await page.waitForSelector("#signHolder svg", { timeout: 20000 });
     await shot("02-editor-regular");
+
+    // ================= click-to-edit in the preview =================
+    console.log("→ Click any text on the preview to edit it");
+    await page.locator('#signHolder svg text[data-field="name"]').first().click();
+    await page.waitForSelector(".inline-edit input", { timeout: 5000 });
+    ok("clicking the name opens an editor holding the name", (await page.inputValue(".inline-edit input")).includes("DeWalt"));
+    await page.fill(".inline-edit input", "DeWalt 20V Drill Kit — Sale Table");
+    ok("typing in the popup drives the form field", (await page.inputValue('[data-field="name"]')) === "DeWalt 20V Drill Kit — Sale Table");
+    ok("…and the spec", await page.evaluate(() => App.spec.name === "DeWalt 20V Drill Kit — Sale Table"));
+    await page.waitForFunction(() => document.querySelector("#signHolder svg").textContent.includes("Sale Table"), null, { timeout: 10000 });
+    ok("the preview re-renders with the edited text", true);
+    await shot("02b-inline-edit");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector(".inline-edit", { state: "detached" });
+    const undone = await page.inputValue('[data-field="name"]');
+    ok("Esc undoes the edit", undone.includes("DeWalt") && !undone.includes("Sale Table"));
+    // the price is several <text> pieces — any of them opens the price field
+    await page.locator('#signHolder svg text[data-field="price"]').first().click();
+    await page.waitForSelector(".inline-edit input", { timeout: 5000 });
+    ok("clicking the price opens the price field", (await page.inputValue(".inline-edit input")) === "129.00");
+    await page.keyboard.press("Enter");
+    await page.waitForSelector(".inline-edit", { state: "detached" });
+    ok("Enter closes the editor", true);
 
     // ================= barcode toggle =================
     console.log("→ Code 128 barcode toggle");

@@ -508,3 +508,24 @@ label.f-label:first-child{margin-top:0}
 .mp-extras[open]>summary::before{content:'▾ '}
 .mp-add{width:100%;margin-top:10px}
 .mp-help{font-size:11.5px;color:var(--text-3);margin-top:8px;line-height:1.35}
+
+/* click-to-edit: a small editor over the preview, bound to one field */
+.inline-edit{position:fixed;z-index:60;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px 12px;min-width:230px;max-width:min(380px,calc(100vw - 16px))}
+.inline-edit-label{font-size:11px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:var(--text-2);margin-bottom:6px}
+.inline-edit .f-input,.inline-edit .f-textarea{width:100%;box-sizing:border-box}
+.inline-edit-hint{font-size:11px;color:var(--text-3);margin-top:6px}
+.field-flash{animation:fieldflash 1.4s ease-out}
+@keyframes fieldflash{0%{box-shadow:0 0 0 3px rgba(212,0,41,.5)}100%{box-shadow:0 0 0 0 rgba(212,0,41,0)}}
+.sign-holder svg{user-select:none}
+.sign-holder svg text[data-field]:hover{fill-opacity:.65}
+
+/* Multi Product: reorder buttons, paste-to-fill box */
+.mp-move{flex:none;padding:4px 7px}
+.mp-move[disabled]{opacity:.3;cursor:default}
+.mp-paste{border:1px dashed var(--border);border-radius:8px;padding:8px 12px;margin-bottom:10px;background:var(--surface-alt)}
+.mp-paste>summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--text-2);list-style:none;user-select:none}
+.mp-paste>summary::-webkit-details-marker{display:none}
+.mp-paste>summary::before{content:'▸ ';color:var(--text-3)}
+.mp-paste[open]>summary::before{content:'▾ '}
+.mp-paste-body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
+.mp-paste-body .btn{align-self:flex-start}
