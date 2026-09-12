@@ -971,7 +971,7 @@ function buildProductsEditor(t, host) {
     };
     host.appendChild(add);
   }
-  host.appendChild(el("div", "mp-help", "2 or 3 products stand side by side; 4 make a 2×2 grid. Each product is its own sign — style, price, photo and all."));
+  host.appendChild(el("div", "mp-help", "2 or 3 products stand side by side; 4 to 8 fill two rows. One Ace logo tops the sheet, and each product is its own sign — style, price, photo and all."));
 }
 
 function buildProductCard(t, p, i) {

@@ -17,7 +17,7 @@ Replaces and unifies the three older tools:
   BOGO %, 2-for-$X, Instant Savings (Ace Rewards), Buy 2 Get $X Off,
   This Unit Only Clearance (Was/Now), Final Sale, Your Choice, Under $X,
   Big Text, STIHL Clearance, four Arrow pointers — and **Multi Product**,
-  which tiles 2–4 of the others onto one 11×7 sign holder, each in its own
+  which tiles 2–8 of the others onto one 11×7 sign holder, each in its own
   style (a 2-for, a regular price, a sale and a percent-off on one sheet).
 - **Per-field toggles** on every sign: hide the photo, price, reg price,
   SKU, name, detail line, or the Ace logo — the layout reflows around

@@ -9,6 +9,15 @@
 
 const CHANGELOG = [
   {
+    version: "3.11.1",
+    date: "September 2026",
+    notes: [
+      "Multi Product sign: holds up to 8 products now — 2 or 3 stand side by side, 4 to 8 fill two rows.",
+      "Multi Product sign: the space between products is tightened to match the margin between a sign's grey border and its cut line, so nothing is wasted.",
+      "Multi Product sign: one Ace logo across the top of the sheet instead of one in every box (it can be hidden or resized under Fine-tune).",
+    ],
+  },
+  {
     version: "3.11.0",
     date: "September 2026",
     notes: [

@@ -72,14 +72,21 @@ function roundRect(x, y, w, h, r, fill, stroke, sw) {
 
 /* ---------- shared sign chrome ---------- */
 
-function signFrame(W, H) {
-  // Page-scale signs print as a dedicated sheet with no packing margin, so
-  // their frame must clear the printer's ≈0.25" non-printable edge on its
-  // own — 0.028·816px = 0.238" leaves the whole border in the dead zone.
-  // Smaller signs sit inside the sheet's 0.375" packing margin and keep the
-  // proportional look.
+/* Frame inset for a W×H px sign — the whitespace between the paper (or
+   cut line) and the grey border. Page-scale signs print as a dedicated
+   sheet with no packing margin, so their frame must clear the printer's
+   ≈0.25" non-printable edge on its own — 0.028·816px = 0.238" leaves the
+   whole border in the dead zone. Smaller signs sit inside the sheet's
+   0.375" packing margin and keep the proportional look. Shared with the
+   arrow signs and the Multi Product cell layout, which space cells by it. */
+function frameMargin(W, H) {
   let m = Math.max(10, Math.min(W, H) * 0.028);
   if (Math.min(W, H) >= 800) m = Math.max(27, m);
+  return m;
+}
+
+function signFrame(W, H) {
+  const m = frameMargin(W, H);
   const r = Math.min(W, H) > 500 ? 8 : 6;
   return {
     margin: m,
@@ -495,8 +502,7 @@ const arrowSign = (dir) => (spec, Win, Hin) => {
   // arrow can be pinned to the sign's outer border. The price-zone callback
   // only receives pixel coords, so these are closed over.
   const Wpx = Win * PPI, Hpx = Hin * PPI;
-  let fm = Math.max(10, Math.min(Wpx, Hpx) * 0.028);
-  if (Math.min(Wpx, Hpx) >= 800) fm = Math.max(27, fm);
+  const fm = frameMargin(Wpx, Hpx);
   const pad = Math.max(8, Math.min(Wpx, Hpx) * 0.022);
   const inset = fm + pad; // distance from the paper edge to content
   const aLen = Math.min(Wpx, Hpx) * 0.24;
@@ -1071,37 +1077,78 @@ AceRenderers.text_only = async (spec, W_in, H_in) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
 };
 
-/* ---------- Multi Product: 2–4 signs on one sheet ----------
+/* ---------- Multi Product: 2–8 signs on one sheet ----------
    spec.products = [{typeId, spec}]. Every product is a complete standard
    sign — its own type, hides and element sizes — drawn by its own renderer
-   at the cell's real dimensions. The cells are genuine sign sizes, so each
-   type's automatic layout (the small-sign header, the QR threshold, the
-   frame margin) adapts on its own. 2 and 3 products stand side by side as
-   tall columns; 4 form a 2×2 grid. Same nesting as the sheet composer:
-   strip the sub-sign's <svg> wrapper, clip it to its cell (an overflowing
-   name must not paint into the neighbor), translate into place. */
+   at the cell's real dimensions, so each type's automatic layout (the
+   small-sign header, the QR threshold, the frame margin) adapts on its own.
+   One Ace logo serves the whole sheet (a band across the top; the products
+   render logo-less). 2 or 3 products stand side by side as tall columns;
+   4–8 fill two rows, the top row taking the odd one. Neighboring cells
+   overlap by exactly one frame margin, so the whitespace between two grey
+   frame lines equals the whitespace between an outer line and the cut
+   line; each cell is clipped to its half of the overlap so nothing paints
+   over a neighbor. Same nesting as the sheet composer otherwise: strip the
+   sub-sign's <svg> wrapper, clip, translate into place. */
 let _multiClipSeq = 0;
 
-function multiCellRects(n, W, H) {
-  const gap = Math.max(6, Math.min(W, H) * 0.022);
-  if (n <= 1) return [{ x: 0, y: 0, w: W, h: H }];
-  const cells = [];
-  if (n === 4) {
-    const cw = (W - gap) / 2, ch = (H - gap) / 2;
-    for (let i = 0; i < 4; i++) {
-      cells.push({ x: (i % 2) * (cw + gap), y: Math.floor(i / 2) * (ch + gap), w: cw, h: ch });
-    }
-    return cells;
+function multiCellRects(n, W, H, top) {
+  const y0 = top || 0, Hc = H - y0;
+  if (n <= 1) {
+    return { margin: frameMargin(W, Hc), cells: [{ x: 0, y: y0, w: W, h: Hc, cx0: 0, cy0: 0, cx1: W, cy1: Hc }] };
   }
-  const cw = (W - gap * (n - 1)) / n;
-  for (let i = 0; i < n; i++) cells.push({ x: i * (cw + gap), y: 0, w: cw, h: H });
-  return cells;
+  const rows = n <= 3 ? [n] : [Math.ceil(n / 2), Math.floor(n / 2)];
+  // The overlap is the cells' own frame margin, which depends (weakly, and
+  // through a floor) on the cell size the overlap enlarges — iterate to the
+  // fixed point.
+  let o = 0, cells = [];
+  for (let pass = 0; pass < 4; pass++) {
+    cells = [];
+    const ch = (Hc + (rows.length - 1) * o) / rows.length;
+    let minDim = Infinity;
+    rows.forEach((cols, r) => {
+      const cw = (W + (cols - 1) * o) / cols;
+      minDim = Math.min(minDim, cw, ch);
+      for (let c = 0; c < cols; c++) {
+        cells.push({
+          x: c * (cw - o), y: y0 + r * (ch - o), w: cw, h: ch,
+          // clip away the half of every overlap that belongs to the neighbor
+          cx0: c > 0 ? o / 2 : 0,
+          cy0: r > 0 ? o / 2 : 0,
+          cx1: cw - (c < cols - 1 ? o / 2 : 0),
+          cy1: ch - (r < rows.length - 1 ? o / 2 : 0),
+        });
+      }
+    });
+    const m = frameMargin(minDim, minDim);
+    if (Math.abs(m - o) < 0.05) return { margin: m, cells };
+    o = m;
+  }
+  return { margin: o, cells };
 }
 
 AceRenderers.multi = async (spec, Win, Hin) => {
   const W = Win * PPI, H = Hin * PPI;
   const products = normalizeMultiProducts(spec);
-  const cells = multiCellRects(products.length, W, H);
+  const grid0 = multiCellRects(products.length, W, H, 0);
+  // One logo for the sheet: a band across the top, sized like a single
+  // sign's header logo (slider-scaled), one cell margin in from the cut
+  // line so it lines up with the cells' frames; the cells' own margin then
+  // spaces their frame line the same distance below it.
+  const noLogo = spec.showLogo === false;
+  const logoURI = noLogo ? null : await getLogoURI();
+  let top = 0, logoMarkup = "";
+  if (!noLogo) {
+    const m = grid0.margin;
+    let logoH = Math.max(22, Math.min(H * 0.1, 84)) * elemScale(spec, "logo");
+    logoH = Math.max(16, Math.min(logoH, H * 0.25, ((W - 2 * m) * 0.4) / 1.856));
+    const logoW = logoH * 1.856;
+    logoMarkup = `<g data-elem="logo">` + (logoURI
+      ? `<image x="${m.toFixed(2)}" y="${m.toFixed(2)}" width="${logoW.toFixed(2)}" height="${logoH.toFixed(2)}" preserveAspectRatio="xMinYMin meet" href="${logoURI}"/>`
+      : svgText(m, m + logoH * 0.82, "ACE", "RobotoBlack", logoH * 0.9, ACE_RED, { anchor: "start" })) + `</g>`;
+    top = m + logoH;
+  }
+  const { cells } = top ? multiCellRects(products.length, W, H, top) : grid0;
   const clipBase = ++_multiClipSeq; // several previews share one document
   const parts = await Promise.all(products.map(async (p, i) => {
     const t = typeById(p.typeId);
@@ -1111,13 +1158,14 @@ AceRenderers.multi = async (spec, Win, Hin) => {
     const hide = sub.hide;
     delete sub.hide;
     applyHiddenFields(sub, hide);
+    sub.showLogo = false; // the sheet's one logo stands in for all of them
     if (spec.storeLine) sub.storeLine = spec.storeLine;
     const c = cells[i];
     const svg = await t.render(sub, c.w / PPI, c.h / PPI);
     const body = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
     const cid = `mpclip${clipBase}x${i}`;
     return {
-      def: `<clipPath id="${cid}"><rect x="0" y="0" width="${c.w.toFixed(2)}" height="${c.h.toFixed(2)}"/></clipPath>`,
+      def: `<clipPath id="${cid}"><rect x="${c.cx0.toFixed(2)}" y="${c.cy0.toFixed(2)}" width="${(c.cx1 - c.cx0).toFixed(2)}" height="${(c.cy1 - c.cy0).toFixed(2)}"/></clipPath>`,
       g: `<g data-product="${i}" transform="translate(${c.x.toFixed(2)},${c.y.toFixed(2)})">` +
          `<g clip-path="url(#${cid})">${body}</g></g>`,
     };
@@ -1125,6 +1173,7 @@ AceRenderers.multi = async (spec, Win, Hin) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
     `<defs>${parts.map((p) => p.def).join("")}</defs>` +
     `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>` +
+    logoMarkup +
     parts.map((p) => p.g).join("") +
     `</svg>`;
 };

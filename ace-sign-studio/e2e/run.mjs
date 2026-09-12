@@ -125,7 +125,7 @@ async function run() {
     await shot("01-gallery");
 
     // ================= multi product sign =================
-    console.log("→ Multi Product sign (2–4 products on one 11×7 holder)");
+    console.log("→ Multi Product sign (2–8 products on one 11×7 holder)");
     await page.click('.nav-item[data-type="multi"]');
     await page.waitForSelector("#multiProducts .mp-card");
     ok("multi opens with the two-product minimum", (await page.$$("#multiProducts .mp-card")).length === 2);
@@ -135,7 +135,7 @@ async function run() {
     await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 3);
     await page.click("#mpAddBtn");
     await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 4);
-    ok("add button stops at four products", !(await page.$("#mpAddBtn")));
+    ok("add button still offers more at four", (await page.textContent("#mpAddBtn")).includes("4 of 8"));
     const card = (i) => `#multiProducts .mp-card[data-product="${i}"]`;
     // product 1: a 2-for on a looked-up SKU
     await page.selectOption(`${card(0)} .mp-type`, "two_for");
@@ -173,8 +173,36 @@ async function run() {
     await page.waitForFunction(multiRendered, [4, ["DeWalt", "Scotts", "Weber", "Bird", "20"]], { timeout: 20000 })
       .catch(() => {});
     ok("preview tiles all four products with their own content", await page.evaluate(multiRendered, [4, ["DeWalt", "Scotts", "Weber", "Bird"]]));
+    ok("one Ace logo for the whole sheet, none in the cells", await page.evaluate(() =>
+      document.querySelectorAll('#signHolder svg g[data-elem="logo"]').length === 1));
     ok("a product's hand-typed price beats the lookup's", await page.evaluate(() => App.spec.products[0].spec.price === "20.00"));
     await shot("01b-multi-4up");
+    // eight-up: the sheet holds up to eight, in two rows
+    for (let n = 5; n <= 8; n++) {
+      await page.click("#mpAddBtn");
+      await page.waitForFunction((k) => document.querySelectorAll("#multiProducts .mp-card").length === k, n);
+    }
+    ok("add button stops at eight products", !(await page.$("#mpAddBtn")));
+    await page.evaluate(() => {
+      const extra = [["Milwaukee M18 Drill", "199.00"], ["Craftsman Socket Set", "99.00"], ["Weber Spirit Grill", "549.00"], ["Scotts Lawn Food", "34.99"]];
+      extra.forEach(([name, price], i) => { const p = App.spec.products[4 + i]; p.spec.name = name; p.spec.price = price; });
+      schedulePreview();
+    });
+    await page.waitForFunction(multiRendered, [8, ["DeWalt", "Scotts", "Weber", "Bird", "Milwaukee", "Craftsman"]], { timeout: 20000 })
+      .catch(() => {});
+    ok("preview tiles all eight products", await page.evaluate(multiRendered, [8, ["DeWalt", "Milwaukee", "Craftsman"]]));
+    await shot("01b2-multi-8up");
+    // back down: six (3+3), then three
+    await page.click(`${card(7)} .mp-remove`);
+    await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 7);
+    await page.click(`${card(6)} .mp-remove`);
+    await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 6);
+    await page.waitForFunction(() => document.querySelectorAll("#signHolder svg g[data-product]").length === 6, null, { timeout: 20000 });
+    await shot("01b3-multi-6up");
+    for (const i of [5, 4]) {
+      await page.click(`${card(i)} .mp-remove`);
+      await page.waitForFunction((k) => document.querySelectorAll("#multiProducts .mp-card").length === k, i);
+    }
     // three-up: drop one and the sheet re-flows to three columns
     await page.click(`${card(3)} .mp-remove`);
     await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 3);
