@@ -2801,10 +2801,14 @@ function initBulk() {
     const needsNow = []; // Was/Now signs added without a Now price
     let done = 0, ok = 0;
     const CONCURRENCY = 5;
-    const work = skus.slice();
+    // Lookups run in parallel, but signs land in the queue in the order
+    // the SKUs were pasted — not the order the site happened to answer.
+    const results = new Array(skus.length);
+    const work = skus.map((sku, i) => ({ sku, i }));
     const runOne = async () => {
-      const sku = work.shift();
-      if (sku == null) return;
+      const job = work.shift();
+      if (!job) return;
+      const { sku, i } = job;
       try {
         const res = await fetch(`/api/lookup?q=${encodeURIComponent(sku)}&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
         if (res.ok) {
@@ -2831,7 +2835,7 @@ function initBulk() {
           // shared promo details (percent/savings/qty — and for 2-for /
           // Your Choice, the promo price replaces the looked-up price)
           Object.assign(spec, extras);
-          Queue.add(addType, sizeId, spec, copies);
+          results[i] = { addType, spec };
           ok++;
         } else {
           failed.push({ sku, reason: res.error || "no product data" });
@@ -2844,6 +2848,7 @@ function initBulk() {
       await runOne();
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, skus.length) }, runOne));
+    for (const r of results) if (r) Queue.add(r.addType, sizeId, r.spec, copies);
     prog.classList.remove("show");
     fill.style.width = "0";
     badge.textContent = `Added ${ok} of ${skus.length}`;

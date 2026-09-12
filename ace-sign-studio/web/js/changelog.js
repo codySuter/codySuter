@@ -14,6 +14,8 @@ const CHANGELOG = [
     notes: [
       "Click any text on the sign preview to edit it right there — the price, the name, the SKU, a percent. A small editor pops up under it and the matching form field follows along. Enter saves, Esc undoes; on a Multi Product sign it edits that product.",
       "Multi Product: every product cell shows its slot number, and you can drag a product onto another to swap their positions. ▲▼ on each product card reorders them too.",
+      "Fixed: leaving the SKU field no longer re-runs a lookup that already answered, so a price or name you change right after isn't put back a moment later.",
+      "Bulk add now queues signs in the order you pasted the SKUs, instead of the order the website happened to answer.",
       "Multi Product: paste a list of SKUs (one per line) into the new “Paste SKUs to fill the sign” box — empty slots fill first, then new products are added up to 8, each looked up like a card's SKU (on-sale items come in as Sale cells). SKUs that don't resolve stay in the box to fix by hand.",
     ],
   },

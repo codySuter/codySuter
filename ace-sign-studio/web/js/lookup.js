@@ -33,6 +33,7 @@ function saleInfo(p) {
 function attachAutoLookup(inputEl, statusEl, onResult) {
   let debTimer = null;
   let inFlight = null; // query currently being looked up
+  let lastDone = null; // query whose lookup last succeeded
   const run = async (force) => {
     clearTimeout(debTimer);
     debTimer = null;
@@ -50,6 +51,7 @@ function attachAutoLookup(inputEl, statusEl, onResult) {
       // onResult would write the old product onto whatever spec is now open.
       if (res._stale || !inputEl.isConnected) return;
       if (res.ok) {
+        lastDone = q;
         const si = saleInfo(res);
         statusEl.className = "lookup-status ok";
         statusEl.innerHTML = `✓ ${esc(res.name || res.sku)}` +
@@ -72,7 +74,15 @@ function attachAutoLookup(inputEl, statusEl, onResult) {
     debTimer = setTimeout(run, 600);
   });
   inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
-  inputEl.addEventListener("blur", () => { if (inputEl.value.trim()) run(); });
+  // Blur covers a pasted SKU that never got Enter — but it must not repeat
+  // a lookup that already answered for this same value: the repeat lands a
+  // moment later and puts the looked-up name/price back over whatever the
+  // user edited right after leaving the field (a price typed next, a name
+  // changed on the preview). Enter still re-runs on purpose.
+  inputEl.addEventListener("blur", () => {
+    const q = inputEl.value.trim();
+    if (q && q !== lastDone) run();
+  });
   return run;
 }
 

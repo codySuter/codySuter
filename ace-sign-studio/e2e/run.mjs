@@ -430,6 +430,7 @@ async function run() {
     await page.click("#bulkAddBtn");
     await page.waitForSelector(".bulk-fails", { timeout: 30000 });
     ok("bulk adds the good SKUs", await page.evaluate(() => Queue.items.length === 2));
+    ok("bulk keeps the pasted order", await page.evaluate(() => Queue.items[0].spec.sku === "3000003" && Queue.items[1].spec.sku === "2000002"));
     ok("bulk applies the copies count", await page.evaluate(() => Queue.items.every((q) => q.copies === 2)));
     ok("failed SKU is listed with a reason", (await page.textContent(".bulk-fails")).includes("4040404"));
     ok("on-sale SKU auto-switched to Sale", await page.evaluate(() =>
@@ -519,13 +520,16 @@ async function run() {
     // "load last spring's sale, hit Print All" is one click. Age a queued
     // sign and make sure printing stops to ask.
     console.log("→ Stale price guard");
-    const agedTitle = await page.evaluate(() => {
-      const q = Queue.items.find((x) => PRICE_REFRESH_TYPES[x.typeId] && String(x.spec.sku || "").trim());
+    // Age the Regular sign: the Sale sign's SKU was made name-only above, so
+    // its price can never be re-checked — correctly staying "unchecked".
+    const agedSku = "3000003";
+    const agedTitle = await page.evaluate((sku) => {
+      const q = Queue.items.find((x) => x.typeId === "regular" && x.spec.sku === sku);
       if (!q) return null;
       q.spec.lookedUpAt = new Date(Date.now() - 30 * 86400000).toISOString();
       renderQueue();
       return queueItemTitle(q);
-    });
+    }, agedSku);
     ok("a refreshable queued sign exists to age", agedTitle != null);
     await page.click("#exportAllBtn");
     await page.waitForSelector("#stalePriceModal.show", { timeout: 10000 });
@@ -538,11 +542,11 @@ async function run() {
     await waitToastGone();
 
     // the primary action: refresh the prices, then print in one go
-    await page.evaluate(() => {
-      const q = Queue.items.find((x) => PRICE_REFRESH_TYPES[x.typeId] && String(x.spec.sku || "").trim());
+    await page.evaluate((sku) => {
+      const q = Queue.items.find((x) => x.typeId === "regular" && x.spec.sku === sku);
       q.spec.lookedUpAt = new Date(Date.now() - 30 * 86400000).toISOString();
       renderQueue();
-    });
+    }, agedSku);
     await page.click("#exportAllBtn");
     await page.waitForSelector("#stalePriceModal.show", { timeout: 10000 });
     const dl4 = page.waitForEvent("download", { timeout: 90000 });
@@ -550,13 +554,13 @@ async function run() {
     ok("“Refresh prices, then print” refreshes and exports", statSync(await (await dl4).path()).size > 2000);
     ok(
       "the refreshed sign is no longer stale",
-      await page.evaluate(() =>
-        Queue.items.every((q) => {
-          if (!PRICE_REFRESH_TYPES[q.typeId] || !String(q.spec.sku || "").trim()) return true;
-          const d = priceAgeDays(q.spec);
-          return d != null && d <= STALE_PRICE_DAYS;
-        })
-      )
+      await page.evaluate((sku) => {
+        // the aged Regular sign is fresh again; the name-only Sale sign is
+        // left alone (a lookup with no price must never stamp a sign)
+        const q = Queue.items.find((x) => x.typeId === "regular" && x.spec.sku === sku);
+        const d = priceAgeDays(q.spec);
+        return d != null && d <= STALE_PRICE_DAYS;
+      }, agedSku)
     );
     await waitToastGone();
 
