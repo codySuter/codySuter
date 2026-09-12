@@ -1070,3 +1070,61 @@ AceRenderers.text_only = async (spec, W_in, H_in) => {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
 };
+
+/* ---------- Multi Product: 2–4 signs on one sheet ----------
+   spec.products = [{typeId, spec}]. Every product is a complete standard
+   sign — its own type, hides and element sizes — drawn by its own renderer
+   at the cell's real dimensions. The cells are genuine sign sizes, so each
+   type's automatic layout (the small-sign header, the QR threshold, the
+   frame margin) adapts on its own. 2 and 3 products stand side by side as
+   tall columns; 4 form a 2×2 grid. Same nesting as the sheet composer:
+   strip the sub-sign's <svg> wrapper, clip it to its cell (an overflowing
+   name must not paint into the neighbor), translate into place. */
+let _multiClipSeq = 0;
+
+function multiCellRects(n, W, H) {
+  const gap = Math.max(6, Math.min(W, H) * 0.022);
+  if (n <= 1) return [{ x: 0, y: 0, w: W, h: H }];
+  const cells = [];
+  if (n === 4) {
+    const cw = (W - gap) / 2, ch = (H - gap) / 2;
+    for (let i = 0; i < 4; i++) {
+      cells.push({ x: (i % 2) * (cw + gap), y: Math.floor(i / 2) * (ch + gap), w: cw, h: ch });
+    }
+    return cells;
+  }
+  const cw = (W - gap * (n - 1)) / n;
+  for (let i = 0; i < n; i++) cells.push({ x: i * (cw + gap), y: 0, w: cw, h: H });
+  return cells;
+}
+
+AceRenderers.multi = async (spec, Win, Hin) => {
+  const W = Win * PPI, H = Hin * PPI;
+  const products = normalizeMultiProducts(spec);
+  const cells = multiCellRects(products.length, W, H);
+  const clipBase = ++_multiClipSeq; // several previews share one document
+  const parts = await Promise.all(products.map(async (p, i) => {
+    const t = typeById(p.typeId);
+    // per-product hides apply here, on a copy — the stored product stays
+    // editable, exactly as renderQueueItemSVG treats a single sign
+    const sub = Object.assign({}, p.spec);
+    const hide = sub.hide;
+    delete sub.hide;
+    applyHiddenFields(sub, hide);
+    if (spec.storeLine) sub.storeLine = spec.storeLine;
+    const c = cells[i];
+    const svg = await t.render(sub, c.w / PPI, c.h / PPI);
+    const body = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+    const cid = `mpclip${clipBase}x${i}`;
+    return {
+      def: `<clipPath id="${cid}"><rect x="0" y="0" width="${c.w.toFixed(2)}" height="${c.h.toFixed(2)}"/></clipPath>`,
+      g: `<g data-product="${i}" transform="translate(${c.x.toFixed(2)},${c.y.toFixed(2)})">` +
+         `<g clip-path="url(#${cid})">${body}</g></g>`,
+    };
+  }));
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+    `<defs>${parts.map((p) => p.def).join("")}</defs>` +
+    `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>` +
+    parts.map((p) => p.g).join("") +
+    `</svg>`;
+};

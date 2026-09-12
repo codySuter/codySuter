@@ -200,6 +200,13 @@ function sizeOfQueueItem(q) {
 
 function queueItemTitle(q) {
   const t = typeById(q.typeId);
+  if (q.typeId === "multi") {
+    // a multi sign is named by its products
+    const names = (Array.isArray(q.spec.products) ? q.spec.products : [])
+      .map((p) => (p && p.spec && (p.spec.name || p.spec.category)) || "")
+      .filter(Boolean);
+    return names.length ? names.join(" · ") : (t ? t.label : q.typeId);
+  }
   return q.spec.name || q.spec.category || (t ? t.label : q.typeId);
 }
 

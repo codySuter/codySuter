@@ -119,10 +119,89 @@ async function run() {
     console.log("→ Boot & gallery");
     await page.goto(appUrl);
     await page.waitForSelector(".g-card", { timeout: 20000 });
-    ok("gallery renders all 18 sign types", (await page.$$(".g-card")).length === 18);
-    ok("nav lists sign types", (await page.$$(".nav-item[data-type]")).length === 18);
+    ok("gallery renders all 19 sign types", (await page.$$(".g-card")).length === 19);
+    ok("nav lists sign types", (await page.$$(".nav-item[data-type]")).length === 19);
     await page.waitForSelector("#g-prev-regular svg", { timeout: 20000 });
     await shot("01-gallery");
+
+    // ================= multi product sign =================
+    console.log("→ Multi Product sign (2–4 products on one 11×7 holder)");
+    await page.click('.nav-item[data-type="multi"]');
+    await page.waitForSelector("#multiProducts .mp-card");
+    ok("multi opens with the two-product minimum", (await page.$$("#multiProducts .mp-card")).length === 2);
+    ok("multi is pinned to the 11×7 holder", await page.evaluate(() =>
+      App.sizeId === "holder-11x7" && document.querySelectorAll("#sizeSelect option").length === 1));
+    await page.click("#mpAddBtn");
+    await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 3);
+    await page.click("#mpAddBtn");
+    await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 4);
+    ok("add button stops at four products", !(await page.$("#mpAddBtn")));
+    const card = (i) => `#multiProducts .mp-card[data-product="${i}"]`;
+    // product 1: a 2-for on a looked-up SKU
+    await page.selectOption(`${card(0)} .mp-type`, "two_for");
+    await fill(`${card(0)} [data-field="sku"]`, "3000003");
+    await page.waitForSelector(`${card(0)} .lookup-status.ok`, { timeout: 20000 });
+    ok("a product's lookup fills that product's name", (await page.inputValue(`${card(0)} [data-field="name"]`)).includes("DeWalt"));
+    // product 2: regular price on an on-sale SKU → becomes a Sale cell
+    await fill(`${card(1)} [data-field="sku"]`, "2000002");
+    await page.waitForFunction((sel) => {
+      const s = document.querySelector(sel);
+      return !!s && s.value === "sale";
+    }, `${card(1)} .mp-type`, { timeout: 20000 });
+    ok("an on-sale product switches its cell to the Sale style", true);
+    ok("the sale cell carries sale + reg price", await page.evaluate(() =>
+      App.spec.products[1].spec.price === "19.99" && App.spec.products[1].spec.regPrice === "24.99"));
+    // product 3: percent off, hand-entered
+    await page.selectOption(`${card(2)} .mp-type`, "percent_off");
+    await fill(`${card(2)} [data-field="name"]`, "All Weber Grill Accessories");
+    await fill(`${card(2)} [data-field="percent"]`, "25");
+    // product 4: regular, hand-entered
+    await fill(`${card(3)} [data-field="name"]`, "Ace Wild Bird Food 20 lb");
+    await fill(`${card(3)} [data-field="price"]`, "12.99");
+    // product 1's multi-buy price goes in last: leaving a SKU field re-runs
+    // its lookup on blur, which would put the store price back over a
+    // hand-typed one typed straight after it
+    await fill(`${card(0)} [data-field="price"]`, "20.00");
+    // wait for the render that carries every product's text, not just the
+    // first four-cell layout (the preview is debounced and async). Single
+    // words only: a wrapped name is several <text> lines, so a phrase
+    // spanning a line break never appears in textContent.
+    const multiRendered = ([n, mustHave]) => {
+      const s = document.querySelector("#signHolder svg");
+      return !!s && s.querySelectorAll("g[data-product]").length === n && mustHave.every((t) => s.textContent.includes(t));
+    };
+    await page.waitForFunction(multiRendered, [4, ["DeWalt", "Scotts", "Weber", "Bird", "20"]], { timeout: 20000 })
+      .catch(() => {});
+    ok("preview tiles all four products with their own content", await page.evaluate(multiRendered, [4, ["DeWalt", "Scotts", "Weber", "Bird"]]));
+    ok("a product's hand-typed price beats the lookup's", await page.evaluate(() => App.spec.products[0].spec.price === "20.00"));
+    await shot("01b-multi-4up");
+    // three-up: drop one and the sheet re-flows to three columns
+    await page.click(`${card(3)} .mp-remove`);
+    await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 3);
+    await page.waitForFunction(() => document.querySelectorAll("#signHolder svg g[data-product]").length === 3, null, { timeout: 20000 });
+    ok("removing a product re-flows the sheet to three", true);
+    await shot("01c-multi-3up");
+    await page.click("#addQueueBtn");
+    await page.waitForSelector(".q-item");
+    ok("multi sign lands in the queue as one 11×7 sign", await page.evaluate(() =>
+      Queue.items.length === 1 && Queue.items[0].typeId === "multi" && Queue.items[0].sizeId === "holder-11x7"));
+    ok("queue row is titled by its products", (await page.textContent(".q-item .q-title")).includes("DeWalt"));
+    ok("only the price-style products count as refreshable units", await page.evaluate(() =>
+      priceUnits(Queue.items[0]).length === 1 && priceUnits(Queue.items[0])[0].spec.sku === "2000002"));
+    ok("an incomplete product is named by its slot", await page.evaluate(() => {
+      const copy = JSON.parse(JSON.stringify(Queue.items[0].spec));
+      copy.products[2].spec.percent = "";
+      return String(validateSpec(typeById("multi"), copy)).startsWith("Product 3:");
+    }));
+    // two-up: down to the minimum, remove buttons disappear
+    await page.click(`${card(2)} .mp-remove`);
+    await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 2);
+    await page.waitForFunction(() => document.querySelectorAll("#signHolder svg g[data-product]").length === 2, null, { timeout: 20000 });
+    ok("two products can't be removed further", (await page.$$("#multiProducts .mp-remove")).length === 0);
+    await shot("01d-multi-2up");
+    await page.evaluate(() => Queue.remove(Queue.items[0].uid));
+    await page.waitForFunction(() => Queue.items.length === 0);
+    await waitToastGone();
 
     // ================= editor + lookup =================
     console.log("→ Editor lookup (regular price)");

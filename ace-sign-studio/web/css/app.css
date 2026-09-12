@@ -492,3 +492,19 @@ label.f-label:first-child{margin-top:0}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:var(--gray-5);border-radius:5px;border:2px solid transparent;background-clip:content-box}
 ::-webkit-scrollbar-track{background:transparent}
+
+/* Multi Product editor: one card per product, each a full sign form */
+.mp-list{display:flex;flex-direction:column;gap:10px}
+.mp-card{border:1px solid var(--border);border-radius:8px;background:var(--surface-alt);padding:10px 12px 12px}
+.mp-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.mp-title{font-size:11.5px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:var(--text-2);flex:none}
+.mp-type{flex:1;min-width:0}
+.mp-remove{flex:none}
+.mp-body>.f-label:first-child{margin-top:0}
+.mp-extras{margin-top:8px;border-top:1px dashed var(--border);padding-top:6px}
+.mp-extras>summary{cursor:pointer;font-size:11.5px;font-weight:700;color:var(--text-3);list-style:none;user-select:none}
+.mp-extras>summary::-webkit-details-marker{display:none}
+.mp-extras>summary::before{content:'▸ ';color:var(--text-3)}
+.mp-extras[open]>summary::before{content:'▾ '}
+.mp-add{width:100%;margin-top:10px}
+.mp-help{font-size:11.5px;color:var(--text-3);margin-top:8px;line-height:1.35}
