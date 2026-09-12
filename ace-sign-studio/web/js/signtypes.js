@@ -214,14 +214,14 @@ const SIGN_TYPES = [
     sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
   },
   {
-    // Multi Product: 2–4 standard signs tiled on one Sign Holder 11×7
-    // sheet. spec.products = [{typeId, spec}] — every product is a complete
+    // Multi Product: 2–8 standard signs tiled on one Sign Holder 11×7
+    // sheet under a single Ace logo. spec.products = [{typeId, spec}] — every product is a complete
     // sign of its own type (SKU, photo, dates, hides, element sizes) drawn
     // by that type's own renderer inside its cell, so a 2-for, a regular
     // price, a sale and a percent-off can share one holder. Pinned to the
     // 11×7 holder: the cell layout is designed for that sheet.
-    id: "multi", hideable: [], group: "Specialty", label: "Multi Product",
-    note: "2–4 products on one 11×7 sign — each in its own sign style",
+    id: "multi", hideable: ["logo"], group: "Specialty", label: "Multi Product",
+    note: "2–8 products on one 11×7 sign — each in its own sign style",
     sizes: ["holder-11x7"], defaultSize: "holder-11x7",
     fields: [{ key: "products", kind: "products", label: "Products" }],
     render: (spec, w, h) => AceRenderers.multi(spec, w, h),
@@ -234,7 +234,7 @@ const typeById = (id) => SIGN_TYPES.find((t) => t.id === id) || null;
 /* ---------- Multi Product helpers ----------
    Shared by the editor (cards), the validator, and the renderer so the
    three can never disagree about what a product list looks like. */
-const MULTI_MIN_PRODUCTS = 2, MULTI_MAX_PRODUCTS = 4;
+const MULTI_MIN_PRODUCTS = 2, MULTI_MAX_PRODUCTS = 8;
 
 /* Sign types a Multi Product cell may use: every standard type. */
 function multiChildTypes() {
@@ -354,9 +354,9 @@ const SCALE_DEFS = {
 };
 
 function scalablesForType(t) {
-  // a Multi Product sign has no elements of its own — each product keeps
-  // its own sliders on its own sign type
-  if (t.id === "multi") return [];
+  // a Multi Product sign's only element of its own is the one sheet logo —
+  // each product keeps its own layout on its own sign type
+  if (t.id === "multi") return [{ key: "logo", label: SCALE_DEFS.logo }];
   const has = (k) => t.fields.some((f) => f.key === k);
   const keys = ["logo"];
   if (has("image")) keys.push("image");

@@ -125,7 +125,7 @@ async function run() {
     await shot("01-gallery");
 
     // ================= multi product sign =================
-    console.log("→ Multi Product sign (2–4 products on one 11×7 holder)");
+    console.log("→ Multi Product sign (2–8 products on one 11×7 holder)");
     await page.click('.nav-item[data-type="multi"]');
     await page.waitForSelector("#multiProducts .mp-card");
     ok("multi opens with the two-product minimum", (await page.$$("#multiProducts .mp-card")).length === 2);
@@ -135,7 +135,7 @@ async function run() {
     await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 3);
     await page.click("#mpAddBtn");
     await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 4);
-    ok("add button stops at four products", !(await page.$("#mpAddBtn")));
+    ok("add button still offers more at four", (await page.textContent("#mpAddBtn")).includes("4 of 8"));
     const card = (i) => `#multiProducts .mp-card[data-product="${i}"]`;
     // product 1: a 2-for on a looked-up SKU
     await page.selectOption(`${card(0)} .mp-type`, "two_for");
@@ -173,8 +173,63 @@ async function run() {
     await page.waitForFunction(multiRendered, [4, ["DeWalt", "Scotts", "Weber", "Bird", "20"]], { timeout: 20000 })
       .catch(() => {});
     ok("preview tiles all four products with their own content", await page.evaluate(multiRendered, [4, ["DeWalt", "Scotts", "Weber", "Bird"]]));
+    ok("one Ace logo for the whole sheet, none in the cells", await page.evaluate(() =>
+      document.querySelectorAll('#signHolder svg g[data-elem="logo"]').length === 1));
+    ok("every product cell wears its slot number", await page.evaluate(() =>
+      document.querySelectorAll("#signHolder svg .mp-slot").length === 4));
+    // reorder from the cards: ▼ on product 1 moves DeWalt to slot 2
+    await page.click(`${card(0)} .mp-down`);
+    await page.waitForFunction(() => (App.spec.products[1].spec.name || "").includes("DeWalt"));
+    ok("▼ moves a product down a slot", await page.evaluate(() => App.spec.products[0].spec.name.includes("Scotts")));
+    await page.click(`${card(1)} .mp-up`);
+    await page.waitForFunction(() => (App.spec.products[0].spec.name || "").includes("DeWalt"));
+    ok("▲ moves it back", true);
+    // position from the preview: drag product 1's cell onto product 2's
+    const center = (sel) => page.$eval(sel, (g) => { const r = g.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    const c0 = await center('#signHolder svg g[data-product="0"]');
+    const c1 = await center('#signHolder svg g[data-product="1"]');
+    await page.mouse.move(c0.x, c0.y);
+    await page.mouse.down();
+    await page.mouse.move(c1.x, c1.y, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForFunction(() => (App.spec.products[0].spec.name || "").includes("Scotts"), null, { timeout: 5000 });
+    ok("dragging a product onto another swaps them", await page.evaluate(() => App.spec.products[1].spec.name.includes("DeWalt")));
+    await page.click(`${card(1)} .mp-up`);
+    await page.waitForFunction(() => (App.spec.products[0].spec.name || "").includes("DeWalt"));
+    // a click on a product's text (no drag) edits that product's field
+    await page.locator('#signHolder svg g[data-product="2"] text[data-field="percent"]').first().click();
+    await page.waitForSelector(".inline-edit input", { timeout: 5000 });
+    ok("clicking a cell's text edits that product", (await page.textContent(".inline-edit-label")).startsWith("Product 3") && (await page.inputValue(".inline-edit input")) === "25");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector(".inline-edit", { state: "detached" });
     ok("a product's hand-typed price beats the lookup's", await page.evaluate(() => App.spec.products[0].spec.price === "20.00"));
     await shot("01b-multi-4up");
+    // eight-up: the sheet holds up to eight, in two rows
+    for (let n = 5; n <= 8; n++) {
+      await page.click("#mpAddBtn");
+      await page.waitForFunction((k) => document.querySelectorAll("#multiProducts .mp-card").length === k, n);
+    }
+    ok("add button stops at eight products", !(await page.$("#mpAddBtn")));
+    await page.evaluate(() => {
+      const extra = [["Milwaukee M18 Drill", "199.00"], ["Craftsman Socket Set", "99.00"], ["Weber Spirit Grill", "549.00"], ["Scotts Lawn Food", "34.99"]];
+      extra.forEach(([name, price], i) => { const p = App.spec.products[4 + i]; p.spec.name = name; p.spec.price = price; });
+      schedulePreview();
+    });
+    await page.waitForFunction(multiRendered, [8, ["DeWalt", "Scotts", "Weber", "Bird", "Milwaukee", "Craftsman"]], { timeout: 20000 })
+      .catch(() => {});
+    ok("preview tiles all eight products", await page.evaluate(multiRendered, [8, ["DeWalt", "Milwaukee", "Craftsman"]]));
+    await shot("01b2-multi-8up");
+    // back down: six (3+3), then three
+    await page.click(`${card(7)} .mp-remove`);
+    await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 7);
+    await page.click(`${card(6)} .mp-remove`);
+    await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 6);
+    await page.waitForFunction(() => document.querySelectorAll("#signHolder svg g[data-product]").length === 6, null, { timeout: 20000 });
+    await shot("01b3-multi-6up");
+    for (const i of [5, 4]) {
+      await page.click(`${card(i)} .mp-remove`);
+      await page.waitForFunction((k) => document.querySelectorAll("#multiProducts .mp-card").length === k, i);
+    }
     // three-up: drop one and the sheet re-flows to three columns
     await page.click(`${card(3)} .mp-remove`);
     await page.waitForFunction(() => document.querySelectorAll("#multiProducts .mp-card").length === 3);
@@ -199,6 +254,19 @@ async function run() {
     await page.waitForFunction(() => document.querySelectorAll("#signHolder svg g[data-product]").length === 2, null, { timeout: 20000 });
     ok("two products can't be removed further", (await page.$$("#multiProducts .mp-remove")).length === 0);
     await shot("01d-multi-2up");
+    // paste-to-fill: a fresh sign from a list of SKUs
+    await page.evaluate(() => { App.spec.products = []; buildEditorFields(typeById("multi")); });
+    await page.click("#mpPaste > summary");
+    await fill("#mpPasteSkus", "3000003\n2000002\n81995\n4040404");
+    await page.click("#mpPasteBtn");
+    await page.waitForSelector("#mpPasteStatus.ok, #mpPasteStatus.err", { timeout: 30000 });
+    ok("paste fills a product per SKU (empty slots first, then new)", await page.evaluate(() => App.spec.products.length === 4));
+    ok("pasted products are looked up — names, prices, sale style", await page.evaluate(() =>
+      App.spec.products[0].spec.name.includes("DeWalt") && App.spec.products[1].typeId === "sale" && App.spec.products[2].spec.name.includes("Bird")));
+    ok("a SKU that doesn't resolve is reported and left in the box",
+      (await page.textContent("#mpPasteStatus")).includes("4040404") && (await page.inputValue("#mpPasteSkus")).trim() === "4040404");
+    await page.waitForFunction(() => document.querySelectorAll("#signHolder svg g[data-product]").length === 4, null, { timeout: 20000 });
+    await shot("01e-multi-paste");
     await page.evaluate(() => Queue.remove(Queue.items[0].uid));
     await page.waitForFunction(() => Queue.items.length === 0);
     await waitToastGone();
@@ -214,6 +282,29 @@ async function run() {
     ok("lookup stamps lookedUpAt", await page.evaluate(() => !!App.spec.lookedUpAt));
     await page.waitForSelector("#signHolder svg", { timeout: 20000 });
     await shot("02-editor-regular");
+
+    // ================= click-to-edit in the preview =================
+    console.log("→ Click any text on the preview to edit it");
+    await page.locator('#signHolder svg text[data-field="name"]').first().click();
+    await page.waitForSelector(".inline-edit input", { timeout: 5000 });
+    ok("clicking the name opens an editor holding the name", (await page.inputValue(".inline-edit input")).includes("DeWalt"));
+    await page.fill(".inline-edit input", "DeWalt 20V Drill Kit — Sale Table");
+    ok("typing in the popup drives the form field", (await page.inputValue('[data-field="name"]')) === "DeWalt 20V Drill Kit — Sale Table");
+    ok("…and the spec", await page.evaluate(() => App.spec.name === "DeWalt 20V Drill Kit — Sale Table"));
+    await page.waitForFunction(() => document.querySelector("#signHolder svg").textContent.includes("Sale Table"), null, { timeout: 10000 });
+    ok("the preview re-renders with the edited text", true);
+    await shot("02b-inline-edit");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector(".inline-edit", { state: "detached" });
+    const undone = await page.inputValue('[data-field="name"]');
+    ok("Esc undoes the edit", undone.includes("DeWalt") && !undone.includes("Sale Table"));
+    // the price is several <text> pieces — any of them opens the price field
+    await page.locator('#signHolder svg text[data-field="price"]').first().click();
+    await page.waitForSelector(".inline-edit input", { timeout: 5000 });
+    ok("clicking the price opens the price field", (await page.inputValue(".inline-edit input")) === "129.00");
+    await page.keyboard.press("Enter");
+    await page.waitForSelector(".inline-edit", { state: "detached" });
+    ok("Enter closes the editor", true);
 
     // ================= barcode toggle =================
     console.log("→ Code 128 barcode toggle");
@@ -339,6 +430,7 @@ async function run() {
     await page.click("#bulkAddBtn");
     await page.waitForSelector(".bulk-fails", { timeout: 30000 });
     ok("bulk adds the good SKUs", await page.evaluate(() => Queue.items.length === 2));
+    ok("bulk keeps the pasted order", await page.evaluate(() => Queue.items[0].spec.sku === "3000003" && Queue.items[1].spec.sku === "2000002"));
     ok("bulk applies the copies count", await page.evaluate(() => Queue.items.every((q) => q.copies === 2)));
     ok("failed SKU is listed with a reason", (await page.textContent(".bulk-fails")).includes("4040404"));
     ok("on-sale SKU auto-switched to Sale", await page.evaluate(() =>
@@ -428,13 +520,16 @@ async function run() {
     // "load last spring's sale, hit Print All" is one click. Age a queued
     // sign and make sure printing stops to ask.
     console.log("→ Stale price guard");
-    const agedTitle = await page.evaluate(() => {
-      const q = Queue.items.find((x) => PRICE_REFRESH_TYPES[x.typeId] && String(x.spec.sku || "").trim());
+    // Age the Regular sign: the Sale sign's SKU was made name-only above, so
+    // its price can never be re-checked — correctly staying "unchecked".
+    const agedSku = "3000003";
+    const agedTitle = await page.evaluate((sku) => {
+      const q = Queue.items.find((x) => x.typeId === "regular" && x.spec.sku === sku);
       if (!q) return null;
       q.spec.lookedUpAt = new Date(Date.now() - 30 * 86400000).toISOString();
       renderQueue();
       return queueItemTitle(q);
-    });
+    }, agedSku);
     ok("a refreshable queued sign exists to age", agedTitle != null);
     await page.click("#exportAllBtn");
     await page.waitForSelector("#stalePriceModal.show", { timeout: 10000 });
@@ -447,11 +542,11 @@ async function run() {
     await waitToastGone();
 
     // the primary action: refresh the prices, then print in one go
-    await page.evaluate(() => {
-      const q = Queue.items.find((x) => PRICE_REFRESH_TYPES[x.typeId] && String(x.spec.sku || "").trim());
+    await page.evaluate((sku) => {
+      const q = Queue.items.find((x) => x.typeId === "regular" && x.spec.sku === sku);
       q.spec.lookedUpAt = new Date(Date.now() - 30 * 86400000).toISOString();
       renderQueue();
-    });
+    }, agedSku);
     await page.click("#exportAllBtn");
     await page.waitForSelector("#stalePriceModal.show", { timeout: 10000 });
     const dl4 = page.waitForEvent("download", { timeout: 90000 });
@@ -459,13 +554,13 @@ async function run() {
     ok("“Refresh prices, then print” refreshes and exports", statSync(await (await dl4).path()).size > 2000);
     ok(
       "the refreshed sign is no longer stale",
-      await page.evaluate(() =>
-        Queue.items.every((q) => {
-          if (!PRICE_REFRESH_TYPES[q.typeId] || !String(q.spec.sku || "").trim()) return true;
-          const d = priceAgeDays(q.spec);
-          return d != null && d <= STALE_PRICE_DAYS;
-        })
-      )
+      await page.evaluate((sku) => {
+        // the aged Regular sign is fresh again; the name-only Sale sign is
+        // left alone (a lookup with no price must never stamp a sign)
+        const q = Queue.items.find((x) => x.typeId === "regular" && x.spec.sku === sku);
+        const d = priceAgeDays(q.spec);
+        return d != null && d <= STALE_PRICE_DAYS;
+      }, agedSku)
     );
     await waitToastGone();
 

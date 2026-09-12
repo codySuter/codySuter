@@ -957,6 +957,28 @@ function buildProductsEditor(t, host) {
   const products = App.spec.products;
   while (products.length < MULTI_MIN_PRODUCTS) products.push(newMultiProduct("regular"));
   if (products.length > MULTI_MAX_PRODUCTS) products.length = MULTI_MAX_PRODUCTS;
+  // Paste a list of SKUs to fill the sign in one go (empty slots first,
+  // then new products up to the cap) — the multi answer to Bulk add.
+  const paste = el("details", "mp-paste");
+  paste.id = "mpPaste";
+  paste.open = _mpPasteOpen;
+  paste.addEventListener("toggle", () => { _mpPasteOpen = paste.open; });
+  paste.appendChild(el("summary", null, "Paste SKUs to fill the sign"));
+  const pb = el("div", "mp-paste-body");
+  const ta = el("textarea", "f-textarea");
+  ta.id = "mpPasteSkus";
+  ta.rows = 4;
+  ta.placeholder = `One SKU per line — up to ${MULTI_MAX_PRODUCTS}\n7135975\n2837301`;
+  const pbtn = el("button", "btn btn-primary btn-sm", "Fill products from these SKUs");
+  pbtn.id = "mpPasteBtn";
+  const pstat = el("div", "lookup-status");
+  pstat.id = "mpPasteStatus";
+  pbtn.onclick = () => fillProductsFromSkus(t, ta.value, pstat, pbtn);
+  pb.appendChild(ta);
+  pb.appendChild(pbtn);
+  pb.appendChild(pstat);
+  paste.appendChild(pb);
+  host.appendChild(paste);
   const wrap = el("div", "mp-list");
   wrap.id = "multiProducts";
   products.forEach((p, i) => wrap.appendChild(buildProductCard(t, p, i)));
@@ -971,7 +993,7 @@ function buildProductsEditor(t, host) {
     };
     host.appendChild(add);
   }
-  host.appendChild(el("div", "mp-help", "2 or 3 products stand side by side; 4 make a 2×2 grid. Each product is its own sign — style, price, photo and all."));
+  host.appendChild(el("div", "mp-help", "2 or 3 products stand side by side; 4 to 8 fill two rows under one Ace logo. Each product is its own sign — style, price, photo and all. Drag a product onto another in the preview to swap them, or use ▲▼."));
 }
 
 function buildProductCard(t, p, i) {
@@ -1000,6 +1022,16 @@ function buildProductCard(t, p, i) {
   }
   sel.onchange = () => { p.typeId = sel.value; rebuildProductCard(t, p, i); schedulePreview(); };
   head.appendChild(sel);
+  const up = el("button", "q-btn mp-move mp-up", "▲");
+  up.title = "Move this product earlier";
+  up.disabled = i === 0;
+  up.onclick = () => moveProduct(t, i, i - 1);
+  const down = el("button", "q-btn mp-move mp-down", "▼");
+  down.title = "Move this product later";
+  down.disabled = i === products.length - 1;
+  down.onclick = () => moveProduct(t, i, i + 1);
+  head.appendChild(up);
+  head.appendChild(down);
   if (products.length > MULTI_MIN_PRODUCTS) {
     const rm = el("button", "q-btn mp-remove", "✕");
     rm.title = "Remove this product";
@@ -1031,6 +1063,109 @@ function rebuildProductCard(t, p, i) {
   return fresh;
 }
 
+/* Apply a lookup result to a product — the one set of rules behind a
+   card's SKU field and the paste-to-fill box. Returns whether the product
+   switched Regular → Sale (an on-sale item gets the markdown shown, the
+   same courtesy a single sign gets). */
+function applyLookupToProduct(p, res, si) {
+  const spec = p.spec;
+  const st = typeById(p.typeId);
+  if (res.sku) spec.sku = res.sku;
+  if (res.productUrl) spec.productUrl = res.productUrl; // QR target
+  spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
+  if (res.name) spec.name = res.name;
+  let switched = false;
+  if (si.onSale) {
+    spec.price = si.sale;
+    spec.regPrice = si.reg;
+    if (p.typeId === "regular") { p.typeId = "sale"; switched = true; }
+  } else {
+    if (res.price) spec.price = res.price;
+    else if (res.listPrice) spec.price = res.listPrice;
+    // a fresh non-sale lookup means any earlier reg price is stale
+    if (st && st.fields.some((x) => x.key === "regPrice") && p.typeId !== "was_now") spec.regPrice = "";
+  }
+  if (res.imageUrl) spec.image = res.imageUrl;
+  return switched;
+}
+
+function moveProduct(t, from, to) {
+  const products = App.spec.products;
+  if (to < 0 || to >= products.length || from === to) return;
+  const [p] = products.splice(from, 1);
+  products.splice(to, 0, p);
+  buildEditorFields(t);
+  schedulePreview();
+}
+
+function swapProducts(t, i, j) {
+  const products = App.spec.products;
+  if (i === j || !products[i] || !products[j]) return;
+  [products[i], products[j]] = [products[j], products[i]];
+  buildEditorFields(t);
+  schedulePreview();
+  showToast(`Swapped products ${i + 1} and ${j + 1}.`);
+}
+
+/* Paste-to-fill: SKUs from the box (one per line; the same detection as
+   Bulk add) go into empty slots first, then new products up to the cap.
+   Each is looked up with the card rules; misses stay in the box to fix by
+   hand, and anything past the cap is reported rather than dropped
+   silently. */
+let _mpPasteOpen = false;
+async function fillProductsFromSkus(t, text, status, btn) {
+  const skus = [...new Set(parseBulkSkus(text))];
+  if (!skus.length) {
+    status.className = "lookup-status err";
+    status.textContent = "✗ No SKUs found — paste one per line.";
+    return;
+  }
+  const products = App.spec.products;
+  const isEmpty = (p) => !String(p.spec.sku || "").trim() && !String(p.spec.name || "").trim();
+  const slots = [];
+  for (let i = 0; i < products.length && slots.length < skus.length; i++) if (isEmpty(products[i])) slots.push(i);
+  while (slots.length < skus.length && products.length < MULTI_MAX_PRODUCTS) {
+    products.push(newMultiProduct("regular"));
+    slots.push(products.length - 1);
+  }
+  const extra = skus.length - slots.length;
+  const work = skus.slice(0, slots.length).map((sku, k) => ({ sku, p: products[slots[k]] }));
+  btn.disabled = true;
+  status.className = "lookup-status busy";
+  status.innerHTML = `<span class="spin"></span> Looking up ${work.length} SKU${work.length === 1 ? "" : "s"}…`;
+  const failed = [];
+  let done = 0;
+  const queue = work.slice();
+  const runOne = async () => {
+    const w = queue.shift();
+    if (!w) return;
+    w.p.spec.sku = w.sku;
+    try {
+      const res = await fetch(`/api/lookup?q=${encodeURIComponent(w.sku)}&store=${encodeURIComponent(Settings.get().storeCode || "12180")}`).then((r) => r.json());
+      if (res.ok) applyLookupToProduct(w.p, res, saleInfo(res));
+      else failed.push(w.sku);
+    } catch (e) { failed.push(w.sku); }
+    status.innerHTML = `<span class="spin"></span> Looking up ${++done}/${work.length}…`;
+    await runOne();
+  };
+  await Promise.all(Array.from({ length: Math.min(3, work.length) }, runOne));
+  _mpPasteOpen = failed.length > 0 || extra > 0; // keep the box open when there's something to read
+  buildEditorFields(t);
+  schedulePreview();
+  const st = $("#mpPasteStatus");
+  const filled = work.length - failed.length;
+  if (st) {
+    const bits = [`✓ Filled ${filled} product${filled === 1 ? "" : "s"}`];
+    if (failed.length) bits.push(`${failed.length} not found: ${failed.join(", ")} — fill by hand`);
+    if (extra > 0) bits.push(`${extra} left off — the sign holds ${MULTI_MAX_PRODUCTS}`);
+    st.className = "lookup-status " + (failed.length ? "err" : "ok");
+    st.textContent = bits.join(" · ");
+    const ta = $("#mpPasteSkus");
+    if (ta) ta.value = failed.join("\n");
+  }
+  showToast(`Filled ${filled} product${filled === 1 ? "" : "s"} from SKUs${failed.length ? ` — ${failed.length} not found` : ""}.`);
+}
+
 function refreshProductImage(host, spec) {
   const drop = host.classList && host.classList.contains("img-drop") ? host : host.querySelector(".img-drop");
   if (!drop) return;
@@ -1049,11 +1184,6 @@ function refreshProductImage(host, spec) {
 
 function buildProductField(t, p, i, st, f, dest, card) {
   const spec = p.spec;
-  const setSub = (key, value) => {
-    spec[key] = value;
-    const inp = card.querySelector(`[data-field="${key}"]`);
-    if (inp) inp.value = value;
-  };
   if (f.kind === "seg") {
     if (spec[f.key] == null) spec[f.key] = f.def;
     dest.appendChild(labelEl(f.label));
@@ -1078,24 +1208,13 @@ function buildProductField(t, p, i, st, f, dest, card) {
     const status = el("div", "lookup-status");
     inp.addEventListener("input", () => { spec.sku = inp.value.trim(); });
     attachAutoLookup(inp, status, (res, si) => {
-      spec.sku = res.sku || inp.value.trim();
-      if (res.productUrl) spec.productUrl = res.productUrl; // QR target
-      spec.lookedUpAt = res.fetchedAt || new Date().toISOString();
-      if (res.name) setSub("name", res.name);
-      let switched = false;
-      if (si.onSale) {
-        setSub("price", si.sale);
-        setSub("regPrice", si.reg);
-        // same courtesy as a single sign: an on-sale product becomes a
-        // Sale cell so the markdown shows
-        if (p.typeId === "regular") { p.typeId = "sale"; switched = true; }
-      } else {
-        if (res.price) setSub("price", res.price);
-        else if (res.listPrice) setSub("price", res.listPrice);
-        // a fresh non-sale lookup means any earlier reg price is stale
-        if (st.fields.some((x) => x.key === "regPrice") && p.typeId !== "was_now") setSub("regPrice", "");
+      const switched = applyLookupToProduct(p, res, si);
+      // reflect what the lookup filled in without rebuilding the card
+      for (const k of ["name", "price", "regPrice"]) {
+        const x = card.querySelector(`[data-field="${k}"]`);
+        if (x) x.value = spec[k] != null ? spec[k] : "";
       }
-      if (res.imageUrl) { spec.image = res.imageUrl; refreshProductImage(card, spec); }
+      refreshProductImage(card, spec);
       if (switched) {
         const fresh = rebuildProductCard(t, p, i);
         const s2 = fresh.querySelector(".lookup-status");
@@ -1239,7 +1358,11 @@ function setPreviewSVG(svg, size) {
   if (meta) {
     let txt = `${size.label.replace(/"/g, "″")} — prints at exact size · shown at ${(scale * 100).toFixed(0)}%`;
     if (size.cut) txt += ` · cut on the dashed line, laminate, and it fits the ${size.w}×${size.h}″ holder`;
-    if (!_elemDrag) txt += " · drag any element to resize it";
+    if (!_elemDrag) {
+      txt += App.typeId === "multi"
+        ? " · click any text to edit it · drag a product onto another to swap them"
+        : " · click any text to edit it · drag any element to resize it";
+    }
     meta.textContent = txt;
   }
 }
@@ -1250,6 +1373,198 @@ function setPreviewSVG(svg, size) {
    the slider's 5% steps), and the auto-fit layout re-balances live. The
    preview re-renders during the drag (replacing the SVG), so the drag
    listens on the window, not on the group being replaced. */
+/* ---------------- click-to-edit in the preview ----------------
+   Renderers tag every text drawn from a spec field with data-field. A
+   click on one opens a small editor right over the preview, bound to that
+   field — on a Multi Product sign, to that product's field. The editor
+   drives the matching form input (value + input event), so the form's own
+   listeners keep the spec, the preview and any SKU lookup in step. */
+let _inlineEdit = null;
+let _swallowClick = false; // set by a drag that moved, so its click is ignored
+const INLINE_EDIT_KINDS = { text: 1, money: 1, percent: 1, int: 1, textarea: 1, sku: 1 };
+
+function inlineTargetFor(textEl) {
+  const key = textEl.dataset.field;
+  const cellG = textEl.closest("g[data-product]");
+  if (cellG) {
+    const pi = parseInt(cellG.dataset.product, 10);
+    const p = App.spec.products && App.spec.products[pi];
+    const st = p && typeById(p.typeId);
+    if (!st) return null;
+    return { key, pi, spec: p.spec, type: st, input: $(`#multiProducts .mp-card[data-product="${pi}"] [data-field="${key}"]`) };
+  }
+  const t = typeById(App.typeId);
+  if (!t) return null;
+  return { key, pi: -1, spec: App.spec, type: t, input: $(`#editorFields [data-field="${key}"]`) };
+}
+
+function openInlineEdit(textEl) {
+  const tgt = inlineTargetFor(textEl);
+  if (!tgt) return;
+  const f = tgt.type.fields.find((x) => x.key === tgt.key);
+  if (!f || !INLINE_EDIT_KINDS[f.kind]) return;
+  closeInlineEdit();
+  const rect = textEl.getBoundingClientRect();
+  const box = el("div", "inline-edit");
+  box.appendChild(el("div", "inline-edit-label", (tgt.pi >= 0 ? `Product ${tgt.pi + 1} · ` : "") + f.label));
+  let inp;
+  if (f.kind === "textarea") inp = el("textarea", "f-textarea");
+  else { inp = el("input", "f-input"); inp.type = f.kind === "int" ? "number" : "text"; }
+  inp.value = tgt.spec[tgt.key] != null ? tgt.spec[tgt.key] : "";
+  const original = inp.value;
+  let wrap = inp;
+  if (f.kind === "money") { wrap = el("div", "prefix-wrap"); wrap.dataset.prefix = "$"; wrap.appendChild(inp); }
+  else if (f.kind === "percent") { wrap = el("div", "suffix-wrap"); wrap.dataset.suffix = "%"; wrap.appendChild(inp); }
+  box.appendChild(wrap);
+  box.appendChild(el("div", "inline-edit-hint", f.kind === "sku" ? "Enter to look it up · Esc to undo" : "Enter to save · Esc to undo"));
+  const push = (v) => {
+    if (tgt.input) {
+      // the form input's own listener writes the spec, re-renders, and
+      // (for a SKU) arms the lookup — one code path for both ways in
+      tgt.input.value = v;
+      tgt.input.dispatchEvent(new Event("input", { bubbles: true }));
+    } else {
+      tgt.spec[tgt.key] = f.kind === "sku" ? v.trim() : v;
+      schedulePreview();
+    }
+  };
+  inp.addEventListener("input", () => push(inp.value));
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && f.kind !== "textarea") {
+      e.preventDefault();
+      if (f.kind === "sku" && tgt.input) tgt.input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      closeInlineEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      push(original);
+      closeInlineEdit();
+    }
+  });
+  inp.addEventListener("blur", () => setTimeout(() => { if (_inlineEdit && _inlineEdit.inp === inp) closeInlineEdit(); }, 120));
+  document.body.appendChild(box);
+  // sit just under the clicked text, kept on screen
+  box.style.left = Math.max(8, Math.min(window.innerWidth - box.offsetWidth - 8, rect.left)) + "px";
+  box.style.top = Math.max(8, Math.min(window.innerHeight - box.offsetHeight - 8, rect.bottom + 8)) + "px";
+  _inlineEdit = { box, inp, key: tgt.key, pi: tgt.pi };
+  inp.focus();
+  inp.select();
+  if (tgt.input) {
+    tgt.input.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    tgt.input.classList.add("field-flash");
+    setTimeout(() => tgt.input.classList.remove("field-flash"), 1400);
+  }
+}
+
+function closeInlineEdit() {
+  if (_inlineEdit) { _inlineEdit.box.remove(); _inlineEdit = null; }
+}
+
+/* ---------------- Multi Product: position by dragging ----------------
+   In the editor every product cell shows its slot number and can be
+   dragged onto another cell to swap the two (▲▼ on the cards reorder).
+   Badges, ghost and target hint live only in the preview DOM — never in
+   the rendered SVG — so nothing prints. */
+const SVG_NS = "http://www.w3.org/2000/svg";
+function cellRectOf(g) {
+  const [x, y, w, h] = (g.dataset.cell || "0,0,0,0").split(",").map(Number);
+  return { x, y, w, h };
+}
+
+function attachProductDrag(svg) {
+  const cells = Array.from(svg.querySelectorAll("g[data-product]"));
+  const vb = svg.viewBox.baseVal;
+  const shown = svg.getBoundingClientRect().width || 1;
+  const k = vb && vb.width ? vb.width / shown : 1; // svg units per screen px
+  for (const g of cells) {
+    const i = parseInt(g.dataset.product, 10);
+    const r = cellRectOf(g);
+    const badge = document.createElementNS(SVG_NS, "g");
+    badge.setAttribute("class", "mp-slot");
+    badge.setAttribute("pointer-events", "none");
+    const rad = 11 * k;
+    const cxb = r.x + 14 * k, cyb = r.y + 14 * k;
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", cxb); c.setAttribute("cy", cyb); c.setAttribute("r", rad);
+    c.setAttribute("fill", "#D40029"); c.setAttribute("stroke", "#fff"); c.setAttribute("stroke-width", 2 * k);
+    const tx = document.createElementNS(SVG_NS, "text");
+    tx.setAttribute("x", cxb); tx.setAttribute("y", cyb + 4.5 * k);
+    tx.setAttribute("text-anchor", "middle"); tx.setAttribute("font-size", 13 * k);
+    tx.setAttribute("font-family", "Roboto, sans-serif"); tx.setAttribute("font-weight", "900"); tx.setAttribute("fill", "#fff");
+    tx.textContent = String(i + 1);
+    badge.appendChild(c); badge.appendChild(tx);
+    svg.appendChild(badge);
+    g.style.cursor = "grab";
+    g.addEventListener("pointerdown", (e) => startProductDrag(e, svg, g, i));
+  }
+}
+
+function startProductDrag(e, svg, g, i) {
+  if (e.button !== 0) return;
+  // a text click must still open its editor — only a real move drags
+  const start = { x: e.clientX, y: e.clientY };
+  const cells = Array.from(svg.querySelectorAll("g[data-product]"));
+  const r = cellRectOf(g);
+  let ghost = null, hint = null, target = -1, moved = false;
+  const toSvg = (cx, cy) => {
+    const m = svg.getScreenCTM();
+    const pt = new DOMPoint(cx, cy);
+    return m ? pt.matrixTransform(m.inverse()) : { x: 0, y: 0 };
+  };
+  const cellAt = (p) => cells.findIndex((c) => {
+    const cr = cellRectOf(c);
+    return p.x >= cr.x && p.x <= cr.x + cr.w && p.y >= cr.y && p.y <= cr.y + cr.h;
+  });
+  const move = (ev) => {
+    if (!moved) {
+      if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 6) return;
+      moved = true;
+      ghost = g.cloneNode(true);
+      ghost.removeAttribute("data-product");
+      ghost.setAttribute("opacity", "0.55");
+      ghost.setAttribute("pointer-events", "none");
+      svg.appendChild(ghost);
+      hint = document.createElementNS(SVG_NS, "rect");
+      hint.setAttribute("fill", "rgba(212,0,41,0.08)");
+      hint.setAttribute("stroke", "#D40029");
+      hint.setAttribute("stroke-width", "3");
+      hint.setAttribute("stroke-dasharray", "10 6");
+      hint.setAttribute("pointer-events", "none");
+      hint.style.display = "none";
+      svg.appendChild(hint);
+      g.setAttribute("opacity", "0.35");
+      document.body.style.cursor = "grabbing";
+    }
+    const p0 = toSvg(start.x, start.y), p1 = toSvg(ev.clientX, ev.clientY);
+    ghost.setAttribute("transform", `translate(${(r.x + p1.x - p0.x).toFixed(1)},${(r.y + p1.y - p0.y).toFixed(1)})`);
+    target = cellAt(p1);
+    if (target >= 0 && target !== i) {
+      const tr = cellRectOf(cells[target]);
+      hint.setAttribute("x", tr.x); hint.setAttribute("y", tr.y);
+      hint.setAttribute("width", tr.w); hint.setAttribute("height", tr.h);
+      hint.style.display = "";
+    } else {
+      hint.style.display = "none";
+    }
+  };
+  const up = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
+    document.body.style.cursor = "";
+    if (!moved) return;
+    _swallowClick = true;
+    setTimeout(() => { _swallowClick = false; }, 0);
+    if (ghost) ghost.remove();
+    if (hint) hint.remove();
+    g.removeAttribute("opacity");
+    const t = typeById(App.typeId);
+    if (t && t.id === "multi" && target >= 0 && target !== i) swapProducts(t, i, target);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up, { once: true });
+  window.addEventListener("pointercancel", up, { once: true });
+}
+
 let _elemDrag = null; // {key, label, startY, start} while dragging
 
 function attachPreviewDrag(holder) {
@@ -1259,6 +1574,16 @@ function attachPreviewDrag(holder) {
   if (!t) return;
   const defs = scalablesForType(t);
   const byKey = Object.fromEntries(defs.map((d) => [d.key, d]));
+  // click-to-edit: every text a renderer drew from a spec field
+  for (const tx of svg.querySelectorAll("text[data-field]")) {
+    tx.style.cursor = "text";
+    tx.addEventListener("click", (e) => {
+      if (_swallowClick) { _swallowClick = false; return; }
+      e.stopPropagation();
+      openInlineEdit(tx);
+    });
+  }
+  if (t.id === "multi") attachProductDrag(svg);
   for (const g of svg.querySelectorAll("g[data-elem]")) {
     const d = byKey[g.dataset.elem];
     if (!d) continue;
@@ -1313,6 +1638,7 @@ function startElemDrag(e, d) {
   place(e);
   document.body.appendChild(badge);
   const move = (ev) => {
+    if (Math.abs(ev.clientY - _elemDrag.startY) > 3) _elemDrag.moved = true;
     // 220px of drag spans roughly the whole 50–160% slider range
     const raw = _elemDrag.start + (_elemDrag.startY - ev.clientY) / 220;
     const snapped = Math.round(Math.min(1.6, Math.max(0.5, raw)) * 20) / 20;
@@ -1328,6 +1654,9 @@ function startElemDrag(e, d) {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);
+    // a drag that moved must not also count as a click on the text under it
+    _swallowClick = !!_elemDrag.moved;
+    setTimeout(() => { _swallowClick = false; }, 0);
     _elemDrag = null;
     badge.remove();
     hideDragHint();
@@ -2472,10 +2801,14 @@ function initBulk() {
     const needsNow = []; // Was/Now signs added without a Now price
     let done = 0, ok = 0;
     const CONCURRENCY = 5;
-    const work = skus.slice();
+    // Lookups run in parallel, but signs land in the queue in the order
+    // the SKUs were pasted — not the order the site happened to answer.
+    const results = new Array(skus.length);
+    const work = skus.map((sku, i) => ({ sku, i }));
     const runOne = async () => {
-      const sku = work.shift();
-      if (sku == null) return;
+      const job = work.shift();
+      if (!job) return;
+      const { sku, i } = job;
       try {
         const res = await fetch(`/api/lookup?q=${encodeURIComponent(sku)}&store=${encodeURIComponent(Settings.get().storeCode)}`).then((r) => r.json());
         if (res.ok) {
@@ -2502,7 +2835,7 @@ function initBulk() {
           // shared promo details (percent/savings/qty — and for 2-for /
           // Your Choice, the promo price replaces the looked-up price)
           Object.assign(spec, extras);
-          Queue.add(addType, sizeId, spec, copies);
+          results[i] = { addType, spec };
           ok++;
         } else {
           failed.push({ sku, reason: res.error || "no product data" });
@@ -2515,6 +2848,7 @@ function initBulk() {
       await runOne();
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, skus.length) }, runOne));
+    for (const r of results) if (r) Queue.add(r.addType, sizeId, r.spec, copies);
     prog.classList.remove("show");
     fill.style.width = "0";
     badge.textContent = `Added ${ok} of ${skus.length}`;

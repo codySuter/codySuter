@@ -63,7 +63,10 @@ function svgText(x, y, text, family, size, fill, opts) {
     const tl = textWidth(str, family, size) + lsPx * Math.max(0, str.length - 1);
     ls = ` letter-spacing="${o.letterSpacing}" textLength="${tl.toFixed(2)}"`;
   }
-  return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-family="${family}" font-size="${size.toFixed(2)}" fill="${fill}" text-anchor="${anchor}"${ls}>${esc(text)}</text>`;
+  // data-field names the spec field this text came from: the editor's
+  // click-to-edit uses it to open the right field. Inert in print.
+  const df = o.field ? ` data-field="${o.field}"` : "";
+  return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-family="${family}" font-size="${size.toFixed(2)}" fill="${fill}" text-anchor="${anchor}"${ls}${df}>${esc(text)}</text>`;
 }
 
 function roundRect(x, y, w, h, r, fill, stroke, sw) {
@@ -72,14 +75,21 @@ function roundRect(x, y, w, h, r, fill, stroke, sw) {
 
 /* ---------- shared sign chrome ---------- */
 
-function signFrame(W, H) {
-  // Page-scale signs print as a dedicated sheet with no packing margin, so
-  // their frame must clear the printer's ≈0.25" non-printable edge on its
-  // own — 0.028·816px = 0.238" leaves the whole border in the dead zone.
-  // Smaller signs sit inside the sheet's 0.375" packing margin and keep the
-  // proportional look.
+/* Frame inset for a W×H px sign — the whitespace between the paper (or
+   cut line) and the grey border. Page-scale signs print as a dedicated
+   sheet with no packing margin, so their frame must clear the printer's
+   ≈0.25" non-printable edge on its own — 0.028·816px = 0.238" leaves the
+   whole border in the dead zone. Smaller signs sit inside the sheet's
+   0.375" packing margin and keep the proportional look. Shared with the
+   arrow signs and the Multi Product cell layout, which space cells by it. */
+function frameMargin(W, H) {
   let m = Math.max(10, Math.min(W, H) * 0.028);
   if (Math.min(W, H) >= 800) m = Math.max(27, m);
+  return m;
+}
+
+function signFrame(W, H) {
+  const m = frameMargin(W, H);
   const r = Math.min(W, H) > 500 ? 8 : 6;
   return {
     margin: m,
@@ -156,31 +166,31 @@ function priceBlockMarkup(cx, top, price, targetH, maxW, opts) {
   let m = roundRect(x, top, mtr.w, blockH, 0, ACE_RED);
   let cur = x + mtr.padX;
   if (o.pre) {
-    m += svgText(cur, baseline, o.pre, "RobotoBlack", S * 0.62, "#fff", { anchor: "start" });
+    m += svgText(cur, baseline, o.pre, "RobotoBlack", S * 0.62, "#fff", { anchor: "start", field: o.preField });
     cur += mtr.preW;
   }
-  m += svgText(cur, supBaseline(baseline, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, "#fff", { anchor: "start" });
+  m += svgText(cur, supBaseline(baseline, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, "#fff", { anchor: "start", field: o.field || "price" });
   cur += mtr.curW;
-  m += svgText(cur, baseline, mp.d, "RobotoBlack", S, "#fff", { anchor: "start" });
+  m += svgText(cur, baseline, mp.d, "RobotoBlack", S, "#fff", { anchor: "start", field: o.field || "price" });
   cur += mtr.dW + S * 0.06;
   if (mp.c) {
-    m += svgText(cur, supBaseline(baseline, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, "#fff", { anchor: "start" });
+    m += svgText(cur, supBaseline(baseline, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, "#fff", { anchor: "start", field: o.field || "price" });
   }
   if (o.suffixWord) {
-    m += svgText(cur, top + blockH - S * 0.18, o.suffixWord, "RobotoBold", S * 0.17, "#fff", { anchor: "start" });
+    m += svgText(cur, top + blockH - S * 0.18, o.suffixWord, "RobotoBold", S * 0.17, "#fff", { anchor: "start", field: o.suffixField });
   }
   return { markup: m, w: mtr.w, h: blockH };
 }
 
 /* Black chip with white text (SALE / REG. $x.xx). */
-function blackChip(cx, top, text, fontSize) {
+function blackChip(cx, top, text, fontSize, field) {
   const padX = fontSize * 0.5, padY = fontSize * 0.26;
   const tw = textWidth(text, "RobotoBlack", fontSize);
   const w = tw + 2 * padX, h = fontSize + 2 * padY;
   return {
     markup:
       roundRect(cx - w / 2, top, w, h, 0, INK) +
-      svgText(cx, top + h / 2 + fontSize * 0.35, text, "RobotoBlack", fontSize, "#fff"),
+      svgText(cx, top + h / 2 + fontSize * 0.35, text, "RobotoBlack", fontSize, "#fff", { field }),
     w, h,
   };
 }
@@ -209,7 +219,7 @@ function nameBlock(cx, top, name, maxW, targetSize, minSize) {
   let markup = `<g data-elem="name">`;
   let y = top + size * 0.85;
   for (const line of fit.lines) {
-    markup += svgText(cx, y, line, "RobotoBold", size, INK);
+    markup += svgText(cx, y, line, "RobotoBold", size, INK, { field: "name" });
     y += size + lineGap;
   }
   return { markup: markup + `</g>`, h: fit.lines.length * (size + lineGap) };
@@ -266,20 +276,20 @@ function skuFooter(W, H, frame, sku, detail, storeLine, barcode, scale, qrURL) {
       const barsTop = y - dsize * 1.05 - bcH;
       const bc = code128Rects(sku, cx - bw / 2, barsTop, bw, bcH, INK);
       if (bc) {
-        markup += svgText(cx, y, String(sku), "RobotoMedium", dsize, GRAY11, { letterSpacing: (dsize * 0.22).toFixed(2) });
+        markup += svgText(cx, y, String(sku), "RobotoMedium", dsize, GRAY11, { letterSpacing: (dsize * 0.22).toFixed(2), field: "sku" });
         markup += bc.rects;
         y = barsTop - skuSize * 0.5;
         drewBars = true;
       }
     }
     if (!drewBars) {
-      markup += svgText(cx, y, `SKU: ${sku}`, "RobotoMedium", skuSize, GRAY11);
+      markup += svgText(cx, y, `SKU: ${sku}`, "RobotoMedium", skuSize, GRAY11, { field: "sku" });
       y -= skuSize * 1.5;
     }
   }
   if (detail) {
     const ds = Math.min(skuSize * 0.92, fitTextSize(detail, "RobotoMedium", skuSize * 0.92, centerAvail));
-    markup += svgText(cx, y, detail, "RobotoMedium", ds, GRAY11);
+    markup += svgText(cx, y, detail, "RobotoMedium", ds, GRAY11, { field: "detail" });
     y -= skuSize * 1.4;
   }
   // the QR sits beside the footer stack, not in it — reserve enough for
@@ -461,12 +471,12 @@ function bigPriceMarkup(cx, top, availW, availH, spec) {
   const w = measure(S);
   const x0 = cx - w / 2;
   const base = top + (availH - S * 1.05) / 2 + S * 0.9;
-  let m = svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
+  let m = svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start", field: "price" });
   let cur = x0 + textWidth("$", "RobotoBlack", S * 0.55);
-  m += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start" });
+  m += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start", field: "price" });
   cur += textWidth(mp.d, "RobotoBlack", S) + S * 0.08;
-  if (mp.c) m += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
-  if (spec.unit) m += svgText(cur, base, spec.unit, "RobotoBold", S * 0.16, GRAY11, { anchor: "start" });
+  if (mp.c) m += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start", field: "price" });
+  if (spec.unit) m += svgText(cur, base, spec.unit, "RobotoBold", S * 0.16, GRAY11, { anchor: "start", field: "unit" });
   return m;
 }
 
@@ -495,8 +505,7 @@ const arrowSign = (dir) => (spec, Win, Hin) => {
   // arrow can be pinned to the sign's outer border. The price-zone callback
   // only receives pixel coords, so these are closed over.
   const Wpx = Win * PPI, Hpx = Hin * PPI;
-  let fm = Math.max(10, Math.min(Wpx, Hpx) * 0.028);
-  if (Math.min(Wpx, Hpx) >= 800) fm = Math.max(27, fm);
+  const fm = frameMargin(Wpx, Hpx);
   const pad = Math.max(8, Math.min(Wpx, Hpx) * 0.022);
   const inset = fm + pad; // distance from the paper edge to content
   const aLen = Math.min(Wpx, Hpx) * 0.24;
@@ -545,11 +554,11 @@ AceRenderers.sale = (spec, W, H) => {
     const chip = blackChip(cx, y, "SALE", chipSize);
     m += chip.markup; y += chip.h + st.gap;
     if (hasPrice) {
-      const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { suffixWord: s.unit ? s.unit.replace(/^\//, "") : "each" });
+      const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { suffixWord: s.unit ? s.unit.replace(/^\//, "") : "each", suffixField: "unit" });
       m += blk.markup; y += blk.h + st.gap;
     }
     if (hasReg) {
-      const reg = blackChip(cx, y, `REG. ${fmtMoney(s.regPrice)}`, regSize);
+      const reg = blackChip(cx, y, `REG. ${fmtMoney(s.regPrice)}`, regSize, "regPrice");
       m += reg.markup;
     }
     return { markup: m, h: availH };
@@ -585,7 +594,7 @@ AceRenderers.percent_off = (spec, W, H) =>
     m += roundRect(bx, by, mtr.w, bh, 0, ACE_RED);
     const dx = bx + mtr.padX;
     const base = by + bh / 2 + S * 0.36;
-    m += svgText(dx, base, pct, "RobotoBlack", S, "#fff", { anchor: "start" });
+    m += svgText(dx, base, pct, "RobotoBlack", S, "#fff", { anchor: "start", field: "percent" });
     const rx = dx + mtr.dW + S * 0.08;
     m += svgText(rx, by + bh * 0.28 + S * 0.42 * 0.36, "%", "RobotoBlack", S * 0.42, "#fff", { anchor: "start" });
     m += svgText(rx, by + bh - S * 0.16, "OFF", "RobotoBlack", S * 0.3, "#fff", { anchor: "start" });
@@ -633,7 +642,7 @@ AceRenderers.bogo_percent = (spec, W, H) =>
     const bx = cx - bw / 2;
     m += roundRect(bx, y, bw, bh, 0, ACE_RED);
     const base = y + bh / 2 + S * 0.36;
-    m += svgText(bx + S * 0.2, base, pct + "%", "RobotoBlack", S, "#fff", { anchor: "start" });
+    m += svgText(bx + S * 0.2, base, pct + "%", "RobotoBlack", S, "#fff", { anchor: "start", field: "percent" });
     m += svgText(bx + S * 0.2 + mtr.dW + S * 0.18, base, "OFF", "RobotoBlack", S * 0.5, "#fff", { anchor: "start" });
     return { markup: m, h: availH };
   });
@@ -649,7 +658,7 @@ AceRenderers.two_for = (spec, W, H) =>
     const chip = blackChip(cx, y, "SALE", chipSize);
     let m = chip.markup;
     y += chip.h + st.gap;
-    const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { pre: `${qty}/` });
+    const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { pre: `${qty}/`, preField: "qty" });
     m += blk.markup;
     return { markup: m, h: availH };
   });
@@ -689,7 +698,7 @@ AceRenderers.instant_savings = (spec, W, H) =>
     m += svgText(gx + saveW, y + saveSize + saveSize * 0.62, "INSTANTLY", "RobotoBlack", saveSize * 0.52, ACE_RED, { anchor: "end" });
     const abH = amtS * 1.1;
     m += roundRect(gx + saveW + saveSize * 0.3, y, amtW, abH, 0, ACE_RED);
-    m += svgText(gx + saveW + saveSize * 0.3 + amtW / 2, y + abH / 2 + amtS * 0.36, amt, "RobotoBlack", amtS, "#fff");
+    m += svgText(gx + saveW + saveSize * 0.3 + amtW / 2, y + abH / 2 + amtS * 0.36, amt, "RobotoBlack", amtS, "#fff", { field: "savings" });
     y += Math.max(saveSize * 1.35, abH) + st.gap;
     if (hasPrice) {
       const blk = priceBlockMarkup(cx, y, s.price, blockH, availW, { suffixWord: "each" });
@@ -697,7 +706,7 @@ AceRenderers.instant_savings = (spec, W, H) =>
       y += blk.h + st.gap;
     }
     if (s.regPrice) {
-      m += blackChip(cx, y, `REG. ${fmtMoney(s.regPrice)}`, regSize).markup;
+      m += blackChip(cx, y, `REG. ${fmtMoney(s.regPrice)}`, regSize, "regPrice").markup;
     }
     return { markup: m, h: availH };
   });
@@ -726,7 +735,7 @@ AceRenderers.was_now = (spec, W, H) =>
     let wSz = wasSize;
     const wW = () => textWidth(wasText, "RobotoBold", wSz);
     if (wW() > availW * 0.8) wSz *= (availW * 0.8) / wW();
-    m += svgText(cx, y + wSz * 0.85, wasText, "RobotoBold", wSz, GRAY11);
+    m += svgText(cx, y + wSz * 0.85, wasText, "RobotoBold", wSz, GRAY11, { field: "regPrice" });
     const strikeY = y + wSz * 0.55;
     const strikeW = wW();
     m += `<line x1="${(cx - strikeW / 2 - wSz * 0.12).toFixed(2)}" y1="${strikeY.toFixed(2)}" x2="${(cx + strikeW / 2 + wSz * 0.12).toFixed(2)}" y2="${strikeY.toFixed(2)}" stroke="${ACE_RED}" stroke-width="${Math.max(1.6, wSz * 0.09).toFixed(2)}"/>`;
@@ -776,7 +785,7 @@ AceRenderers.final_sale = (spec, W, H) => {
       y += blk.h + st.gap;
     }
     if (noteText) {
-      m += svgText(cx, y + noteSize, noteText, "RobotoBold", noteSize, GRAY11);
+      m += svgText(cx, y + noteSize, noteText, "RobotoBold", noteSize, GRAY11, { field: "note" });
     }
     return { markup: m, h: availH };
   });
@@ -791,7 +800,7 @@ AceRenderers.buy_get_off = (spec, W, H) =>
     const blockH = availH * 0.56;
     const st = stack(top, availH, [lineSize * 1.25, blockH], 0.05);
     let y = st.start;
-    let m = svgText(cx, y + lineSize, `BUY ${q} GET`, "RobotoBlack", lineSize, INK, { letterSpacing: "1" });
+    let m = svgText(cx, y + lineSize, `BUY ${q} GET`, "RobotoBlack", lineSize, INK, { letterSpacing: "1", field: "qty" });
     y += lineSize * 1.25 + st.gap;
     // Never round a savings amount: "$7.50 off" printed as "SAVE $8" is a
     // customer-facing overstatement of the offer. Whole dollars stay bare.
@@ -809,7 +818,7 @@ AceRenderers.buy_get_off = (spec, W, H) =>
     if (mtr.w > availW) { S *= availW / mtr.w; mtr = compute(S); }
     const bh = S * 1.24, bx = cx - mtr.w / 2;
     m += roundRect(bx, y, mtr.w, bh, 0, ACE_RED);
-    m += svgText(bx + S * 0.2, y + bh / 2 + S * 0.36, amt, "RobotoBlack", S, "#fff", { anchor: "start" });
+    m += svgText(bx + S * 0.2, y + bh / 2 + S * 0.36, amt, "RobotoBlack", S, "#fff", { anchor: "start", field: "savings" });
     m += svgText(bx + S * 0.2 + mtr.aW + S * 0.12, y + bh * 0.34 + S * 0.36 * 0.36, "OFF", "RobotoBlack", S * 0.36, "#fff", { anchor: "start" });
     return { markup: m, h: availH };
   });
@@ -827,7 +836,7 @@ AceRenderers.your_choice = (spec, W, H) =>
     const showCents = mp.c && mp.c !== "00";
     const priceStr = "$" + mp.d + (showCents ? "." + mp.c : "");
     const pS = Math.min(r * 0.62, (r * 1.5 / Math.max(1, textWidth(priceStr, "RobotoBlack", 100))) * 100);
-    m += svgText(cx, cy + r * 0.42, priceStr, "RobotoBlack", pS, "#fff");
+    m += svgText(cx, cy + r * 0.42, priceStr, "RobotoBlack", pS, "#fff", { field: "price" });
     return { markup: m, h: availH };
   });
 
@@ -840,11 +849,11 @@ AceRenderers.under_amount = async (spec, W, H) => {
     let m = `<circle cx="${cx}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}" fill="${ACE_RED}"/>`;
     const cat = String(s.category || "CATEGORY").toUpperCase();
     const catSize = Math.min(r * 0.17, (r * 1.55 / Math.max(1, textWidth(cat, "RobotoBlack", 100))) * 100);
-    m += svgText(cx, cy - r * 0.42, cat, "RobotoBlack", catSize, "#fff", { letterSpacing: "1" });
+    m += svgText(cx, cy - r * 0.42, cat, "RobotoBlack", catSize, "#fff", { letterSpacing: "1", field: "category" });
     m += svgText(cx, cy - r * 0.42 + catSize * 1.3, "UNDER", "RobotoBlack", catSize * 0.9, "#fff", { letterSpacing: "2" });
     const amt = String(s.price || "").trim() ? "$" + String(Math.round(parseFloat(String(s.price).replace(/[^0-9.]/g, "")) || 0)) : "$__";
     const aS = Math.min(r * 0.72, (r * 1.4 / Math.max(1, textWidth(amt, "RobotoBlack", 100))) * 100);
-    m += svgText(cx, cy + r * 0.5, amt, "RobotoBlack", aS, "#fff");
+    m += svgText(cx, cy + r * 0.5, amt, "RobotoBlack", aS, "#fff", { field: "price" });
     return { markup: m, h: availH };
   }, { noImage: true });
 };
@@ -945,7 +954,7 @@ AceRenderers.stihl_clearance = async (spec, W_in, H_in) => {
       let wSz = Math.max(11, priceH * 0.26);
       const wW = () => textWidth(wasText, "RobotoBold", wSz);
       if (wW() > maxW * 0.8) wSz *= (maxW * 0.8) / wW();
-      markup += svgText(cx, py2 + wSz * 0.85, wasText, "RobotoBold", wSz, GRAY11);
+      markup += svgText(cx, py2 + wSz * 0.85, wasText, "RobotoBold", wSz, GRAY11, { field: "regPrice" });
       const strikeY = py2 + wSz * 0.55, strikeW = wW();
       markup += `<line x1="${(cx - strikeW / 2 - wSz * 0.12).toFixed(2)}" y1="${strikeY.toFixed(2)}" x2="${(cx + strikeW / 2 + wSz * 0.12).toFixed(2)}" y2="${strikeY.toFixed(2)}" stroke="${ACE_RED}" stroke-width="${Math.max(1.6, wSz * 0.09).toFixed(2)}"/>`;
       py2 += wSz * 1.35;
@@ -1000,7 +1009,7 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
   let y = contentTop + Math.max(0, (nameH - totalNameH) / 2) + fit.size * 0.9;
   markup += `<g data-elem="name">`;
   for (const line of fit.lines) {
-    markup += svgText(cx, y, line, "RobotoBlack", fit.size, INK);
+    markup += svgText(cx, y, line, "RobotoBlack", fit.size, INK, { field: "name" });
     y += fit.size + lineGap;
   }
   markup += `</g>`;
@@ -1021,11 +1030,11 @@ AceRenderers.large_text = async (spec, W_in, H_in) => {
     const x0 = cx - w / 2;
     const base = y + priceH / 2 + S * 0.33;
     markup += `<g data-elem="price">`;
-    markup += svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start" });
+    markup += svgText(x0, supBaseline(base, S, S * 0.55, DOLLAR_TOP_EM), "$", "RobotoBlack", S * 0.55, ACE_RED, { anchor: "start", field: "price" });
     let cur = x0 + textWidth("$", "RobotoBlack", S * 0.55);
-    markup += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start" });
+    markup += svgText(cur, base, mp.d, "RobotoBlack", S, ACE_RED, { anchor: "start", field: "price" });
     cur += textWidth(mp.d, "RobotoBlack", S) + S * 0.08;
-    if (mp.c) markup += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start" });
+    if (mp.c) markup += svgText(cur, supBaseline(base, S, S * 0.45, DIGIT_TOP_EM), mp.c, "RobotoBlack", S * 0.45, ACE_RED, { anchor: "start", field: "price" });
     markup += `</g>`;
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
@@ -1060,48 +1069,89 @@ AceRenderers.text_only = async (spec, W_in, H_in) => {
   let y = contentTop + Math.max(0, (contentH - subH - totalH) / 2) + fit.size * 0.88;
   markup += `<g data-elem="name">`;
   for (const line of fit.lines) {
-    markup += svgText(cx, y, line, "RobotoBlack", fit.size, INK);
+    markup += svgText(cx, y, line, "RobotoBlack", fit.size, INK, { field: "name" });
     y += fit.size + lineGap;
   }
   markup += `</g>`;
   if (spec.detail) {
     const sS = Math.min(subH * 0.55, fitTextSize(spec.detail, "RobotoMedium", subH * 0.55, maxW));
-    markup += `<g data-elem="detail">` + svgText(cx, contentBottom - subH / 2 + sS * 0.3, spec.detail, "RobotoMedium", sS, GRAY11) + `</g>`;
+    markup += `<g data-elem="detail">` + svgText(cx, contentBottom - subH / 2 + sS * 0.3, spec.detail, "RobotoMedium", sS, GRAY11, { field: "detail" }) + `</g>`;
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${markup}</svg>`;
 };
 
-/* ---------- Multi Product: 2–4 signs on one sheet ----------
+/* ---------- Multi Product: 2–8 signs on one sheet ----------
    spec.products = [{typeId, spec}]. Every product is a complete standard
    sign — its own type, hides and element sizes — drawn by its own renderer
-   at the cell's real dimensions. The cells are genuine sign sizes, so each
-   type's automatic layout (the small-sign header, the QR threshold, the
-   frame margin) adapts on its own. 2 and 3 products stand side by side as
-   tall columns; 4 form a 2×2 grid. Same nesting as the sheet composer:
-   strip the sub-sign's <svg> wrapper, clip it to its cell (an overflowing
-   name must not paint into the neighbor), translate into place. */
+   at the cell's real dimensions, so each type's automatic layout (the
+   small-sign header, the QR threshold, the frame margin) adapts on its own.
+   One Ace logo serves the whole sheet (a band across the top; the products
+   render logo-less). 2 or 3 products stand side by side as tall columns;
+   4–8 fill two rows, the top row taking the odd one. Neighboring cells
+   overlap by exactly one frame margin, so the whitespace between two grey
+   frame lines equals the whitespace between an outer line and the cut
+   line; each cell is clipped to its half of the overlap so nothing paints
+   over a neighbor. Same nesting as the sheet composer otherwise: strip the
+   sub-sign's <svg> wrapper, clip, translate into place. */
 let _multiClipSeq = 0;
 
-function multiCellRects(n, W, H) {
-  const gap = Math.max(6, Math.min(W, H) * 0.022);
-  if (n <= 1) return [{ x: 0, y: 0, w: W, h: H }];
-  const cells = [];
-  if (n === 4) {
-    const cw = (W - gap) / 2, ch = (H - gap) / 2;
-    for (let i = 0; i < 4; i++) {
-      cells.push({ x: (i % 2) * (cw + gap), y: Math.floor(i / 2) * (ch + gap), w: cw, h: ch });
-    }
-    return cells;
+function multiCellRects(n, W, H, top) {
+  const y0 = top || 0, Hc = H - y0;
+  if (n <= 1) {
+    return { margin: frameMargin(W, Hc), cells: [{ x: 0, y: y0, w: W, h: Hc, cx0: 0, cy0: 0, cx1: W, cy1: Hc }] };
   }
-  const cw = (W - gap * (n - 1)) / n;
-  for (let i = 0; i < n; i++) cells.push({ x: i * (cw + gap), y: 0, w: cw, h: H });
-  return cells;
+  const rows = n <= 3 ? [n] : [Math.ceil(n / 2), Math.floor(n / 2)];
+  // The overlap is the cells' own frame margin, which depends (weakly, and
+  // through a floor) on the cell size the overlap enlarges — iterate to the
+  // fixed point.
+  let o = 0, cells = [];
+  for (let pass = 0; pass < 4; pass++) {
+    cells = [];
+    const ch = (Hc + (rows.length - 1) * o) / rows.length;
+    let minDim = Infinity;
+    rows.forEach((cols, r) => {
+      const cw = (W + (cols - 1) * o) / cols;
+      minDim = Math.min(minDim, cw, ch);
+      for (let c = 0; c < cols; c++) {
+        cells.push({
+          x: c * (cw - o), y: y0 + r * (ch - o), w: cw, h: ch,
+          // clip away the half of every overlap that belongs to the neighbor
+          cx0: c > 0 ? o / 2 : 0,
+          cy0: r > 0 ? o / 2 : 0,
+          cx1: cw - (c < cols - 1 ? o / 2 : 0),
+          cy1: ch - (r < rows.length - 1 ? o / 2 : 0),
+        });
+      }
+    });
+    const m = frameMargin(minDim, minDim);
+    if (Math.abs(m - o) < 0.05) return { margin: m, cells };
+    o = m;
+  }
+  return { margin: o, cells };
 }
 
 AceRenderers.multi = async (spec, Win, Hin) => {
   const W = Win * PPI, H = Hin * PPI;
   const products = normalizeMultiProducts(spec);
-  const cells = multiCellRects(products.length, W, H);
+  const grid0 = multiCellRects(products.length, W, H, 0);
+  // One logo for the sheet: a band across the top, sized like a single
+  // sign's header logo (slider-scaled), one cell margin in from the cut
+  // line so it lines up with the cells' frames; the cells' own margin then
+  // spaces their frame line the same distance below it.
+  const noLogo = spec.showLogo === false;
+  const logoURI = noLogo ? null : await getLogoURI();
+  let top = 0, logoMarkup = "";
+  if (!noLogo) {
+    const m = grid0.margin;
+    let logoH = Math.max(22, Math.min(H * 0.1, 84)) * elemScale(spec, "logo");
+    logoH = Math.max(16, Math.min(logoH, H * 0.25, ((W - 2 * m) * 0.4) / 1.856));
+    const logoW = logoH * 1.856;
+    logoMarkup = `<g data-elem="logo">` + (logoURI
+      ? `<image x="${m.toFixed(2)}" y="${m.toFixed(2)}" width="${logoW.toFixed(2)}" height="${logoH.toFixed(2)}" preserveAspectRatio="xMinYMin meet" href="${logoURI}"/>`
+      : svgText(m, m + logoH * 0.82, "ACE", "RobotoBlack", logoH * 0.9, ACE_RED, { anchor: "start" })) + `</g>`;
+    top = m + logoH;
+  }
+  const { cells } = top ? multiCellRects(products.length, W, H, top) : grid0;
   const clipBase = ++_multiClipSeq; // several previews share one document
   const parts = await Promise.all(products.map(async (p, i) => {
     const t = typeById(p.typeId);
@@ -1111,20 +1161,24 @@ AceRenderers.multi = async (spec, Win, Hin) => {
     const hide = sub.hide;
     delete sub.hide;
     applyHiddenFields(sub, hide);
+    sub.showLogo = false; // the sheet's one logo stands in for all of them
     if (spec.storeLine) sub.storeLine = spec.storeLine;
     const c = cells[i];
     const svg = await t.render(sub, c.w / PPI, c.h / PPI);
     const body = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
     const cid = `mpclip${clipBase}x${i}`;
     return {
-      def: `<clipPath id="${cid}"><rect x="0" y="0" width="${c.w.toFixed(2)}" height="${c.h.toFixed(2)}"/></clipPath>`,
-      g: `<g data-product="${i}" transform="translate(${c.x.toFixed(2)},${c.y.toFixed(2)})">` +
+      def: `<clipPath id="${cid}"><rect x="${c.cx0.toFixed(2)}" y="${c.cy0.toFixed(2)}" width="${(c.cx1 - c.cx0).toFixed(2)}" height="${(c.cy1 - c.cy0).toFixed(2)}"/></clipPath>`,
+      // data-cell carries the cell's box for the editor's slot badges and
+      // drag-to-swap targets; inert in print
+      g: `<g data-product="${i}" data-cell="${c.x.toFixed(1)},${c.y.toFixed(1)},${c.w.toFixed(1)},${c.h.toFixed(1)}" transform="translate(${c.x.toFixed(2)},${c.y.toFixed(2)})">` +
          `<g clip-path="url(#${cid})">${body}</g></g>`,
     };
   }));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
     `<defs>${parts.map((p) => p.def).join("")}</defs>` +
     `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>` +
+    logoMarkup +
     parts.map((p) => p.g).join("") +
     `</svg>`;
 };
