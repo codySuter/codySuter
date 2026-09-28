@@ -21,6 +21,7 @@ for (const candidate of [
   "playwright-core",
   "@playwright/test",
   path.join(REPO, "ace-sign-studio/e2e/node_modules/playwright/index.mjs"),
+  path.join(REPO, "ace-change-studio/e2e/node_modules/playwright/index.mjs"),
   path.join(REPO, "ace-document-studio/node_modules/@playwright/test/index.mjs"),
   path.join(REPO, "ace-document-studio/node_modules/playwright-core/index.mjs"),
   path.join(REPO, "ace-bay-studio/node_modules/@playwright/test/index.mjs"),
@@ -129,6 +130,31 @@ const APPS = {
     out: [
       { file: "ace-floor-studio/build/icon.png", size: 512 },
       { file: "ace-floor-studio/build/icon.ico", ico: [16, 24, 32, 48, 64, 128, 256] },
+    ],
+  },
+  change: {
+    name: "Ace Change Studio",
+    // A till tray from above: five bill slots over four round coin cups —
+    // the circles are the silhouette no sibling has.
+    html: `<!doctype html><html><head><style>${TILE_CSS}
+      .card{position:relative;width:76%;height:60%;background:#fff;border-radius:6%;
+        display:flex;flex-direction:column;gap:7%;padding:7% 7% 8%;box-sizing:border-box}
+      .bills{flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:4.5%}
+      .slot{border-radius:12%;background:#BCBEC0}
+      .slot.red{background:#D40029}
+      .slot.ink{background:#15181D}
+      .coins{flex:none;height:31%;display:flex;justify-content:space-between;padding:0 1%}
+      .cup{height:100%;aspect-ratio:1;border-radius:50%;background:#BCBEC0}
+      .cup.red{background:#D40029}
+      .cup.ink{background:#15181D}
+    </style></head><body><div class="wrap"><div class="sheen"></div>
+      <div class="card">
+        <div class="bills"><div class="slot red"></div><div class="slot"></div><div class="slot"></div><div class="slot ink"></div><div class="slot"></div></div>
+        <div class="coins"><div class="cup"></div><div class="cup red"></div><div class="cup"></div><div class="cup ink"></div></div>
+      </div></div></body></html>`,
+    out: [
+      { file: "ace-change-studio/winres/icon.png", size: 256 },
+      { file: "ace-change-studio/web/img/appicon_256.png", size: 256 },
     ],
   },
 };

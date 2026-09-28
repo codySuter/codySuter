@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ace Change Studio — Snyder's Ace Hardware</title>
+<link rel="icon" type="image/png" href="img/appicon_256.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo-chip"><img src="img/ace_logo_transparent.png" alt="Ace"></div>
+  <div class="brand">
+    <h1>Ace Change Studio</h1>
+    <span class="ver" id="verTag"></span>
+  </div>
+  <nav class="tabs" aria-label="Sections">
+    <button class="tab" data-view="count" title="Count a drawer (Ctrl+1)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l2-3h14l2 3"/><path d="M9 12h6"/></svg>Count Drawer</button>
+    <button class="tab" data-view="box" title="Change box order (Ctrl+2)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>Change Box</button>
+    <button class="tab" data-view="history" title="History (Ctrl+3)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>History</button>
+    <button class="tab" data-view="settings" title="Settings (Ctrl+4)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="store-line" id="storeLineTop">Snyder's Ace Hardware · Media, PA</div>
+</header>
+
+<div class="update-bar" id="updateBar">
+  <span class="upd-dot"></span>
+  <div id="updateText"></div>
+  <button class="upd-btn" id="updateBtn">Update &amp; Restart</button>
+  <button class="upd-dismiss" id="updateDismiss" title="Later">✕</button>
+</div>
+
+<!-- Shown when the backend process stops answering (crash, forced exit). -->
+<div class="update-bar" id="connBar">
+  <span class="upd-dot"></span>
+  <div><b>Lost connection to Ace Change Studio.</b> The app's background process isn't responding —
+    close this window and start AceChangeStudio.exe again. Everything you saved is safe.</div>
+</div>
+
+<!-- Shown when a save fails after retries. -->
+<div class="update-bar" id="saveBar">
+  <span class="upd-dot"></span>
+  <div><b>Your last change didn't save.</b> Keep this window open and try again — if it keeps happening, close the app and start it again.</div>
+</div>
+
+<main class="work" id="work">
+  <section class="view" id="view-count"></section>
+  <section class="view" id="view-box"></section>
+  <section class="view" id="view-history"></section>
+  <section class="view" id="view-settings"></section>
+</main>
+
+<div id="toastHost"></div>
+<div id="tip" role="tooltip"></div>
+<iframe id="printFrame" style="position:fixed;right:0;bottom:0;width:0;height:0;border:0" title="print"></iframe>
+
+<script src="js/cash.js"></script>
+<script src="js/util.js"></script>
+<script src="js/changelog.js"></script>
+<script src="js/store.js"></script>
+<script src="js/count.js"></script>
+<script src="js/box.js"></script>
+<script src="js/history.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
