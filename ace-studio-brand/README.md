@@ -24,6 +24,7 @@ Every icon is the **same red tile** holding a **different white subject card**:
 | **Ace Document Studio** | Portrait (a document) | Red header bar, title rule, checklist rows |
 | **Ace Bay Studio** | Landscape (the bay map) | 4×3 grid of gray bins, three painted red, one ink |
 | **Ace Floor Studio** | Landscape (the floor plan) | Five aisle bars over a front fixture — one red, one ink |
+| **Ace Change Studio** | Landscape (a till tray) | Five bill slots over four round coin cups — one of each red, one ink |
 | *Future app* | Pick the app's canvas shape | One or two bold marks in brand inks, readable at 32 px |
 
 Rules of thumb for a new sibling: keep the tile byte-identical (it comes from
@@ -38,6 +39,7 @@ node ace-studio-brand/icons.mjs sign       # just Ace Sign Studio
 node ace-studio-brand/icons.mjs document     # just Ace Document Studio
 node ace-studio-brand/icons.mjs bay        # just Ace Bay Studio
 node ace-studio-brand/icons.mjs floor      # just Ace Floor Studio
+node ace-studio-brand/icons.mjs change     # just Ace Change Studio
 ```
 
 Renders the HTML templates in headless Chromium at every size and writes
@@ -51,6 +53,8 @@ straight into each app's icon locations:
   (16–256, PNG-compressed entries) — electron-builder picks these up as-is.
 - `ace-bay-studio/build/icon.png` (512) + `build/icon.ico` — same deal.
 - `ace-floor-studio/build/icon.png` (512) + `build/icon.ico` — same deal.
+- `ace-change-studio/winres/icon.png` (256) + `web/img/appicon_256.png` —
+  then `go-winres make --in winres/winres.json` from `ace-change-studio/`.
 - `ace-studio-brand/previews/*.png` (512) — for eyeballing the family
   side by side.
 

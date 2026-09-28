@@ -41,3 +41,8 @@ yarn-error.log*
 ace-sign-studio/e2e/node_modules/
 ace-sign-studio/e2e/screenshots/
 ace-sign-studio/e2e/package-lock.json
+
+# ace-change-studio
+ace-change-studio/e2e/node_modules/
+ace-change-studio/e2e/screenshots/
+ace-change-studio/e2e/package-lock.json
