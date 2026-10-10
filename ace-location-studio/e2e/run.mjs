@@ -85,8 +85,20 @@ async function run() {
   const exportDir = path.join(outRoot, "3apps", "Temp"); // created by the app on first save
   const watchDir = path.join(outRoot, "Epicor Exports");  // where Compass saves its exports
   mkdirSync(watchDir);
+  // A stand-in Compass: when it starts, its "startup task" saves an export
+  // into the watched folder a moment later; it runs until asked to close.
+  const fakeCompass = path.join(outRoot, "Compass", "Conductor.exe");
+  mkdirSync(path.dirname(fakeCompass));
+  writeFileSync(fakeCompass, `#!/bin/sh
+trap 'kill $! 2>/dev/null; exit 0' TERM
+sleep 1
+cp "${path.join(DATA, "compass-export.xlsx")}" "$ACE_WATCH_DIR/ALS Locations.xlsx"
+sleep 300 &
+wait
+`, { mode: 0o755 });
+  process.on("exit", () => { try { execFileSync("pkill", ["-f", fakeCompass]); } catch {} });
   appProc = spawn(bin, ["-no-browser", "-no-exit", "-port=0"], {
-    env: { ...process.env, ACE_CONFIG_DIR: cfgDir, ACE_EXPORT_DIR: exportDir, ACE_WATCH_DIR: watchDir, ACE_UPDATE_MANIFEST: manifest },
+    env: { ...process.env, ACE_CONFIG_DIR: cfgDir, ACE_EXPORT_DIR: exportDir, ACE_WATCH_DIR: watchDir, ACE_COMPASS_EXE: fakeCompass, ACE_UPDATE_MANIFEST: manifest },
   });
   const url = await new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("app didn't start")), 15000);
@@ -113,7 +125,7 @@ async function run() {
 
   /* ---------- empty state ---------- */
   console.log("\n# Before a file is loaded");
-  ok("version tag", (await text("#verTag")) === "v1.3.0", await text("#verTag"));
+  ok("version tag", (await text("#verTag")) === "v1.4.0", await text("#verTag"));
   ok("preview explains what to do", (await text("#previewCard")).includes("Load the location data"));
   ok("save is disabled", await page.$eval("#saveBtn", (b) => b.disabled));
   ok("says why", (await text("#saveBlocker")).includes("Load the location data first"));
@@ -159,6 +171,24 @@ async function run() {
   ok("search filters the preview", (await page.$$("#previewTable tbody tr")).length === 1);
   await page.fill("#prevFilter", "");
   await shot("02-preview");
+
+  console.log("\n# Which locations a code clears");
+  const pick = (code, slot) => page.click(`[data-slot-code="${code}"][data-slot="${slot}"]`);
+  const pressed = () => page.$$eval('[data-slot-code="12R"]', (bs) => bs.map((b) => b.getAttribute("aria-pressed") === "true" ? 1 : 0).join(""));
+  ok("slots: Loc 1, 4, 5, 6 ticked by default", (await pressed()) === "100111", await pressed());
+  for (const s of [3, 4, 5]) await pick("12R", s); // shelf only
+  ok("slots: Loc 1 only → shelf locations only", (await text("#tSkus")) === "5" && (await text("#tCells")) === "5" && (await text(".cd-where")) === "Location 1: 5", [await text("#tSkus"), await text(".cd-where")]);
+  ok("slots: unticked overstock reported as left alone", (await text("#protectedNote")).includes("12R06 in Location 4 on SKU 779600"), await text("#protectedNote"));
+  ok("slots: preview locks the unticked columns", await page.$$eval("#previewTable thead th.loc-h", (hs) => hs.map((h) => h.classList.contains("locked") ? 1 : 0).join("")) === "011111");
+  for (const s of [3, 4, 5]) await pick("12R", s);
+  await pick("12R", 1); // Location 2 too
+  ok("slots: ticking Loc 2 warns", (await text(".risky-slots")).includes("Location 2 (flag)"), await text(".risky-slots").catch(() => ""));
+  ok("slots: and clears the flag match", (await text("#tSkus")) === "8" && (await text("#tCells")) === "9");
+  await pick("12R", 1);
+  for (const s of [0, 3, 4, 5]) await pick("12R", s);
+  ok("slots: none ticked says so", (await text(".no-slots")).includes("won't clear anything") && (await page.$eval("#saveBtn", (b) => b.disabled)));
+  for (const s of [0, 3, 4, 5]) await pick("12R", s);
+  ok("slots: back to the default", (await pressed()) === "100111" && (await text("#tSkus")) === "7" && (await text("#tCells")) === "8");
 
   /* ---------- save ---------- */
   console.log("\n# Save the import file");
@@ -266,6 +296,7 @@ async function run() {
   await page.waitForSelector("#stepFile .dropzone");
   ok("folder setting persisted", (await text("#destDir")) === other);
   const st = await page.evaluate(() => fetch("/api/state").then((r) => r.json()));
+  ok("log records which locations each code cleared", JSON.stringify(st.exports[0].slots) === JSON.stringify({ "12R": [0, 3, 4, 5] }), st.exports[0].slots);
   ok("export log persisted", st.exports.length === 3 && st.exports[0].skus > 7 && st.exports[2].skus === 7, st.exports.map((e) => e.skus));
   ok("log card after reload", (await page.$$("#logCard tbody tr")).length === 3);
   await page.click('.tab[data-view="settings"]');
@@ -323,6 +354,35 @@ async function run() {
   await page.evaluate(() => ClearView.checkWatch());
   await page.waitForSelector("#newerNote");
   ok("watch: a hand-loaded file isn't replaced by itself", (await text("#stepFile .file-meta")).includes("eagle-sample.xls"));
+
+  /* "Get fresh data from Compass": starts Compass, whose startup task saves an export */
+  await addCode("12R");
+  await page.click("#freshBtn");
+  await page.waitForSelector("#freshNote");
+  ok("fresh: waits for Compass's export", (await text("#freshNote")).includes("Waiting for Compass's export"), await text("#freshNote"));
+  await page.waitForFunction(() => document.querySelector("#freshLine")?.innerText.includes("just now"), null, { timeout: 30000 });
+  ok("fresh: Compass's new export loads, even with codes typed", (await text("#stepFile .file-meta")).includes("ALS Locations.xlsx") && (await page.$$(".code-chip")).length === 1 && (await text("#tSkus")) === "7");
+  ok("fresh: waiting note gone, button back", !(await has("#freshNote")) && (await has("#freshBtn")));
+  ok("fresh: Compass is running", execFileSync("pgrep", ["-f", fakeCompass]).toString().trim().split("\n").length === 1);
+  await shot("06d-fresh-from-compass");
+
+  const pidBefore = execFileSync("pgrep", ["-f", fakeCompass]).toString().trim();
+  await page.click("#freshBtn"); // Compass is open now: asks before restarting it
+  await page.waitForSelector(".modal");
+  ok("fresh: asks before restarting an open Compass", (await text(".modal")).includes("Restart Compass?"));
+  await page.click('.modal [data-act="cancel"]');
+  await page.waitForTimeout(300);
+  ok("fresh: cancel leaves Compass alone", execFileSync("pgrep", ["-f", fakeCompass]).toString().trim() === pidBefore && !(await has("#freshNote")));
+  await page.waitForTimeout(1100); // so the next export's time is clearly newer
+  await page.click("#freshBtn");
+  await page.waitForSelector(".modal");
+  await page.click('.modal [data-act="ok"]');
+  await page.waitForSelector("#freshNote");
+  await page.waitForFunction(() => !document.querySelector("#freshNote"), null, { timeout: 30000 });
+  const pidAfter = execFileSync("pgrep", ["-f", fakeCompass]).toString().trim();
+  ok("fresh: restart closes Compass and starts it again", pidAfter && pidAfter !== pidBefore && pidAfter.split("\n").length === 1, [pidBefore, pidAfter]);
+  ok("fresh: and loads its new export", (await text("#freshLine")).includes("just now"));
+  await page.click('[data-remove="12R"]');
 
   await page.click('.tab[data-view="settings"]');
   await page.fill("#sWatch", path.join(outRoot, "nowhere"));

@@ -46,6 +46,20 @@ const SettingsView = {
     $("#sWatchNow").innerHTML = line;
   },
 
+  async showCompassExe() {
+    const el = $("#sCompassExeNow");
+    if (!el) return;
+    const exe = Store.compassExe();
+    let st;
+    try {
+      st = await fetch("/api/compass/app?exe=" + encodeURIComponent(exe), { cache: "no-store" }).then((r) => r.json());
+    } catch (e) { el.textContent = "Couldn't check — " + friendlyError(e); return; }
+    if (!$("#sCompassExeNow") || exe !== Store.compassExe()) return;
+    $("#sCompassExeNow").innerHTML = st.found
+      ? `${icon("check")} Found${st.running ? " — Compass is open right now" : ""}.`
+      : `${icon("alert")} ${esc(st.error || "Not found.")}`;
+  },
+
   render() {
     const st = Store.settings;
     const def = window.__defaultExportDir || "C:\\3apps\\Temp";
@@ -73,8 +87,8 @@ const SettingsView = {
           <div class="card-head"><h3>${icon("info")} How clearing works</h3></div>
           <ul class="rules">
             <li>A code clears every location that <b>starts with</b> it: <code>12R</code> clears 12R01–12R09, <code>12R03</code> clears only 12R03.</li>
-            <li><b>Location 1</b> (shelf) and <b>Locations 4–6</b> (overstock) are cleared when they match.</li>
-            <li><b>Location 2</b> (system flags like MDONE) and <b>Location 3</b> (shelf capacity) are never cleared — they're written back exactly as they are.</li>
+            <li>Each code clears the locations ticked under it (L1–L6). By default that's <b>Location 1</b> (shelf) and <b>Locations 4–6</b> (overstock).</li>
+            <li><b>Location 2</b> (system flags like MDONE) and <b>Location 3</b> (shelf capacity) are left alone unless you tick them for a code — they're written back exactly as they are.</li>
             <li>Only SKUs with at least one cleared location go in the import file, always with all six location columns.</li>
             <li>In the file a <code>?</code> tells Eagle to clear that location.</li>
           </ul>
@@ -98,11 +112,19 @@ const SettingsView = {
             <button class="btn btn-secondary" id="sWatchReset" title="Go back to ${esc(window.__defaultWatchDir || "")}">Use default</button>
           </div>
           <p class="f-help" id="sWatchNow" style="margin-top:8px"></p>
+          <label class="f-label" for="sCompassExe">Compass program</label>
+          <p class="f-help">Clear Locations has a <b>Get fresh data from Compass</b> button: it starts Compass (restarting it if it's open — after asking, and letting Compass ask about unsaved work), so the export task set to run when Compass starts saves a new export.</p>
+          <div class="f-row">
+            <input class="f-input" id="sCompassExe" placeholder="${esc(window.__defaultCompassExe || "")}" value="${esc(st.compassExe)}" spellcheck="false">
+            <button class="btn btn-secondary" id="sCompassExeReset" title="Go back to ${esc(window.__defaultCompassExe || "")}">Use default</button>
+          </div>
+          <p class="f-help" id="sCompassExeNow" style="margin-top:8px"></p>
           <details class="watch-how"><summary>Setting up the export in Compass</summary>
             <ol class="rules">
               <li>Make a <b>query</b> of items with <b>Item Number</b>, <b>Item Description</b> and <b>Location</b>, <b>Location 2</b> … <b>Location 6</b> — no filter, so it has every item.</li>
               <li>Make a <b>schedule</b> that runs every 30 minutes.</li>
               <li>Make a <b>task</b> that runs the query on that schedule and saves it (Excel or CSV) <b>into the folder above, with the same file name every time</b>.</li>
+              <li>For the <b>Get fresh data</b> button, also set the task to run <b>when Compass starts</b>.</li>
             </ol>
           </details>
         </div>
@@ -131,6 +153,10 @@ const SettingsView = {
     $("#sWatch").oninput = (e) => { st.watchDir = e.target.value.trim(); watchChanged(); };
     $("#sWatchReset").onclick = () => { st.watchDir = ""; $("#sWatch").value = ""; watchChanged(); };
     this.showWatch();
+    const exeChanged = () => { this.changed(); clearTimeout(this._et); this._et = setTimeout(() => this.showCompassExe(), 400); };
+    $("#sCompassExe").oninput = (e) => { st.compassExe = e.target.value.trim(); exeChanged(); };
+    $("#sCompassExeReset").onclick = () => { st.compassExe = ""; $("#sCompassExe").value = ""; exeChanged(); };
+    this.showCompassExe();
     initSettingsUpdates();
     CompassPanel.render($("#compassCard"));
   },

@@ -80,6 +80,27 @@ eq("capacity and flag never clear", Clear.planClear(capRows, ["12", "MD"]).chang
 eq("capacity hit reported", Clear.planClear(capRows, ["12", "MD"]).protectedHits.map((h) => h.slot), [1, 2]);
 eq("short code matches widely", Clear.planClear(rows, ["1"]).stats[0].values.includes("107"), true);
 eq("nothing", Clear.planClear(rows, []).changed.length, 0);
+
+/* ---------- each code clears its own choice of locations ---------- */
+eq("default slots", Clear.slotsFor("12R", {}), [0, 3, 4, 5]);
+eq("chosen slots, tidied", Clear.slotsFor("12R", { "12R": [3, 0, 0, 9, -1, 1.5] }), [0, 3]);
+ok("default detected", Clear.isDefaultSlots([5, 4, 3, 0]) && !Clear.isDefaultSlots([0]) && !Clear.isDefaultSlots([0, 1, 3, 4, 5]));
+const shelfOnly = Clear.planClear(rows, ["12R"], { "12R": [0] });
+eq("Loc 1 only: overstock kept", shelfOnly.changed.find((r) => r.sku === "779600").after, ["?", "", "100", "12R06", "", ""]);
+ok("Loc 1 only: overstock-only SKUs left out", !shelfOnly.changed.some((r) => ["3008391", "9087035", "5555556"].includes(r.sku)));
+eq("Loc 1 only: counts", [shelfOnly.cells, shelfOnly.stats[0].bySlot], [6, [6, 0, 0, 0, 0, 0]]);
+ok("Loc 1 only: unticked matches reported", shelfOnly.protectedHits.some((h) => h.sku === "779600" && h.slot === 3) && shelfOnly.protectedHits.some((h) => h.slot === 1));
+const mixed = Clear.planClear(rows, ["12R", "USTOR"], { "12R": [0], USTOR: [3, 4, 5] });
+eq("mixed: each code its own slots", mixed.changed.find((r) => r.sku === "70018").after, ["?", "", "5", "?", "", ""]);
+const flags = Clear.planClear(rows, ["MDONE", "16END"], { MDONE: [1], "16END": [0] });
+eq("Loc 2 ticked: flag cleared", flags.changed.map((r) => [r.sku, r.after[1]]), [["6707640", "?"]]);
+ok("Loc 2 not ticked for 16END: reported", flags.protectedHits.some((h) => h.code === "16END" && h.slot === 1));
+const caps = Clear.planClear(capRows, ["12"], { "12": [2] });
+eq("Loc 3 ticked: capacity cleared", caps.changed[0].after, ["", "MDONE", "?", "", "", ""]);
+eq("no slots ticked: nothing cleared", Clear.planClear(rows, ["12R"], { "12R": [] }).changed.length, 0);
+// A shared value goes to the first code that clears that slot.
+const share = Clear.planClear(rows, ["12R0", "12R"], { "12R0": [0], "12R": [0, 3] });
+eq("first code clearing that slot wins", [share.stats[0].bySlot[0], share.stats[1].bySlot[0], share.stats[1].bySlot[3]], [6, 0, 3]);
 eq("no rows", Clear.planClear([], ["12R"]).unchanged, 0);
 
 /* ---------- the import file ---------- */
