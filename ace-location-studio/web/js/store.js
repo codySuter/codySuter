@@ -1,7 +1,7 @@
 /* ============================================================
    Ace Location Studio — the saved document (state.json via /api/state).
 
-   { version, settings: { storeLine, exportDir }, exports: [...], plans: {...} }
+   { version, settings: { storeLine, exportDir, watchOn, watchDir }, exports: [...], plans: {...} }
 
    exports is a short log of the files saved, newest first (kind "clear"
    for Clear Locations, "plan" for New Planogram), so there's a record of
@@ -17,6 +17,8 @@ function defaultSettings() {
   return {
     storeLine: "Snyder's Ace Hardware · Media, PA",
     exportDir: "", // "" = the default, C:\3apps\Temp
+    watchOn: true, // load the newest Compass export from watchDir by itself
+    watchDir: "",  // "" = the default, %USERPROFILE%\Cody's Apps\Epicor Exports
   };
 }
 
@@ -27,6 +29,9 @@ const Store = {
 
   get settings() { return this.doc.settings; },
   get exports() { return this.doc.exports; },
+
+  /** The folder Compass saves its scheduled exports to. */
+  watchDir() { return (this.settings.watchDir || "").trim() || window.__defaultWatchDir || ""; },
 
   /** The folder import files are saved to. */
   exportDir() { return (this.settings.exportDir || "").trim() || window.__defaultExportDir || "C:\\3apps\\Temp"; },
@@ -87,6 +92,8 @@ function normalizeDoc(data) {
   const s = Object.assign({}, defaultSettings(), d.settings || {});
   if (typeof s.exportDir !== "string") s.exportDir = "";
   if (typeof s.storeLine !== "string") s.storeLine = defaultSettings().storeLine;
+  if (typeof s.watchDir !== "string") s.watchDir = "";
+  if (typeof s.watchOn !== "boolean") s.watchOn = true;
   return {
     version: 1,
     settings: s,

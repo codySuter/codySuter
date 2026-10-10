@@ -365,7 +365,7 @@ type EagleRow struct {
 type EagleFile struct {
 	Name      string     `json:"name"`
 	Sheet     string     `json:"sheet"`
-	Layout    string     `json:"layout"` // "export" (Current … columns) or "import"
+	Layout    string     `json:"layout"` // "export" (Current … columns), "import", or "compass" (Item Number)
 	HeaderRow int        `json:"headerRow"`
 	Columns   []string   `json:"columns"` // the header text used for SKU, Desc, Loc 1–6
 	Rows      []EagleRow `json:"rows"`
@@ -373,6 +373,10 @@ type EagleFile struct {
 }
 
 var spaceRe = regexp.MustCompile(`\s+`)
+
+// skuHeaders are the headings the SKU column goes by: "SKU" in Eagle's
+// export and import layouts, "Item Number" in a Compass export.
+var skuHeaders = map[string]bool{"sku": true, "item number": true, "item #": true, "item no": true, "item no.": true}
 
 func normHeader(s string) string {
 	return strings.ToLower(strings.TrimSpace(spaceRe.ReplaceAllString(s, " ")))
@@ -395,14 +399,14 @@ func parseEagle(name, sheet string, grid [][]string) (*EagleFile, error) {
 	hdr := -1
 	for r := 0; r < len(grid) && r < 30 && hdr < 0; r++ {
 		for _, c := range grid[r] {
-			if normHeader(c) == "sku" {
+			if skuHeaders[normHeader(c)] {
 				hdr = r
 				break
 			}
 		}
 	}
 	if hdr < 0 {
-		return nil, errors.New(`couldn't find a "SKU" column heading in the first 30 rows — is this the Eagle location export?`)
+		return nil, errors.New(`couldn't find a "SKU" or "Item Number" column heading in the first 30 rows — is this the Eagle or Compass location export?`)
 	}
 	heads := map[string]int{}
 	for c, h := range grid[hdr] {
@@ -421,7 +425,13 @@ func parseEagle(name, sheet string, grid [][]string) (*EagleFile, error) {
 	}
 
 	out := &EagleFile{Name: name, Sheet: sheet, HeaderRow: hdr + 1, Warnings: []string{}}
-	skuCol := heads["sku"]
+	skuCol := -1
+	for _, n := range []string{"sku", "item number", "item #", "item no", "item no."} {
+		if c, ok := heads[n]; ok {
+			skuCol = c
+			break
+		}
+	}
 	descCol, descHead := find([]string{"description", "desc", "item description"})
 	out.Columns = append(out.Columns, grid[hdr][skuCol], descHead)
 
@@ -432,6 +442,8 @@ func parseEagle(name, sheet string, grid [][]string) (*EagleFile, error) {
 	out.Layout = "import"
 	if useCurrent {
 		out.Layout = "export"
+	} else if normHeader(grid[hdr][skuCol]) != "sku" {
+		out.Layout = "compass" // Compass names the SKU column "Item Number"
 	}
 	var locCols [6]int
 	var missing []string

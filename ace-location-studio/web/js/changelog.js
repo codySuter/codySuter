@@ -7,6 +7,17 @@
 
 const CHANGELOG = [
   {
+    version: "1.3.0",
+    date: "October 2026",
+    notes: [
+      "Clear Locations loads your location data by itself: set Compass to save a location export (Item Number, Item Description, Location – Location 6) into a folder every 30 minutes, and the newest one is ready whenever you open the app — no exporting from Eagle by hand.",
+      "When Compass saves a newer export, the app switches to it straight away if you haven't typed any codes yet; if you're mid-way through, a banner offers it instead, so nothing changes under you.",
+      "Shows when Compass saved the data (\"Saved by Compass 10:30 AM (12 min ago)\") and warns when it's over an hour old, in case the schedule has stopped.",
+      "Settings → Compass exports: choose the folder (Cody's Apps\\Epicor Exports by default), turn it on or off, and see the newest export. The app only reads that folder.",
+      "Compass exports dropped in by hand work too — the app reads their \"Item Number\" column as the SKU.",
+    ],
+  },
+  {
     version: "1.2.1",
     date: "October 2026",
     notes: [

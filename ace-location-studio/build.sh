@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="1.2.1"
+VERSION="1.3.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Compass: works with Epicor-hosted Eagle servers and older Compass versions, and the connection test now shows the real reason a login fails."
+NOTES="Clear Locations loads the newest Compass export by itself: set Compass to save a location export to a folder every 30 minutes and the app picks up each new one, no Eagle export needed."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows"

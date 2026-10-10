@@ -51,3 +51,5 @@ ace-change-studio/e2e/package-lock.json
 ace-location-studio/e2e/node_modules/
 ace-location-studio/e2e/screenshots/
 ace-location-studio/e2e/package-lock.json
+# `go build` in ace-location-studio/ leaves the binary there
+ace-location-studio/ace-location-studio

@@ -6,6 +6,8 @@
  * bad file, the big file, settings + persistence, the update banner, and
  * the New Planogram tab (synthetic planogram PDF: section locations,
  * facings on the drawing, the import + label files, picking back up), and
+ * the Compass export folder (the newest export loading by itself, a newer
+ * one arriving mid-way, the stale warning, a hand-loaded file left alone),
  * Settings → Live data from Compass (a refused connection, the password
  * never leaving the backend, and — with ACE_TEST_COMPASS set — a live
  * MySQL: test + Explore).
@@ -14,7 +16,7 @@
  * Env:   CHROMIUM_PATH — explicit browser executable
  */
 import { spawn, execFileSync } from "child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, utimesSync, writeFileSync } from "fs";
 import http from "http";
 import os from "os";
 import path from "path";
@@ -81,8 +83,10 @@ async function run() {
   const cfgDir = mkdtempSync(path.join(os.tmpdir(), "als-cfg-"));
   const outRoot = mkdtempSync(path.join(os.tmpdir(), "als-out-"));
   const exportDir = path.join(outRoot, "3apps", "Temp"); // created by the app on first save
+  const watchDir = path.join(outRoot, "Epicor Exports");  // where Compass saves its exports
+  mkdirSync(watchDir);
   appProc = spawn(bin, ["-no-browser", "-no-exit", "-port=0"], {
-    env: { ...process.env, ACE_CONFIG_DIR: cfgDir, ACE_EXPORT_DIR: exportDir, ACE_UPDATE_MANIFEST: manifest },
+    env: { ...process.env, ACE_CONFIG_DIR: cfgDir, ACE_EXPORT_DIR: exportDir, ACE_WATCH_DIR: watchDir, ACE_UPDATE_MANIFEST: manifest },
   });
   const url = await new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("app didn't start")), 15000);
@@ -109,10 +113,11 @@ async function run() {
 
   /* ---------- empty state ---------- */
   console.log("\n# Before a file is loaded");
-  ok("version tag", (await text("#verTag")) === "v1.2.1", await text("#verTag"));
-  ok("preview explains what to do", (await text("#previewCard")).includes("Load the Eagle export"));
+  ok("version tag", (await text("#verTag")) === "v1.3.0", await text("#verTag"));
+  ok("preview explains what to do", (await text("#previewCard")).includes("Load the location data"));
   ok("save is disabled", await page.$eval("#saveBtn", (b) => b.disabled));
-  ok("says why", (await text("#saveBlocker")).includes("Load the Eagle export first"));
+  ok("says why", (await text("#saveBlocker")).includes("Load the location data first"));
+  ok("watching the empty Compass folder", (await text("#watchHint")).includes("no Compass export there yet"), await text("#watchHint").catch(() => ""));
   ok("destination is the export folder", (await text("#destDir")) === exportDir, await text("#destDir"));
   await shot("01-empty");
 
@@ -268,6 +273,72 @@ async function run() {
   await page.waitForTimeout(600);
   ok("reset to default folder", (await text("#sDirNow")).includes(exportDir));
   await shot("06-settings");
+
+  /* ---------- the Compass export folder ---------- */
+  console.log("\n# Compass export folder");
+  const sWatch = () => page.waitForFunction(() => document.querySelector("#sWatchNow")?.innerText.trim()).then(() => text("#sWatchNow"));
+  ok("watch: settings show the empty folder", (await sWatch()).includes("no export there yet"), await text("#sWatchNow"));
+  const exportFile = path.join(watchDir, "ALS Locations.xlsx");
+  const putExport = (agoMs) => {
+    copyFileSync(path.join(DATA, "compass-export.xlsx"), exportFile);
+    const t = new Date(Date.now() - agoMs);
+    utimesSync(exportFile, t, t);
+  };
+  putExport(10 * 60000);
+  await page.click('.tab[data-view="clear"]'); // opening the tab checks the folder
+  await page.waitForSelector("#freshLine");
+  ok("watch: loads the newest export by itself", (await text("#stepFile .file-meta")).includes("ALS Locations.xlsx") && (await text("#stepFile .file-meta")).includes("9 SKUs · Sheet1 · Compass export"), await text("#stepFile .file-meta"));
+  ok("watch: says when Compass saved it", (await text("#freshLine")).includes("(10 min ago)"), await text("#freshLine"));
+  ok("watch: not stale", !(await has("#staleNote")));
+  await addCode("12R");
+  ok("watch: clearing works on Compass data", (await text("#tSkus")) === "7" && (await text("#tCells")) === "8", [await text("#tSkus"), await text("#tCells")]);
+  await shot("06b-compass-export");
+
+  putExport(90 * 1000); // Compass saved again while codes are typed
+  await page.evaluate(() => ClearView.checkWatch());
+  await page.waitForSelector("#newerNote");
+  ok("watch: newer export mid-way shows a banner", (await text("#newerNote")).includes("Your codes stay"), await text("#newerNote"));
+  ok("watch: data not swapped underneath", (await text("#freshLine")).includes("(10 min ago)"));
+  await page.click("#newerLoad");
+  await page.waitForFunction(() => document.querySelector("#freshLine")?.innerText.includes("(1 min ago)"));
+  ok("watch: Load it switches to the newer export, codes kept", (await page.$$(".code-chip")).length === 1 && (await text("#tSkus")) === "7");
+  ok("watch: banner gone", !(await has("#newerNote")));
+
+  await page.click('[data-remove="12R"]'); // idle again
+  putExport(20 * 1000);
+  await page.evaluate(() => ClearView.checkWatch());
+  await page.waitForFunction(() => document.querySelector("#freshLine")?.innerText.includes("just now"));
+  ok("watch: with no codes typed, a newer export loads by itself", !(await has("#newerNote")));
+
+  putExport(2 * 3600000 + 5 * 60000); // the schedule stopped two hours ago
+  await page.reload();
+  await page.waitForSelector("#staleNote");
+  ok("watch: warns when the export is over an hour old", (await text("#staleNote")).includes("2 h 5 min old"), await text("#staleNote"));
+  await shot("06c-compass-stale");
+
+  await page.setInputFiles("#fileInput", path.join(DATA, "eagle-sample.xls")); // loaded by hand
+  await page.waitForFunction(() => document.querySelector("#stepFile .file-meta")?.innerText.includes("eagle-sample.xls"));
+  await page.waitForTimeout(6500);
+  putExport(5500);
+  await page.evaluate(() => ClearView.checkWatch());
+  await page.waitForSelector("#newerNote");
+  ok("watch: a hand-loaded file isn't replaced by itself", (await text("#stepFile .file-meta")).includes("eagle-sample.xls"));
+
+  await page.click('.tab[data-view="settings"]');
+  await page.fill("#sWatch", path.join(outRoot, "nowhere"));
+  await page.waitForFunction(() => document.querySelector("#sWatchNow")?.innerText.includes("doesn't exist yet"));
+  ok("watch: a missing folder is explained", true);
+  await page.click("#sWatchReset");
+  await page.waitForFunction(() => document.querySelector("#sWatchNow")?.innerText.includes("ALS Locations.xlsx"));
+  ok("watch: settings show the newest export", (await text("#sWatchNow")).includes("over an hour old") === false, await text("#sWatchNow"));
+  await page.uncheck("#sWatchOn");
+  await page.waitForFunction(() => document.querySelector("#sWatchNow")?.innerText.startsWith("Off"));
+  await page.waitForTimeout(500);
+  await page.reload();
+  await page.click('.tab[data-view="clear"]');
+  await page.waitForSelector("#stepFile .dropzone");
+  await page.waitForTimeout(800);
+  ok("watch: turned off, nothing loads by itself", await has("#stepFile .dropzone") && !(await has("#watchHint")));
 
   /* ---------- new planogram ---------- */
   console.log("\n# New planogram");
