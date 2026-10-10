@@ -1,7 +1,9 @@
 /* ============================================================
    Ace Location Studio — Clear Locations view.
 
-   1. Load the Eagle location export (the backend reads the .xls).
+   1. Load the location data: the newest Compass export from the watched
+      folder loads by itself (and again when Compass saves a newer one),
+      or drop an Eagle / Compass export (the backend reads the file).
    2. Type the location codes being reset.
    3. Check the preview, then save the import file into the export
       folder (C:\3apps\Temp) for Eagle to pick up.
@@ -11,9 +13,16 @@
 
 const PREVIEW_LIMIT = 1000; // rows drawn at once; the file itself has them all
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9 _.,()&+#-]{0,150}\.csv$/;
+const WATCH_POLL_MS = 60000;           // look for a newer Compass export every minute
+const STALE_MS = 60 * 60000;           // warn when the loaded export is over an hour old
 
 const ClearView = {
-  file: null,        // parsed Eagle file from /api/parse
+  file: null,        // parsed Eagle file from /api/parse or /api/watch/load
+  source: null,      // { kind: "watch", dir, name, modified } or { kind: "manual", loadedAt }
+  watch: null,       // the watched folder's last status from /api/watch
+  newer: null,       // a newer export waiting to be loaded (not loaded because codes are in use)
+  watchBusy: false,
+  watchError: "",
   fileError: "",
   loading: "",
   codes: [],
@@ -31,7 +40,7 @@ const ClearView = {
       <div class="view-head">
         <div>
           <h2>Clear Locations</h2>
-          <p>Load the location export from Eagle, type the codes being reset, check the preview, and save the import file for Eagle.</p>
+          <p>The newest Compass export loads by itself (or drop an Eagle export). Type the codes being reset, check the preview, and save the import file for Eagle.</p>
         </div>
       </div>
       <div class="clear-layout">
@@ -61,6 +70,9 @@ const ClearView = {
       }
     });
     this.refresh();
+    this.checkWatch();
+    setInterval(() => this.checkWatch(), WATCH_POLL_MS);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) this.checkWatch(); });
   },
 
   refresh() {
@@ -80,7 +92,7 @@ const ClearView = {
     const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
     document.addEventListener("dragenter", (e) => {
       if (!hasFiles(e) || (App.view !== "clear" && App.view !== "plan")) return;
-      $("#dropText").textContent = App.view === "plan" ? "Drop the planogram PDF to load it" : "Drop the Eagle export to load it";
+      $("#dropText").textContent = App.view === "plan" ? "Drop the planogram PDF to load it" : "Drop the export to load it";
       depth++;
       ov.classList.add("show");
     });
@@ -114,6 +126,8 @@ const ClearView = {
       const data = await r.json().catch(() => ({ error: `the app answered ${r.status}` }));
       if (!r.ok || data.error) throw new Error(data.error || `the app answered ${r.status}`);
       this.file = data;
+      this.source = { kind: "manual", loadedAt: Date.now() };
+      this.newer = null;
       this.saved = null;
       this.saveError = "";
       showToast(`${icon("check")} Loaded ${esc(f.name)} — ${data.rows.length.toLocaleString()} SKUs`, { kind: "good" });
@@ -125,40 +139,135 @@ const ClearView = {
     }
   },
 
+  /* The Compass export folder: Compass saves a fresh export on a schedule;
+     the newest one loads by itself. A newer one replaces the loaded data
+     straight away while no codes are typed; otherwise a banner offers it,
+     so nothing changes under someone mid-way through. A file loaded by
+     hand is never replaced by itself. */
+  checkWatch() {
+    // One check at a time (the tab, the timer and focus can all ask at once).
+    if (!this._checking) this._checking = this._checkWatch().finally(() => { this._checking = null; });
+    return this._checking;
+  },
+
+  async _checkWatch() {
+    const dir = Store.watchDir();
+    if (!Store.settings.watchOn || !dir) {
+      if (this.watch || this.newer) { this.watch = null; this.newer = null; this.renderFile(); }
+      return;
+    }
+    if (this.watchBusy || this.loading) return;
+    let st;
+    try {
+      st = await fetch("/api/watch?dir=" + encodeURIComponent(dir), { cache: "no-store" }).then((r) => r.json());
+    } catch (e) { return; }
+    if (dir !== Store.watchDir()) return; // the folder changed meanwhile
+    this.watch = st;
+    const f = st.file;
+    if (f && f.writing) {
+      clearTimeout(this._settle);
+      this._settle = setTimeout(() => this.checkWatch(), 6000); // still being saved
+    } else if (f) {
+      const src = this.source;
+      if (!this.file) return this.loadWatch(f);
+      if (src && src.kind === "watch") {
+        const isNew = src.dir !== dir || f.name !== src.name || f.modified > src.modified;
+        if (isNew && !this.codes.length && !this.saving) return this.loadWatch(f);
+        this.newer = isNew ? f : null;
+      } else if (src && src.kind === "manual") {
+        this.newer = f.modified > src.loadedAt ? f : null;
+      }
+    } else {
+      this.newer = null;
+    }
+    this.renderFile();
+  },
+
+  async loadWatch(f) {
+    const dir = Store.watchDir();
+    this.watchBusy = true;
+    this.loading = f.name;
+    this.renderFile();
+    try {
+      const r = await fetch("/api/watch/load", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dir, name: f.name }),
+      });
+      const data = await r.json().catch(() => ({ error: `the app answered ${r.status}` }));
+      if (!r.ok || data.error) throw new Error(data.error || `the app answered ${r.status}`);
+      const replaced = !!this.file;
+      this.file = data;
+      this.source = { kind: "watch", dir, name: f.name, modified: data.modified };
+      this.newer = null;
+      this.watchError = "";
+      this.fileError = "";
+      this.saved = null;
+      this.saveError = "";
+      showToast(`${icon("check")} ${replaced ? "Updated to" : "Loaded"} the Compass export from ${esc(whenText(data.modified))} — ${data.rows.length.toLocaleString()} SKUs`, { kind: "good" });
+    } catch (e) {
+      this.watchError = `${f.name}: ${friendlyError(e)}`;
+    } finally {
+      this.watchBusy = false;
+      this.loading = "";
+      this.refresh();
+    }
+  },
+
   renderFile() {
     const c = $("#stepFile");
+    if (!c) return;
     const f = this.file;
+    const src = this.source;
+    const st = this.watch;
     let body;
     if (this.loading) {
       body = `<div class="file-row"><div class="spinner"></div><div><b>Reading ${esc(this.loading)}…</b></div></div>`;
     } else if (f) {
-      const layout = f.layout === "export" ? "Eagle location export" : "Eagle import layout";
+      const layout = { export: "Eagle location export", compass: "Compass export", import: "Eagle import layout" }[f.layout] || "Eagle import layout";
+      const fromWatch = src && src.kind === "watch";
+      const age = fromWatch ? Date.now() - src.modified : 0;
       body = `
         <div class="file-row">
-          <span class="file-ico">${icon("sheet")}</span>
+          <span class="file-ico">${icon(fromWatch ? "refresh" : "sheet")}</span>
           <div class="file-meta">
             <b title="${esc(f.name)}">${esc(f.name)}</b>
             <span>${f.rows.length.toLocaleString()} SKUs${f.sheet ? " · " + esc(f.sheet) : ""} · ${layout}</span>
+            ${fromWatch ? `<span class="fresh${age > STALE_MS ? " stale" : ""}" id="freshLine">Saved by Compass ${esc(whenText(src.modified))} (${esc(agoText(src.modified))})</span>` : ""}
           </div>
           <button class="btn btn-secondary" id="fileChange">Change file</button>
         </div>
+        ${fromWatch && age > STALE_MS ? `<div class="notice warn slim" id="staleNote">${icon("alert")}<span><b>This export is ${esc(agoText(src.modified).replace(" ago", ""))} old.</b> Compass may have stopped saving new ones — check its scheduled task, or drop a fresh export here.</span></div>` : ""}
+        ${this.newer ? `<div class="notice info slim" id="newerNote">${icon("refresh")}<span><b>Newer Compass data</b> from ${esc(whenText(this.newer.modified))}.${this.codes.length ? " Your codes stay; the preview updates." : ""} <button class="link" id="newerLoad">Load it</button></span></div>` : ""}
         ${(f.warnings || []).map((w) => `<div class="notice warn slim">${icon("alert")}<span>${esc(w)}</span></div>`).join("")}`;
     } else {
+      let hint = "";
+      if (Store.settings.watchOn && st) {
+        if (st.file && st.file.writing) hint = `Compass is saving <b>${esc(st.file.name)}</b> — it loads in a moment.`;
+        else if (st.exists && !st.file) hint = `Watching <code>${esc(st.dir)}</code> — no Compass export there yet.`;
+        else if (!st.exists) hint = `The Compass export folder <code>${esc(st.dir)}</code> isn't there yet. <button class="link" id="watchSettings">Settings</button>`;
+      }
       body = `
         <button class="dropzone" id="fileDrop">
           ${icon("upload", "big-ico")}
-          <b>Drop the Eagle export here</b>
+          <b>Drop the Eagle or Compass export here</b>
           <span>or click to choose the file</span>
         </button>
-        <p class="f-help" style="margin-top:10px">The location export from Eagle, saved as Excel (.xls). An .xlsx or .csv with the same columns works too.</p>`;
+        <p class="f-help" style="margin-top:10px">The newest export in the Compass folder loads by itself. You can also drop the location export from Eagle (.xls) or Compass (.xlsx / .csv).</p>
+        ${hint ? `<p class="f-help watch-hint" id="watchHint">${icon("refresh")} ${hint}</p>` : ""}`;
+    }
+    if (this.watchError) {
+      body += `<div class="notice warn slim" id="watchError">${icon("alert")}<span><b>Couldn't load the newest Compass export.</b> ${esc(this.watchError)}</span></div>`;
     }
     if (this.fileError) {
       body += `<div class="notice bad" id="fileError">${icon("x")}<span><b>Couldn't load that file.</b> ${esc(this.fileError)}</span></div>`;
     }
-    c.innerHTML = stepHead(1, "Eagle export", !!f) + body;
+    c.innerHTML = stepHead(1, "Location data", !!f) + body;
     const pick = () => $("#fileInput").click();
     if ($("#fileDrop")) $("#fileDrop").onclick = pick;
     if ($("#fileChange")) $("#fileChange").onclick = pick;
+    if ($("#newerLoad")) $("#newerLoad").onclick = () => this.loadWatch(this.newer);
+    if ($("#watchSettings")) $("#watchSettings").onclick = () => App.show("settings");
   },
 
   /* ---------------- step 2: the codes ---------------- */
@@ -263,7 +372,7 @@ const ClearView = {
   fileName() { return this.customName != null ? this.customName : this.autoName(); },
 
   blocker() {
-    if (!this.file) return "Load the Eagle export first.";
+    if (!this.file) return "Load the location data first.";
     if (!this.codes.length) return "Add the location codes to clear.";
     if (!this.plan || !this.plan.changed.length) return "Nothing in this file matches those codes.";
     if (!SAFE_NAME.test(this.fileName())) return "The file name can only use letters, numbers, spaces and dashes, and must end in .csv.";
@@ -373,7 +482,7 @@ const ClearView = {
     if (!f) {
       c.innerHTML = `
         <div class="card-head"><h3>${icon("list")} Preview</h3></div>
-        <div class="empty-state">${icon("sheet", "big-ico")}<p>Load the Eagle export to see every SKU and location that will be cleared.</p></div>`;
+        <div class="empty-state">${icon("sheet", "big-ico")}<p>Load the location data to see every SKU and location that will be cleared.</p></div>`;
       return;
     }
     const plan = this.plan;

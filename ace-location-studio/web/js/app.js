@@ -18,6 +18,7 @@ const App = {
     $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
     if (name === "settings") SettingsView.render();
     if (name === "plan") PlanView.shown();
+    if (name === "clear") ClearView.checkWatch();
     $("#work").scrollTop = 0;
     try { localStorage.setItem(VIEW_KEY, name); } catch (e) { /* ignore */ }
   },
@@ -38,6 +39,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     window.__appVersion = h.version;
     window.__dataDir = h.dataDir;
     window.__defaultExportDir = h.defaultExportDir;
+    window.__defaultWatchDir = h.defaultWatchDir;
     $("#verTag").textContent = "v" + h.version;
   } catch (e) { /* the conn bar will say so */ }
   await Store.load();

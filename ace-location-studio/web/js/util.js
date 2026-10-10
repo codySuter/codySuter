@@ -40,6 +40,20 @@ function fmtDateTime(ts) {
   const d = new Date(ts);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " · " + fmtTime(ts);
 }
+/** "just now", "12 min ago", "2 h 5 min ago", "3 days ago". */
+function agoText(ts, now) {
+  const mins = Math.floor(((now || Date.now()) - ts) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return mins % 60 ? `${h} h ${mins % 60} min ago` : `${h} h ago`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? "1 day ago" : `${d} days ago`;
+}
+/** Today: "10:30 AM"; another day: "Oct 9 · 10:30 AM". */
+function whenText(ts) {
+  return new Date(ts).toDateString() === new Date().toDateString() ? fmtTime(ts) : fmtDateTime(ts).replace(/, \d{4}/, "");
+}
 function daysAgoText(iso) {
   const days = Math.round((parseISODate(todayISO()) - parseISODate(iso)) / 86400000);
   if (days <= 0) return "today";

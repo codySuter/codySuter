@@ -4,8 +4,9 @@ A Windows app for Snyder's Ace Hardware that takes the busywork out of
 Epicor Eagle location changes during a reset (say, aisle 12 going over to
 Christmas):
 
-- **Clear Locations** turns the location export for the section being reset
-  into the Eagle import file that clears those locations.
+- **Clear Locations** turns the location data for the section being reset
+  into the Eagle import file that clears those locations. The data can load
+  by itself from a Compass export that Compass saves on a schedule.
 - **New Planogram** reads the planogram PDF from Ace and writes the Eagle
   import that gives every SKU its new Location 1 and shelf capacity, plus
   the label printer files. You can take facings away on the plan's own
@@ -29,11 +30,13 @@ to clear that location.
 
 ## Clear Locations
 
-1. **Load the Eagle export.** Drag the `.xls` Eagle exported onto the
-   window (or click to choose it). The app reads the SKU, the description,
-   and the six **Current** location columns. An `.xlsx` or `.csv` with
-   the same columns works too, and so does an import file you saved
-   earlier (handy for double-checking one).
+1. **Load the location data.** If Compass saves exports to the watched
+   folder (see below), the newest one is already loaded. Otherwise drag
+   the `.xls` Eagle exported onto the window (or click to choose it). The
+   app reads the SKU, the description, and the six **Current** location
+   columns. An `.xlsx` or `.csv` with the same columns works too, and so
+   does a Compass export (its **Item Number** column is the SKU) or an
+   import file you saved earlier (handy for double-checking one).
 2. **Type the codes to clear.** A code clears every location that **starts
    with** it: `12R` clears 12R01–12R09, and `12R03` clears only 12R03.
    Add as many codes as you need (`12R, 14L05` works too). For each code
@@ -70,6 +73,38 @@ SKU,Location 1,Location 2,Location 3,Location 4,Location 5,Location 6
 
 The **Saved import files** list keeps the last 50 files you saved, with
 the codes, how many SKUs and locations, and which export they came from.
+
+### Loading Compass exports automatically
+
+Compass can run a saved query on a schedule and save the result to a
+folder. Ace Location Studio watches that folder, so the location data is
+always ready without exporting anything from Eagle by hand.
+
+1. In Compass, make a **query** of items with **Item Number**, **Item
+   Description** and **Location**, **Location 2** … **Location 6**, with no
+   filter so it has every item.
+2. Make a **schedule** that runs every 30 minutes, and a **task** that runs
+   the query on it and saves it (Excel or CSV) **into the watched folder,
+   with the same file name every time**.
+3. The watched folder is set in **Settings → Compass exports**. It defaults
+   to `%USERPROFILE%\Cody's Apps\Epicor Exports`.
+
+Then in Clear Locations:
+
+- The **newest** export in the folder loads when the app opens. The step
+  says when Compass saved it, e.g. *Saved by Compass 10:30 AM (12 min ago)*.
+- The app looks for a newer one every minute and when the window comes
+  back into view. A newer export loads straight away if no codes are
+  typed. If you're mid-way through, a **Newer Compass data — Load it**
+  banner appears instead, so nothing changes under you. A file you loaded
+  by hand is never replaced by itself.
+- If the loaded export is **over an hour old**, a warning says Compass may
+  have stopped saving new ones.
+- A file still being written (changed in the last few seconds) is left
+  until it's finished.
+
+The app only ever reads that folder; nothing in it is changed, moved or
+deleted.
 
 ## New Planogram
 
@@ -158,6 +193,8 @@ on the Eagle server, which Margin Master support or Epicor arranges.
 - **Export folder.** Defaults to `C:\3apps\Temp` and is created if it's
   missing. Change it only if this PC's Eagle picks imports up from
   somewhere else.
+- **Compass exports.** Turns the automatic loading on or off, sets the
+  folder Compass saves to, and shows the newest export in it.
 - **Check for updates**, plus the version history. When a new version is
   out, a banner offers **Update & Restart**.
 
@@ -176,6 +213,8 @@ window. It quits about 90 seconds after the window closes.
   takes cell text only.
 - `eagle.go`: `.xlsx`/`.csv` reading, finding the SKU and location
   columns, and writing the import file (`/api/parse`, `/api/export`).
+- `watch.go`: the Compass export folder: the newest export in it
+  (`/api/watch`) and reading one (`/api/watch/load`).
 - `web/js/clear.js`: the clearing rules (which slots, starts-with
   matching, the CSV layout, the file name). These are pure functions,
   shared by the app and the unit tests.
@@ -192,7 +231,7 @@ window. It quits about 90 seconds after the window closes.
 
 ```sh
 ./build.sh            # Windows exe → ../dist/ace-location-studio/
-go test ./...         # .xls reader, column mapping, export writer, server, Compass
+go test ./...         # .xls reader, column mapping, export writer, server, Compass, export folder
 # live Compass tests: ACE_TEST_MYSQL=user:pass@host:port go test ./...  (an admin login on any MySQL/MariaDB)
 # E2E against a live server: load testdata/compass-seed.sql, then
 #   ACE_TEST_COMPASS=127.0.0.1:3306:compasstest:mmuser:s3cret-test node e2e/run.mjs
@@ -203,7 +242,8 @@ cd e2e && npm install && node run.mjs   # drives the real app in Chromium
 
 The test spreadsheets in `testdata/` are synthetic (made by
 `testdata/make_fixtures.py`) and copy the layout of a real Eagle export.
-`testdata/pog-sample.pdf` is a synthetic two-section planogram (made by
+`testdata/compass-export.xlsx` has the same items laid out like a Compass
+export. `testdata/pog-sample.pdf` is a synthetic two-section planogram (made by
 `testdata/make_pog_fixture.mjs`) laid out like a real Ace planogram PDF.
 CI (`.github/workflows/build-location-studio-windows.yml`) runs all of the
 above, then publishes the exe and `version.json` to the

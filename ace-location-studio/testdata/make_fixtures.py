@@ -70,7 +70,21 @@ def big_rows():
     return out
 
 
+def write_compass(path):
+    """Like a Compass item export: "Item Number" for the SKU, plain
+    "Location" … "Location 6" columns, the description last, every cell
+    text (Compass writes numbers like a capacity of 6 as "6")."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sheet1"
+    ws.append(["Item Number", "Location"] + [f"Location {n}" for n in range(2, 7)] + ["Item Description"])
+    for sku, desc, *locs in ROWS:
+        ws.append([sku] + list(locs) + [desc])
+    wb.save(path)
+
+
 def main():
+    write_compass(os.path.join(HERE, "compass-export.xlsx"))
     write_xls(os.path.join(HERE, "eagle-sample.xls"), ROWS)
     write_xls(os.path.join(HERE, "eagle-big.xls"), big_rows())
 

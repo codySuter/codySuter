@@ -24,6 +24,28 @@ const SettingsView = {
     }, 350);
   },
 
+  /** The watched folder's status under its setting. */
+  async showWatch() {
+    const el = $("#sWatchNow");
+    if (!el) return;
+    const dir = Store.watchDir();
+    if (!Store.settings.watchOn) { el.innerHTML = "Off — load an export by hand in Clear Locations."; return; }
+    let st;
+    try {
+      st = await fetch("/api/watch?dir=" + encodeURIComponent(dir), { cache: "no-store" }).then((r) => r.json());
+    } catch (e) { el.textContent = "Couldn't check the folder — " + friendlyError(e); return; }
+    if (!$("#sWatchNow") || dir !== Store.watchDir()) return;
+    let line;
+    if (st.error) line = `${icon("alert")} ${esc(st.error)}`;
+    else if (!st.exists) line = `${icon("alert")} <code>${esc(st.dir)}</code> doesn't exist yet — create it, or point Compass's task at it.`;
+    else if (!st.file) line = `${icon("folder")} Watching <code>${esc(st.dir)}</code> — no export there yet.`;
+    else {
+      const old = Date.now() - st.file.modified > 60 * 60000;
+      line = `${icon(old ? "alert" : "check")} Newest: <b>${esc(st.file.name)}</b>, saved ${esc(whenText(st.file.modified))} (${esc(agoText(st.file.modified))})${old ? " — over an hour old" : ""}.`;
+    }
+    $("#sWatchNow").innerHTML = line;
+  },
+
   render() {
     const st = Store.settings;
     const def = window.__defaultExportDir || "C:\\3apps\\Temp";
@@ -64,6 +86,26 @@ const SettingsView = {
             <li>Files: <code>&lt;POG&gt; NEWLOC - Eagle Import.csv</code> (SKU, Location 1, Location 3) and label files with <b>facings, SKU</b> and no header — one per location plus an ALL file when the plan spans more than one location.</li>
           </ul>
         </div>
+        <div class="card span2" id="watchCard">
+          <div class="card-head"><h3>${icon("refresh")} Compass exports — load automatically</h3></div>
+          <p class="f-help">Compass can save a location export on a schedule (every 30 minutes, say). The app watches that folder:
+            Clear Locations loads the newest export by itself, picks up newer ones as they arrive, and warns when the newest is over an hour old.
+            It only reads the folder — nothing there is changed or deleted.</p>
+          <label class="check-row"><input type="checkbox" id="sWatchOn" ${st.watchOn ? "checked" : ""}> Load the newest Compass export automatically</label>
+          <label class="f-label" for="sWatch">Compass export folder</label>
+          <div class="f-row">
+            <input class="f-input" id="sWatch" placeholder="${esc(window.__defaultWatchDir || "")}" value="${esc(st.watchDir)}" spellcheck="false">
+            <button class="btn btn-secondary" id="sWatchReset" title="Go back to ${esc(window.__defaultWatchDir || "")}">Use default</button>
+          </div>
+          <p class="f-help" id="sWatchNow" style="margin-top:8px"></p>
+          <details class="watch-how"><summary>Setting up the export in Compass</summary>
+            <ol class="rules">
+              <li>Make a <b>query</b> of items with <b>Item Number</b>, <b>Item Description</b> and <b>Location</b>, <b>Location 2</b> … <b>Location 6</b> — no filter, so it has every item.</li>
+              <li>Make a <b>schedule</b> that runs every 30 minutes.</li>
+              <li>Make a <b>task</b> that runs the query on that schedule and saves it (Excel or CSV) <b>into the folder above, with the same file name every time</b>.</li>
+            </ol>
+          </details>
+        </div>
         <div class="card span2" id="compassCard"></div>
         <div class="card span2">
           <div class="card-head"><h3>${icon("refresh")} Updates &amp; data</h3></div>
@@ -80,6 +122,15 @@ const SettingsView = {
     $("#sDirReset").onclick = () => { st.exportDir = ""; $("#sDir").value = ""; showNow(); this.changed(); };
     $("#sStore").oninput = (e) => { st.storeLine = e.target.value; $("#storeLineTop").textContent = st.storeLine; this.changed(); };
     $("#sDataDir").innerHTML = window.__dataDir ? `${icon("save")} <code>${esc(window.__dataDir)}</code>` : "";
+    const watchChanged = () => {
+      this.changed();
+      clearTimeout(this._wt);
+      this._wt = setTimeout(() => { this.showWatch(); ClearView.checkWatch(); }, 400);
+    };
+    $("#sWatchOn").onchange = (e) => { st.watchOn = e.target.checked; watchChanged(); };
+    $("#sWatch").oninput = (e) => { st.watchDir = e.target.value.trim(); watchChanged(); };
+    $("#sWatchReset").onclick = () => { st.watchDir = ""; $("#sWatch").value = ""; watchChanged(); };
+    this.showWatch();
     initSettingsUpdates();
     CompassPanel.render($("#compassCard"));
   },
