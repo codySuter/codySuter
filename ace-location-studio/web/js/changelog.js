@@ -7,6 +7,16 @@
 
 const CHANGELOG = [
   {
+    version: "1.2.0",
+    date: "October 2026",
+    notes: [
+      "Settings → Live data from Compass: connect the app to your Compass data warehouse the same way Margin Master does — read-only, on the store network. Copy Server, Port, Database, Username and Password from Margin Master's Epicor tab.",
+      "Save & test checks every step (address, network, port, login, database, inventory table, link speed) and says exactly what to fix when something's wrong.",
+      "Explore finds where your SKUs and locations live in Compass: type a SKU and its location that you know and it shows which columns hold them. Copy or save the report.",
+      "The password is kept encrypted for your Windows login on that PC and never leaves the app.",
+    ],
+  },
+  {
     version: "1.1.0",
     date: "October 2026",
     notes: [

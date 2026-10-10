@@ -35,7 +35,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "1.1.0"
+var appVersion = "1.2.0"
 
 const userAgent = "AceLocationStudio (+https://github.com/codysuter/codysuter)"
 
@@ -95,6 +95,9 @@ func main() {
 	mux.HandleFunc("/api/parse", handleParse)
 	mux.HandleFunc("/api/export", handleExport)
 	mux.HandleFunc("/api/reveal", handleReveal)
+	mux.HandleFunc("/api/compass/settings", handleCompassSettings)
+	mux.HandleFunc("/api/compass/test", handleCompassTest)
+	mux.HandleFunc("/api/compass/explore", handleCompassExplore)
 	mux.HandleFunc("/api/update/check", handleUpdateCheck)
 	mux.HandleFunc("/api/update/apply", handleUpdateApply)
 	mux.HandleFunc("/__ping", handlePing)

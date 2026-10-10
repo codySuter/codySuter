@@ -102,6 +102,43 @@ If a SKU appears in more than one section, it gets its first section's
 location, its facings and REC QTY are added together, and the app tells
 you.
 
+## Live data from Compass (Settings)
+
+Margin Master doesn't need a file from Eagle: it reads inventory straight
+from the store's **Compass data warehouse**, a MySQL copy of the Eagle data
+on the store network. In its handbook's words, it connects "directly,
+read-only, to the Compass database on your local network". Ace Location
+Studio connects the same way, and this is the first step toward skipping
+the `.xls` export.
+
+1. In **Margin Master**, open Options → POS / Connections → **Epicor**
+   tab, with **Connect via MySQL / Compass** checked, and note the
+   **Server, Port, Database, Username and Password**.
+2. In Ace Location Studio, go to **Settings → Live data from Compass**,
+   enter the same five values, and click **Save & test connection**. Like
+   Margin Master's troubleshooter, it runs every check and says what to
+   fix: settings, server address, network path (same network vs VPN /
+   remote), MySQL port (and whether MySQL answers on another port),
+   login (with SSL-off / old-password fallbacks), database, the inventory
+   (`IN`) table and link speed.
+3. **Explore.** Compass's table layout isn't published. Type a SKU and its
+   Location 1 that you know from Eagle, then click **Explore Compass**. The
+   report lists the tables, the `IN` table's columns with a few sample
+   rows, any location-like columns with example values, and exactly which
+   columns hold that SKU and location. **Copy report** / **Save report…**
+   so it can be sent to whoever is setting up the app. The next version
+   uses it to read the six locations live.
+
+It only reads: every query is a `SELECT`, and the session is set to
+`READ ONLY` too. Changes still go into Eagle through the import files.
+The settings live in `compass.json` beside `state.json`. The password is
+encrypted with Windows DPAPI for the signed-in Windows user, and the page
+never sees it.
+
+If the login is refused with "not allowed to connect", the Eagle server
+hasn't approved this PC yet. The handbook says access has to be enabled
+on the Eagle server, which Margin Master support or Epicor arranges.
+
 ## Settings
 
 - **Export folder.** Defaults to `C:\3apps\Temp` and is created if it's
@@ -128,6 +165,10 @@ window. It quits about 90 seconds after the window closes.
 - `web/js/clear.js`: the clearing rules (which slots, starts-with
   matching, the CSV layout, the file name). These are pure functions,
   shared by the app and the unit tests.
+- `compass.go`: the Compass connection (settings, DPAPI-protected
+  password in `secret_windows.go`, the connection test, Explore), using
+  [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql) v1.9.3
+  (MPL-2.0). `web/js/compass.js` is its Settings card.
 - `web/js/pog.js`: reading a planogram from its PDF text (cover, product
   report columns by position, drawing labels), the facings → capacity
   math, and the import/label files. Pure functions, unit-tested.
@@ -137,7 +178,10 @@ window. It quits about 90 seconds after the window closes.
 
 ```sh
 ./build.sh            # Windows exe → ../dist/ace-location-studio/
-go test ./...         # .xls reader, column mapping, export writer, server
+go test ./...         # .xls reader, column mapping, export writer, server, Compass
+# live Compass tests: ACE_TEST_MYSQL=user:pass@host:port go test ./...  (an admin login on any MySQL/MariaDB)
+# E2E against a live server: load testdata/compass-seed.sql, then
+#   ACE_TEST_COMPASS=127.0.0.1:3306:compasstest:mmuser:s3cret-test node e2e/run.mjs
 node tests/unit.mjs   # clearing rules
 node tests/pog.mjs    # planogram reading, capacity math, label files
 cd e2e && npm install && node run.mjs   # drives the real app in Chromium

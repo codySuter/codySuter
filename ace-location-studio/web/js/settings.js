@@ -64,6 +64,7 @@ const SettingsView = {
             <li>Files: <code>&lt;POG&gt; NEWLOC - Eagle Import.csv</code> (SKU, Location 1, Location 3) and label files with <b>facings, SKU</b> and no header — one per location plus an ALL file when the plan spans more than one location.</li>
           </ul>
         </div>
+        <div class="card span2" id="compassCard"></div>
         <div class="card span2">
           <div class="card-head"><h3>${icon("refresh")} Updates &amp; data</h3></div>
           <div class="data-path" id="sDataDir"></div>
@@ -80,5 +81,6 @@ const SettingsView = {
     $("#sStore").oninput = (e) => { st.storeLine = e.target.value; $("#storeLineTop").textContent = st.storeLine; this.changed(); };
     $("#sDataDir").innerHTML = window.__dataDir ? `${icon("save")} <code>${esc(window.__dataDir)}</code>` : "";
     initSettingsUpdates();
+    CompassPanel.render($("#compassCard"));
   },
 };

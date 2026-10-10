@@ -92,5 +92,6 @@ function normalizeDoc(data) {
     settings: s,
     exports: Array.isArray(d.exports) ? d.exports.filter((x) => x && x.id && x.file).slice(0, MAX_EXPORT_LOG) : [],
     plans: d.plans && typeof d.plans === "object" && !Array.isArray(d.plans) ? d.plans : {},
+    compass: d.compass && typeof d.compass === "object" ? d.compass : null, // last connection test (no secrets)
   };
 }
