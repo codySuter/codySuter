@@ -358,8 +358,9 @@ wait
   /* "Get fresh data from Compass": starts Compass, whose startup task saves an export */
   await addCode("12R");
   await page.click("#freshBtn");
-  await page.waitForSelector("#freshNote");
-  ok("fresh: waits for Compass's export", (await text("#freshNote")).includes("Waiting for Compass's export"), await text("#freshNote"));
+  // "Starting Compass…" first, then the waiting note once Compass has started.
+  const waiting = await page.waitForFunction(() => document.querySelector("#freshNote")?.innerText.includes("Waiting for Compass's export"), null, { timeout: 15000 }).then(() => true, () => false);
+  ok("fresh: waits for Compass's export", waiting, await text("#freshNote").catch(() => "(no note)"));
   await page.waitForFunction(() => document.querySelector("#freshLine")?.innerText.includes("just now"), null, { timeout: 30000 });
   ok("fresh: Compass's new export loads, even with codes typed", (await text("#stepFile .file-meta")).includes("ALS Locations.xlsx") && (await page.$$(".code-chip")).length === 1 && (await text("#tSkus")) === "7");
   ok("fresh: waiting note gone, button back", !(await has("#freshNote")) && (await has("#freshBtn")));
