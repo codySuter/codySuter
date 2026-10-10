@@ -46,7 +46,7 @@ const ClearView = {
         </div>
       </div>
       <input type="file" id="fileInput" accept=".xls,.xlsx,.csv,application/vnd.ms-excel" hidden>
-      <div class="drop-overlay" id="dropOverlay"><div>${icon("upload")}<b>Drop the Eagle export to load it</b></div></div>`;
+      <div class="drop-overlay" id="dropOverlay"><div>${icon("upload")}<b id="dropText">Drop the file to load it</b></div></div>`;
 
     $("#fileInput").onchange = (e) => {
       const f = e.target.files && e.target.files[0];
@@ -79,7 +79,8 @@ const ClearView = {
     let depth = 0;
     const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
     document.addEventListener("dragenter", (e) => {
-      if (!hasFiles(e) || App.view !== "clear") return;
+      if (!hasFiles(e) || (App.view !== "clear" && App.view !== "plan")) return;
+      $("#dropText").textContent = App.view === "plan" ? "Drop the planogram PDF to load it" : "Drop the Eagle export to load it";
       depth++;
       ov.classList.add("show");
     });
@@ -93,9 +94,10 @@ const ClearView = {
       e.preventDefault();
       depth = 0;
       ov.classList.remove("show");
-      if (App.view !== "clear") return;
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) this.loadFile(f);
+      if (!f) return;
+      if (App.view === "clear") this.loadFile(f);
+      else if (App.view === "plan") PlanView.loadFile(f);
     });
   },
 
@@ -458,10 +460,10 @@ const ClearView = {
         <tbody>${list.slice(0, 10).map((x) => `
           <tr>
             <td class="nowrap">${esc(fmtDateTime(x.ts))}</td>
-            <td><span title="${esc(x.path || "")}">${esc(x.file)}</span>${x.source ? `<div class="muted small">from ${esc(x.source)}</div>` : ""}</td>
+            <td>${x.kind === "plan" ? `<span class="kind-tag">New plan</span> ` : ""}<span title="${esc(x.path || "")}">${esc(x.file)}</span>${x.source ? `<div class="muted small">from ${esc(x.source)}</div>` : ""}</td>
             <td>${(x.codes || []).map((c) => `<span class="mini-code">${esc(c)}</span>`).join(" ")}</td>
             <td class="r num">${Number(x.skus || 0).toLocaleString()}</td>
-            <td class="r num">${Number(x.cells || 0).toLocaleString()}</td>
+            <td class="r num">${x.kind === "plan" ? `<span class="muted small">${Number(x.cells || 0)} files</span>` : Number(x.cells || 0).toLocaleString()}</td>
             <td class="row-acts">${x.path ? `<button class="icon-btn-sm" title="Show in folder" data-reveal="${esc(x.path)}">${icon("folder")}</button>` : ""}</td>
           </tr>`).join("")}</tbody>
       </table>`;

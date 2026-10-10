@@ -335,6 +335,19 @@ func TestExportWritesIntoFolder(t *testing.T) {
 	}
 }
 
+// Label files have no header row.
+func TestExportWritesLabelFile(t *testing.T) {
+	dir := t.TempDir()
+	csv := "1,7035488\r\n2,7499536"
+	rec := postExport(t, exportRequest{Dir: dir, Name: "TT7ELOPP LABELS 12R03.csv", CSV: csv})
+	if rec.Code != 200 {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "TT7ELOPP LABELS 12R03.csv")); string(got) != csv {
+		t.Fatalf("file = %q", got)
+	}
+}
+
 func TestExportDefaultsToEnvFolder(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ACE_EXPORT_DIR", dir)
@@ -357,7 +370,7 @@ func TestExportRejectsBadRequests(t *testing.T) {
 		{Dir: dir, Name: ".csv", CSV: testCSV},
 		{Dir: dir, Name: "a..csv", CSV: testCSV},
 		{Dir: "relative/folder", Name: "a.csv", CSV: testCSV},
-		{Dir: dir, Name: "a.csv", CSV: "not an import"},
+		{Dir: dir, Name: "a.csv", CSV: "  \r\n"},
 	}
 	for _, r := range bad {
 		if rec := postExport(t, r); rec.Code != http.StatusBadRequest {

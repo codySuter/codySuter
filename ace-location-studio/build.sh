@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="First release: load the Eagle location export, type the codes being reset, and save the Eagle import file (cleared locations as ?) straight into C:\3apps\Temp."
+NOTES="New Planogram: load an Ace planogram PDF, give each section its location, take facings away on the drawing, and save the Eagle import (Location 1 + shelf capacity) and label files into C:\3apps\Temp."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows"

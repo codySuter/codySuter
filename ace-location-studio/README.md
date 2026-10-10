@@ -1,9 +1,15 @@
 # Ace Location Studio
 
 A Windows app for Snyder's Ace Hardware that takes the busywork out of
-Epicor Eagle location changes. The first tool, **Clear Locations**, turns
-the location export for a section being reset (say, aisle 12 going over to
-Christmas) into the Eagle import file that clears those locations.
+Epicor Eagle location changes during a reset (say, aisle 12 going over to
+Christmas):
+
+- **Clear Locations** turns the location export for the section being reset
+  into the Eagle import file that clears those locations.
+- **New Planogram** reads the planogram PDF from Ace and writes the Eagle
+  import that gives every SKU its new Location 1 and shelf capacity, plus
+  the label printer files. You can take facings away on the plan's own
+  drawing first.
 
 **[Download AceLocationStudio.exe](https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows/AceLocationStudio.exe)**
 — portable, no install (Windows 10/11). The first time, SmartScreen may say
@@ -65,6 +71,37 @@ SKU,Location 1,Location 2,Location 3,Location 4,Location 5,Location 6
 The **Saved import files** list keeps the last 50 files you saved, with
 the codes, how many SKUs and locations, and which export they came from.
 
+## New Planogram
+
+1. **Load the planogram PDF** from Ace (drag it onto the window or click to
+   choose it). The app reads the **ACE HARDWARE PRODUCT REPORT** for every
+   SKU's facings, REC QTY and segment (each segment is one section, usually
+   4 ft), plus the POG ID, title and live date. It also reads the
+   "ACE NUMBER" drawing pages, so the drawing can be clicked.
+2. **Give each section its location** (Location 1), e.g. `12R03`. Type the
+   first one and **Fill the rest** suggests the next panels (`12R04`, …).
+   You can change any of them.
+3. **Adjust facings on the drawing.** Click a product (or a row in the
+   list) and use **−** / **+** (or the − and + keys). Fewer facings scale
+   the shelf capacity down, rounding down and never below 1: REC QTY 12 at
+   2 facings becomes 6 at 1. Taking the last facing away **drops** the SKU
+   from every file. The drawing marks changed items in amber and dropped
+   ones in grey. Use **− Fit +** to zoom, and **Cover picture** shows the
+   plan's photo page.
+4. **Save.** These files go into `C:\3apps\Temp`:
+
+| File | Contents |
+|---|---|
+| `<POG> NEWLOC - Eagle Import.csv` | `SKU,Location 1,Location 3`, one row per SKU. Location 3 is blank when the plan lists no REC QTY |
+| `<POG> LABELS.csv` (one location) | `facings,SKU`, no header row |
+| `<POG> LABELS <location>.csv` + `<POG> LABELS ALL.csv` (several locations) | One label file per location, plus one with all of them, so you can print a section at a time or the whole plan |
+
+Section locations and facing changes are remembered per POG ID, so you can
+close the app and pick up where you left off (**Start over** clears them).
+If a SKU appears in more than one section, it gets its first section's
+location, its facings and REC QTY are added together, and the app tells
+you.
+
 ## Settings
 
 - **Export folder.** Defaults to `C:\3apps\Temp` and is created if it's
@@ -91,16 +128,25 @@ window. It quits about 90 seconds after the window closes.
 - `web/js/clear.js`: the clearing rules (which slots, starts-with
   matching, the CSV layout, the file name). These are pure functions,
   shared by the app and the unit tests.
+- `web/js/pog.js`: reading a planogram from its PDF text (cover, product
+  report columns by position, drawing labels), the facings → capacity
+  math, and the import/label files. Pure functions, unit-tested.
+- `web/vendor/pdfjs/`: [pdf.js](https://github.com/mozilla/pdf.js)
+  5.7.284 (legacy build, Apache-2.0). The app uses it to read and draw
+  planogram PDFs, and it's bundled so it works offline.
 
 ```sh
 ./build.sh            # Windows exe → ../dist/ace-location-studio/
 go test ./...         # .xls reader, column mapping, export writer, server
 node tests/unit.mjs   # clearing rules
+node tests/pog.mjs    # planogram reading, capacity math, label files
 cd e2e && npm install && node run.mjs   # drives the real app in Chromium
 ```
 
 The test spreadsheets in `testdata/` are synthetic (made by
 `testdata/make_fixtures.py`) and copy the layout of a real Eagle export.
+`testdata/pog-sample.pdf` is a synthetic two-section planogram (made by
+`testdata/make_pog_fixture.mjs`) laid out like a real Ace planogram PDF.
 CI (`.github/workflows/build-location-studio-windows.yml`) runs all of the
 above, then publishes the exe and `version.json` to the
 `ace-location-studio-windows` release, which installed copies update from.
