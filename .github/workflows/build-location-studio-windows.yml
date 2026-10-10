@@ -1,0 +1,119 @@
+name: Build Ace Location Studio (Windows)
+
+# Cross-compiles Ace Location Studio into a standalone Windows .exe — after
+# gofmt/vet, the Go tests (the .xls reader and the export writer), the
+# clearing-rule unit tests, and the Playwright E2E suite (which drives the
+# real binary) — and publishes it as both a
+# workflow artifact and a stable GitHub Release download that installed
+# copies self-update from.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "ace-location-studio/**"
+      - ".github/workflows/build-location-studio-windows.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ace-location-studio/**"
+      - ".github/workflows/build-location-studio-windows.yml"
+
+permissions:
+  contents: write
+
+# One release publish at a time.
+concurrency:
+  group: build-location-studio-windows
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ace-location-studio
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: false
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Go tests
+        run: go test ./...
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Clearing-rule unit tests
+        # Which locations get a "?" and the exact import-file layout are pure
+        # logic — test them without a browser so a regression fails fast.
+        run: node tests/unit.mjs
+
+      - name: E2E suite (real binary in headless Chromium)
+        run: |
+          cd e2e
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          node run.mjs
+
+      - name: Upload E2E screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: location-studio-e2e-screenshots
+          path: ace-location-studio/e2e/screenshots/
+          if-no-files-found: ignore
+
+      - name: Build Windows EXE
+        run: ./build.sh
+
+      - name: Validate the update manifest
+        # Installed copies parse this file to self-update; publishing a
+        # syntactically broken one kills self-update everywhere. Fail here.
+        run: jq -e .version ../dist/ace-location-studio/version.json
+
+      - name: Upload EXE as a workflow artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AceLocationStudio-windows
+          path: |
+            dist/ace-location-studio/AceLocationStudio.exe
+            dist/ace-location-studio/version.json
+          if-no-files-found: error
+
+      - name: Publish EXE + update manifest to a Release (stable download link)
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Same publish dance as Ace Sign Studio: update the release in
+          # place with --clobber (never delete-then-recreate, which leaves
+          # the download and manifest 404ing), create it bare only if
+          # missing, and sweep stranded drafts.
+          gh api repos/${GITHUB_REPOSITORY}/releases --paginate \
+            --jq '.[] | select(.draft and .tag_name == "ace-location-studio-windows") | .id' |
+            while read -r id; do gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/$id"; done
+          if ! gh release view ace-location-studio-windows >/dev/null 2>&1; then
+            gh release create ace-location-studio-windows \
+              --title "Ace Location Studio for Windows" \
+              --notes "Latest Windows build. Download **AceLocationStudio.exe** below and double-click to run (Windows 10/11, portable — no install). Windows SmartScreen may warn about an unrecognized app the first time — click **More info → Run anyway**. Installed copies self-update from this release via version.json." \
+              --target "$GITHUB_SHA"
+          fi
+          # Exe first, manifest second: the manifest must never advertise a
+          # build whose exe isn't uploaded yet.
+          gh release upload ace-location-studio-windows ../dist/ace-location-studio/AceLocationStudio.exe --clobber
+          gh release upload ace-location-studio-windows ../dist/ace-location-studio/version.json --clobber
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/ace-location-studio-windows" \
+            -f sha="$GITHUB_SHA" -F force=true || true

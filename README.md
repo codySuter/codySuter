@@ -26,6 +26,11 @@
 > to pull, over/short vs. the register), tracking over/short over time, and
 > working out even-swap change-box orders
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-change-studio-windows/AceChangeStudio.exe)) ·
+> [`ace-location-studio/`](ace-location-studio/) — **Ace Location Studio**, a
+> Windows app for Epicor Eagle location changes: load a location export,
+> type the codes being reset, and it saves the Eagle import that clears
+> them (`?`) straight into `C:\3apps\Temp`
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows/AceLocationStudio.exe)) ·
 > [`ace-studio-brand/`](ace-studio-brand/) — the shared **Ace Studio** app-icon
 > style both apps (and future siblings) draw from.
 

@@ -46,3 +46,8 @@ ace-sign-studio/e2e/package-lock.json
 ace-change-studio/e2e/node_modules/
 ace-change-studio/e2e/screenshots/
 ace-change-studio/e2e/package-lock.json
+
+# ace-location-studio
+ace-location-studio/e2e/node_modules/
+ace-location-studio/e2e/screenshots/
+ace-location-studio/e2e/package-lock.json
