@@ -35,7 +35,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "1.4.0"
+var appVersion = "1.5.0"
 
 const userAgent = "AceLocationStudio (+https://github.com/codysuter/codysuter)"
 

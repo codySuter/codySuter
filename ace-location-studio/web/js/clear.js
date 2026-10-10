@@ -9,7 +9,9 @@
      3  primary shelf capacity        — only when ticked for that code
      4–6 overstock locations          — cleared by default when they match
    Each code can be set to clear its own choice of slots; without one it
-   clears the default four (1, 4, 5, 6).
+   clears the default four (1, 4, 5, 6). A code can also CHANGE what it
+   matches instead of clearing it: every match becomes one new value
+   (12R → 14L05 turns 12R03 and 12R07 into 14L05).
    A code clears every location that STARTS WITH it, so "12R" clears
    12R01–12R09 and "12R03" clears just 12R03. In the import file a "?"
    tells Eagle to clear that slot; every other slot is written back
@@ -87,8 +89,11 @@
    * codes: ["12R", …] (already normalized)
    * slotsByCode: optional { "12R": [0], … } — which slots each code clears
    *   (index 0 = Location 1); a code without an entry clears 1, 4, 5 and 6.
+   * changeTo: optional { "12R": "14L05" } — codes that change their
+   *   matches to that value instead of clearing them ("?").
    * Returns {
    *   changed:   rows going into the import — { sku, desc, before, after, cleared: [slot…] }
+   *              (cleared lists every slot written, whether cleared or changed)
    *   unchanged: number of SKUs with nothing to clear (left out of the import)
    *   cells:     number of "?" written
    *   stats:     per code, in order — { code, cells, skus, values: [sorted], bySlot: [6] }
@@ -96,7 +101,7 @@
    *     the code (Location 2/3 by default) — { sku, slot, value, code }
    * }
    */
-  function planClear(rows, codes, slotsByCode) {
+  function planClear(rows, codes, slotsByCode, changeTo) {
     const list = (codes || []).map(norm).filter(Boolean);
     const slotsOf = Object.fromEntries(list.map((c) => [c, slotsFor(c, slotsByCode)]));
     // For each slot, the codes that clear it (in typed order).
@@ -119,7 +124,9 @@
           if (skipped) protectedHits.push({ sku: row.sku, slot, value: before[slot], code: skipped });
           continue;
         }
-        after[slot] = CLEAR_MARK;
+        const to = changeTo && changeTo[code] ? norm(changeTo[code]) : "";
+        if (to && norm(before[slot]) === to) continue; // already that value
+        after[slot] = to || CLEAR_MARK;
         cleared.push(slot);
         const b = byCode[code];
         b.s.cells++;
@@ -158,13 +165,24 @@
     return lines.join("\r\n");
   }
 
-  /** "12R LOCCLEAR - Eagle Import.csv" — named after the codes. */
-  function importFileName(codes) {
+  /** Why a "change to" value can't be used, or "" if it's fine. */
+  function changeProblem(value) {
+    const v = norm(value);
+    if (!v) return "Type the new location.";
+    if (v.length > MAX_CODE) return `Locations are at most ${MAX_CODE} characters — "${v}" is ${v.length}.`;
+    if (v.includes(CLEAR_MARK)) return "Use Clear instead of a question mark.";
+    if (/["\s,;]/.test(v)) return "A location can't contain spaces, commas or quotes.";
+    return "";
+  }
+
+  /** "12R LOCCLEAR - Eagle Import.csv" — named after the codes (and the
+   *  workflow's tag: LOCCLEAR, OPTICLEAR, LOCCHANGE). */
+  function importFileName(codes, tag) {
     const clean = (codes || []).map((c) => norm(c).replace(/[^A-Z0-9-]/g, "")).filter(Boolean);
     let lead = clean.slice(0, 6).join(" ");
     if (clean.length > 6) lead += ` +${clean.length - 6} more`;
     lead = lead.replace(/^[^A-Za-z0-9]+/, "");
-    return (lead ? lead + " " : "") + "LOCCLEAR - Eagle Import.csv";
+    return (lead ? lead + " " : "") + (tag || "LOCCLEAR") + " - Eagle Import.csv";
   }
 
   /** Short readable list of matched values: "12R01, 12R02 … 12R09 (9)". */
@@ -177,7 +195,7 @@
 
   const Clear = {
     SLOTS, CLEARABLE, PROTECTED, MAX_CODE, SLOT_NAMES, SLOT_ROLES, HEADER, CLEAR_MARK,
-    parseCodes, codeProblem, matchCode, coveredCodes, slotsFor, isDefaultSlots, planClear, importCSV, importFileName,
+    parseCodes, codeProblem, changeProblem, matchCode, coveredCodes, slotsFor, isDefaultSlots, planClear, importCSV, importFileName,
     valuesSummary, locCompare, csvField,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = Clear;

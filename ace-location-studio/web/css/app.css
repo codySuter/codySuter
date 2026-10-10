@@ -318,7 +318,7 @@ button.chip{padding:4px 10px}
 .tbl.preview td.cleared s{font-size:11px;color:var(--text-3);margin-left:2px}
 .q{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;border-radius:6px;background:var(--ace-red);color:#fff;font-weight:900;font-size:13px}
 .tbl.preview tr.same td{color:var(--text-3)}
-.prev-key{margin-top:10px;display:flex;align-items:center;gap:8px}
+.prev-key{margin-top:10px;display:block;line-height:1.9}
 .log-tbl td{vertical-align:top}
 .nowrap{white-space:nowrap}
 .mini-code{display:inline-block;background:#FFF1F3;color:var(--ace-deep-red);border-radius:5px;padding:1px 6px;font-weight:900;font-size:12px}
@@ -459,3 +459,51 @@ button.chip{padding:4px 10px}
 .slot-pick .sp.on.prot{background:var(--warn-ink);border-color:var(--warn-ink)}
 .slot-pick .sp:focus-visible{outline:2px solid var(--ace-dark-red);outline-offset:2px}
 .mini-code small{font-weight:500;opacity:.75}
+
+/* ============ Workflows: the start menu and the bar above a workflow ============ */
+.wf-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.wf-card{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;cursor:pointer;font:inherit;color:inherit;margin:0;transition:border-color .12s,box-shadow .12s,transform .12s}
+.wf-card:hover{border-color:var(--ace-red);box-shadow:0 2px 6px rgba(17,18,20,.1),0 8px 22px rgba(17,18,20,.08);transform:translateY(-1px)}
+.wf-card:focus-visible{outline:2px solid var(--ace-dark-red);outline-offset:2px}
+.wf-ico{width:44px;height:44px;border-radius:12px;background:var(--ace-red);color:#fff;display:flex;align-items:center;justify-content:center}
+.wf-ico .ico{width:24px;height:24px}
+.wf-title{font-size:19px;font-weight:900;color:var(--ink)}
+.wf-blurb{font-size:13.5px;color:var(--text-2);line-height:1.45;flex:1}
+.wf-meta{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--text-2)}
+.wf-search{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--ink)}
+.wf-search .ico{width:14px;height:14px}
+.wf-steps{color:var(--text-3)}
+.wf-go{margin-top:4px;display:inline-flex;align-items:center;gap:6px;font-weight:900;color:var(--ace-red)}
+.wf-go .ico{width:16px;height:16px}
+.home-data{margin-top:16px}
+.home-line{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--text-2)}
+.home-line .ico{width:18px;height:18px;flex:none;color:var(--text-3)}
+.wf-tab .ico{width:18px;height:18px}
+
+.flow-bar{display:none;max-width:1240px;margin:0 auto 14px;align-items:center;gap:10px;flex-wrap:wrap}
+.flow-bar.show{display:flex}
+.flow-bar .spacer{flex:1}
+.flow-title{display:inline-flex;align-items:center;gap:6px;font-weight:900;color:var(--ink)}
+.flow-title .ico{width:18px;height:18px;color:var(--ace-red)}
+.flow-steps{list-style:none;margin:0 0 0 6px;padding:0;display:flex;align-items:center;gap:6px}
+.flow-steps .fs-sep .ico{width:14px;height:14px;color:var(--text-3)}
+.flow-step{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 12px 4px 4px;font:700 13px 'Roboto',system-ui,sans-serif;color:var(--text-2);cursor:pointer}
+.flow-step .fs-n{width:22px;height:22px;border-radius:50%;background:var(--gray-1);color:var(--text-2);display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12px}
+.flow-step .fs-n .ico{width:13px;height:13px;stroke-width:3}
+.flow-step.active{border-color:var(--ace-red);color:var(--ink)}
+.flow-step.active .fs-n{background:var(--ace-red);color:#fff}
+.flow-step.done .fs-n{background:var(--good);color:#fff}
+
+/* Fixed searches line (Planogram Change, OPTI Clear) and Custom's Clear / Change to. */
+.searches-line{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;color:var(--text-2);flex-wrap:wrap}
+.searches-line .ico{width:14px;height:14px;color:var(--text-3)}
+.sp-fixed{display:inline-block;background:var(--ace-red);color:#fff;font-weight:900;font-size:11.5px;border-radius:6px;padding:2px 6px;margin-right:3px}
+.act-pick{display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap}
+.act-pick .sp-label{font-size:11.5px;font-weight:700;color:var(--text-3)}
+.seg.small{padding:2px}
+.seg.small button{padding:4px 10px;font-size:12px;cursor:pointer}
+.chg-input{width:96px;padding:6px 8px;font-weight:900;text-transform:uppercase}
+.chg-err{margin-top:2px}
+.q.chg{background:#1B5E9E;padding:0 6px}
+
+@media (max-width:980px){.wf-grid{grid-template-columns:1fr}}

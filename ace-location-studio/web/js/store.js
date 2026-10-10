@@ -4,7 +4,8 @@
    { version, settings: { storeLine, exportDir, watchOn, watchDir }, exports: [...], plans: {...} }
 
    exports is a short log of the files saved, newest first (kind "clear"
-   for Clear Locations, "plan" for New Planogram), so there's a record of
+   with the workflow — planogram, opti, custom — or "plan" for New
+   Planogram), so there's a record of
    what was saved and when. plans remembers each planogram's section
    locations and facing changes by POG ID. Saves are
    serialized and retried, and a failure is shown on screen.

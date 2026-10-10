@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="1.4.0"
+VERSION="1.5.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Pick which locations each code clears (Loc 1-6), and a Get fresh data from Compass button that starts Compass so its startup export runs."
+NOTES="A workflow menu: Planogram Change (clear old locations, then the new planogram), OPTI Clear (overstock 4-6 only) and Custom Location Change (any location, clear or change to a new one)."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows"
