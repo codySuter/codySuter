@@ -54,10 +54,13 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Clearing-rule unit tests
-        # Which locations get a "?" and the exact import-file layout are pure
+      - name: Clearing + planogram unit tests
+        # Which locations get a "?", reading a planogram's product report,
+        # the facings → capacity math and the exact file layouts are pure
         # logic — test them without a browser so a regression fails fast.
-        run: node tests/unit.mjs
+        run: |
+          node tests/unit.mjs
+          node tests/pog.mjs
 
       - name: E2E suite (real binary in headless Chromium)
         run: |

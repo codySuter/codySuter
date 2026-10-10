@@ -20,6 +20,7 @@ const SettingsView = {
       const f = $("#setSaved");
       if (f) { f.textContent = ok ? "✓ Saved" : "Couldn't save"; f.className = "saved-flash show" + (ok ? "" : " err"); setTimeout(() => f.classList.remove("show"), 1400); }
       ClearView.refresh();
+      PlanView.renderSave();
     }, 350);
   },
 
@@ -54,6 +55,13 @@ const SettingsView = {
             <li><b>Location 2</b> (system flags like MDONE) and <b>Location 3</b> (shelf capacity) are never cleared — they're written back exactly as they are.</li>
             <li>Only SKUs with at least one cleared location go in the import file, always with all six location columns.</li>
             <li>In the file a <code>?</code> tells Eagle to clear that location.</li>
+          </ul>
+          <div class="card-head" style="margin-top:14px"><h3>${icon("pin")} How new planograms work</h3></div>
+          <ul class="rules">
+            <li>Each section (segment) of the plan gets its own Location 1, in the order they appear left to right.</li>
+            <li><b>Location 3</b> is the plan's REC QTY. With fewer facings it's scaled down and rounded down (REC QTY 12 at 2 facings → 6 at 1), never below 1; blank when the plan has no REC QTY.</li>
+            <li>Taking away the last facing drops the SKU from every file.</li>
+            <li>Files: <code>&lt;POG&gt; NEWLOC - Eagle Import.csv</code> (SKU, Location 1, Location 3) and label files with <b>facings, SKU</b> and no header — one per location plus an ALL file when the plan spans more than one location.</li>
           </ul>
         </div>
         <div class="card span2">

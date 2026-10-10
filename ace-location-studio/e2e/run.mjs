@@ -3,7 +3,9 @@
  * update manifest, and drives the real app in headless Chromium — loading
  * an Eagle export, typing codes, the preview, saving the import file (and
  * checking the bytes on disk), the replace-file prompt, the warnings, a
- * bad file, the big file, settings + persistence, and the update banner.
+ * bad file, the big file, settings + persistence, the update banner, and
+ * the New Planogram tab (synthetic planogram PDF: section locations,
+ * facings on the drawing, the import + label files, picking back up).
  *
  * Usage: node e2e/run.mjs            (from ace-location-studio/ or e2e/)
  * Env:   CHROMIUM_PATH — explicit browser executable
@@ -104,7 +106,7 @@ async function run() {
 
   /* ---------- empty state ---------- */
   console.log("\n# Before a file is loaded");
-  ok("version tag", (await text("#verTag")) === "v1.0.0", await text("#verTag"));
+  ok("version tag", (await text("#verTag")) === "v1.1.0", await text("#verTag"));
   ok("preview explains what to do", (await text("#previewCard")).includes("Load the Eagle export"));
   ok("save is disabled", await page.$eval("#saveBtn", (b) => b.disabled));
   ok("says why", (await text("#saveBlocker")).includes("Load the Eagle export first"));
@@ -263,6 +265,123 @@ async function run() {
   await page.waitForTimeout(600);
   ok("reset to default folder", (await text("#sDirNow")).includes(exportDir));
   await shot("06-settings");
+
+  /* ---------- new planogram ---------- */
+  console.log("\n# New planogram");
+  await page.click('.tab[data-view="plan"]');
+  ok("plan: save disabled before a PDF", await page.$eval("#planSaveBtn", (b) => b.disabled));
+  ok("plan: says why", (await text("#planBlocker")).includes("Load the planogram PDF first"));
+  await page.setInputFiles("#pogInput", { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
+  await page.waitForSelector("#pogError");
+  ok("plan: non-PDF refused", (await text("#pogError")).includes("isn't a PDF"), await text("#pogError"));
+  await page.setInputFiles("#pogInput", path.join(DATA, "pog-sample.pdf"));
+  await page.waitForSelector("#hotspots .hs", { timeout: 20000 });
+  ok("plan: POG + title", (await text("#planFileStep .file-meta b")).startsWith("SYNTH8FT · TEST SHELF 8FT NA NATIONAL"), await text("#planFileStep .file-meta b"));
+  ok("plan: counts + live date", (await text("#planMeta")) === "7 SKUs · 2 sections · live 9/22/2026", await text("#planMeta"));
+  ok("plan: tabs per section + cover", (await page.$$eval("#segTabs button", (bs) => bs.map((b) => b.innerText.trim()))).join("|") === "Section 1|Section 2|Cover picture");
+  ok("plan: section 1 drawing is clickable", (await page.$$("#hotspots .hs")).length === 4);
+  const size0 = await page.$eval("#drawWrap canvas", (c) => [c.clientWidth, c.clientHeight]);
+  ok("plan: drawing fits the window", size0[0] > 80 && size0[1] > 400 && size0[1] <= 900 - 250, size0);
+  await page.click("#zoomIn");
+  await page.waitForFunction((h) => document.querySelector("#drawWrap canvas")?.clientHeight > h * 1.4, size0[1]);
+  ok("plan: zoom in", (await text("#zoomFit")) === "150%");
+  ok("plan: hotspots follow the zoom", await page.$eval('#hotspots .hs[data-sku="7000001"]', (b) => b.offsetLeft > 0));
+  await page.click("#zoomFit");
+  await page.waitForFunction((h) => Math.abs(document.querySelector("#drawWrap canvas")?.clientHeight - h) < 2, size0[1]);
+  ok("plan: list has every SKU", (await page.$$("#planTable tbody tr")).length === 7);
+  ok("plan: needs locations", (await text("#planBlocker")).includes("Give 2 sections a location first"));
+
+  await page.fill("#loc-1", "12r03");
+  ok("plan: next section suggested", (await page.$eval("#loc-2", (i) => i.placeholder)) === "12R04");
+  await page.click("#locFill");
+  ok("plan: fill the rest", (await val("#loc-2")) === "12R04");
+  ok("plan: step 2 ticked", await has("#planLocStep .step-n.done"));
+  ok("plan: tab shows location", (await text('#segTabs [data-tab="1"]')) === "Section 1 · 12R03");
+  const names = await page.$$eval("#planFiles .pf-name", (ns) => ns.map((n) => n.textContent));
+  ok("plan: four files listed", names.join("|") === "SYNTH8FT NEWLOC - Eagle Import.csv|SYNTH8FT LABELS 12R03.csv|SYNTH8FT LABELS 12R04.csv|SYNTH8FT LABELS ALL.csv", names);
+  await page.fill("#loc-2", "12R0345");
+  await page.press("#loc-2", "Tab");
+  ok("plan: maxlength keeps codes to 5", (await val("#loc-2")).length === 5);
+  await page.fill("#loc-2", "12R?");
+  await page.press("#loc-2", "Tab");
+  ok("plan: bad code flagged", (await text("#locErr-2")).includes("letters, numbers"));
+  ok("plan: bad code blocks saving", await page.$eval("#planSaveBtn", (b) => b.disabled));
+  await page.fill("#loc-2", "12R04");
+  ok("plan: error clears once fixed", !(await text("#locErr-2")));
+
+  console.log("\n# Facings");
+  await page.click('#hotspots .hs[data-sku="7000001"]');
+  ok("plan: click selects", (await text("#selBar")).includes("7000001") && (await text("#selBar")).includes("of 2 facings"));
+  ok("plan: plan capacity", (await text("#selCap")) === "12");
+  await page.keyboard.press("-");
+  ok("plan: − key takes a facing", (await text("#selFacings")) === "1");
+  ok("plan: capacity scales 12 → 6", (await text("#selCap")) === "6" && (await text("#selBar")).includes("12 → 6"), await text("#selBar"));
+  ok("plan: drawing marks it", await page.$eval('#hotspots .hs[data-sku="7000001"]', (b) => b.classList.contains("reduced") && b.innerText.trim() === "1/2"));
+  ok("plan: tab counts the change", (await text('#segTabs [data-tab="1"] .tab-n')) === "1");
+  ok("plan: list shows it", (await page.$eval('#planTable tr[data-sku="7000001"] td.cap', (td) => td.innerText.trim())) === "6");
+  ok("plan: + capped at the plan", await page.$eval("#selPlus", (b) => !b.disabled) && (await page.click("#selPlus"), (await text("#selFacings")) === "2") && await page.$eval("#selPlus", (b) => b.disabled));
+  await page.click("#selMinus");
+  await page.click('#planTable tr[data-sku="7000006"]');
+  await page.waitForFunction(() => document.querySelector("#segTabs button.active")?.dataset.tab === "2");
+  await page.waitForSelector('#hotspots .hs.sel[data-sku="7000006"]');
+  ok("plan: list click jumps to its section", true);
+  await page.click("#selMinus");
+  ok("plan: 5 at 2 facings → 2", (await text("#selCap")) === "2");
+  await page.click("#selMinus");
+  ok("plan: 0 facings drops it", (await text("#selBar")).includes("Dropped"));
+  ok("plan: dropped on drawing", await page.$eval('#hotspots .hs[data-sku="7000006"]', (b) => b.classList.contains("dropped")));
+  ok("plan: overhanging label shown faded", await page.$eval('#hotspots .hs[data-sku="7000004"]', (b) => b.classList.contains("other-seg")));
+  ok("plan: list counts", (await text("#planCounts")) === "7 SKUs · 1 with fewer facings · 1 dropped", await text("#planCounts"));
+  await page.click('#planTable tr[data-sku="7000004"]');
+  ok("plan: no REC QTY explained", (await text("#selBar")).includes("No REC QTY"));
+  await page.keyboard.press("Escape");
+  ok("plan: Esc deselects", (await text("#selBar")).includes("Click a product"));
+  await page.click('[data-tab="cover"]');
+  await page.waitForFunction(() => document.querySelector("#drawWrap canvas") && !document.querySelector("#hotspots .hs"));
+  ok("plan: cover picture tab", true);
+  await page.click('[data-tab="1"]');
+  await page.waitForSelector("#hotspots .hs");
+  await shot("07-plan");
+
+  console.log("\n# Save the plan files");
+  await page.click("#planSaveBtn");
+  await page.waitForSelector("#planSavedNote");
+  const pf = (n) => readFileSync(path.join(exportDir, n), "utf8");
+  ok("plan: Eagle import", pf("SYNTH8FT NEWLOC - Eagle Import.csv") === ["SKU,Location 1,Location 3", "7000001,12R03,6", "7000002,12R03,3", "7000003,12R03,3", "7000004,12R03,", "7000005,12R04,2", "7000137D,12R04,4"].join("\r\n"), JSON.stringify(pf("SYNTH8FT NEWLOC - Eagle Import.csv")));
+  ok("plan: labels 12R03", pf("SYNTH8FT LABELS 12R03.csv") === ["1,7000001", "1,7000002", "3,7000003", "1,7000004"].join("\r\n"), JSON.stringify(pf("SYNTH8FT LABELS 12R03.csv")));
+  ok("plan: labels 12R04", pf("SYNTH8FT LABELS 12R04.csv") === ["1,7000005", "1,7000137D"].join("\r\n"), JSON.stringify(pf("SYNTH8FT LABELS 12R04.csv")));
+  ok("plan: labels ALL", pf("SYNTH8FT LABELS ALL.csv") === pf("SYNTH8FT LABELS 12R03.csv") + "\r\n" + pf("SYNTH8FT LABELS 12R04.csv"));
+  ok("plan: saved note lists 4 files", (await page.$$("#planSavedNote .saved-list li")).length === 4);
+  await shot("08-plan-saved");
+
+  console.log("\n# Picks up where you left off");
+  await page.reload();
+  await page.waitForSelector('.tab.active[data-view="plan"]');
+  ok("plan: reopens on the last tab", true);
+  await page.setInputFiles("#pogInput", path.join(DATA, "pog-sample.pdf"));
+  await page.waitForSelector("#hotspots .hs", { timeout: 20000 });
+  ok("plan: restored notice", (await text("#planRestored")).includes("Picked up where you left off"));
+  ok("plan: codes restored", (await val("#loc-1")) === "12R03" && (await val("#loc-2")) === "12R04");
+  ok("plan: facings restored", (await page.$eval('#planTable tr[data-sku="7000001"] td.cap', (td) => td.innerText.trim())) === "6");
+
+  console.log("\n# Same location for both sections, replacing files");
+  await page.fill("#loc-2", "12R03");
+  const names2 = await page.$$eval("#planFiles .pf-name", (ns) => ns.map((n) => n.textContent));
+  ok("plan: one location → one label file", names2.join("|") === "SYNTH8FT NEWLOC - Eagle Import.csv|SYNTH8FT LABELS.csv", names2);
+  await page.click("#planSaveBtn");
+  await page.waitForSelector(".modal");
+  ok("plan: asks before replacing the import", (await text(".modal")).includes("Replace the existing file?") && (await text(".modal")).includes("NEWLOC"));
+  await page.click('.modal [data-act="ok"]');
+  await page.waitForSelector("#planSavedNote");
+  ok("plan: replaced import uses one location", pf("SYNTH8FT NEWLOC - Eagle Import.csv").includes("7000005,12R03,2"));
+  ok("plan: single label file", pf("SYNTH8FT LABELS.csv").split("\r\n").length === 6);
+
+  await page.click("#planStartOver");
+  await page.click('.modal [data-act="ok"]');
+  ok("plan: start over clears codes and facings", (await val("#loc-1")) === "" && (await page.$$("#planTable tr.reduced, #planTable tr.dropped")).length === 0);
+
+  await page.click('.tab[data-view="clear"]');
+  ok("plan saves in the log", (await text("#logCard")).includes("New plan"));
 
   ok("no page errors", pageErrors.length === 0, pageErrors);
   await browser.close();

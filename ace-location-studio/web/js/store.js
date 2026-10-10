@@ -1,10 +1,12 @@
 /* ============================================================
    Ace Location Studio — the saved document (state.json via /api/state).
 
-   { version, settings: { storeLine, exportDir }, exports: [...] }
+   { version, settings: { storeLine, exportDir }, exports: [...], plans: {...} }
 
-   exports is a short log of the import files saved, newest first, so
-   there's a record of which codes were cleared and when. Saves are
+   exports is a short log of the files saved, newest first (kind "clear"
+   for Clear Locations, "plan" for New Planogram), so there's a record of
+   what was saved and when. plans remembers each planogram's section
+   locations and facing changes by POG ID. Saves are
    serialized and retried, and a failure is shown on screen.
    ============================================================ */
 "use strict";
@@ -19,7 +21,7 @@ function defaultSettings() {
 }
 
 const Store = {
-  doc: { version: 1, settings: defaultSettings(), exports: [] },
+  doc: { version: 1, settings: defaultSettings(), exports: [], plans: {} },
   loaded: false,
   _chain: Promise.resolve(),
 
@@ -82,5 +84,6 @@ function normalizeDoc(data) {
     version: 1,
     settings: s,
     exports: Array.isArray(d.exports) ? d.exports.filter((x) => x && x.id && x.file).slice(0, MAX_EXPORT_LOG) : [],
+    plans: d.plans && typeof d.plans === "object" && !Array.isArray(d.plans) ? d.plans : {},
   };
 }

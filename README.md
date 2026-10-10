@@ -27,9 +27,10 @@
 > working out even-swap change-box orders
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-change-studio-windows/AceChangeStudio.exe)) ·
 > [`ace-location-studio/`](ace-location-studio/) — **Ace Location Studio**, a
-> Windows app for Epicor Eagle location changes: load a location export,
-> type the codes being reset, and it saves the Eagle import that clears
-> them (`?`) straight into `C:\3apps\Temp`
+> Windows app for Epicor Eagle location changes: clear a section's old
+> locations from an Eagle export, and turn an Ace planogram PDF into the
+> Eagle import (new Location 1 + shelf capacity) and label files, with
+> facings adjustable on the plan's drawing
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows/AceLocationStudio.exe)) ·
 > [`ace-studio-brand/`](ace-studio-brand/) — the shared **Ace Studio** app-icon
 > style both apps (and future siblings) draw from.

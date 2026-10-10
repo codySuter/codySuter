@@ -35,7 +35,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "1.0.0"
+var appVersion = "1.1.0"
 
 const userAgent = "AceLocationStudio (+https://github.com/codysuter/codysuter)"
 
@@ -166,7 +166,7 @@ func touchHeartbeat(next http.Handler) http.Handler {
 // max-age: a reload after an update must never pair new code with old).
 func staticCache(next http.Handler) http.Handler {
 	cacheable := func(p string) bool {
-		for _, prefix := range []string{"/fonts/", "/img/", "/css/", "/js/"} {
+		for _, prefix := range []string{"/fonts/", "/img/", "/css/", "/js/", "/vendor/"} {
 			if strings.HasPrefix(p, prefix) {
 				return true
 			}
@@ -175,6 +175,11 @@ func staticCache(next http.Handler) http.Handler {
 	}
 	etag := `"v` + appVersion + `"`
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Module scripts (pdf.js) only run with a JavaScript type, and on
+		// Windows the registry can map .js/.mjs to something else.
+		if strings.HasSuffix(r.URL.Path, ".mjs") || strings.HasSuffix(r.URL.Path, ".js") {
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		}
 		if !cacheable(r.URL.Path) {
 			w.Header().Set("Cache-Control", "no-store")
 			next.ServeHTTP(w, r)

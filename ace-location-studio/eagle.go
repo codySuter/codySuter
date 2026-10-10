@@ -561,7 +561,7 @@ type exportRequest struct {
 	Overwrite bool   `json:"overwrite"`
 }
 
-// handleExport writes the import CSV into the export folder (creating the
+// handleExport writes an import or label CSV into the export folder (creating the
 // folder if needed). It refuses to replace an existing file unless the
 // request says to, so the UI can ask first.
 func handleExport(w http.ResponseWriter, r *http.Request) {
@@ -589,8 +589,8 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 		writeJSONStatus(w, http.StatusBadRequest, map[string]any{"error": "that file name isn't allowed — use letters, numbers, spaces and dashes, ending in .csv"})
 		return
 	}
-	if !strings.HasPrefix(req.CSV, "SKU,") {
-		writeJSONStatus(w, http.StatusBadRequest, map[string]any{"error": "the import data is empty"})
+	if strings.TrimSpace(req.CSV) == "" {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]any{"error": "the file would be empty"})
 		return
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {

@@ -7,6 +7,16 @@
 
 const CHANGELOG = [
   {
+    version: "1.1.0",
+    date: "October 2026",
+    notes: [
+      "New Planogram: load the planogram PDF from Ace and type the location for each section (12R03, 12R04…). The app reads every SKU, its facings and its REC QTY from the plan's product report.",
+      "Take facings away right on the plan's own drawing: click a product, then − / +. Shelf capacity (Location 3) scales down with it — REC QTY 12 at 2 facings becomes 6 at 1 — and taking the last facing away drops the SKU.",
+      "Saves the Eagle import (SKU, Location 1, Location 3) and label printer files (facings, SKU) into C:\\3apps\\Temp — one label file per location plus an ALL file when the plan spans more than one.",
+      "Remembers your section locations and facing changes for each planogram, so you can close the app and pick up where you left off.",
+    ],
+  },
+  {
     version: "1.0.0",
     date: "October 2026",
     notes: [

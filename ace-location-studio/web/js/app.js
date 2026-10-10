@@ -9,7 +9,7 @@ const VIEW_KEY = "als.view";
 
 const App = {
   view: "clear",
-  views: { clear: ClearView, settings: SettingsView },
+  views: { clear: ClearView, plan: PlanView, settings: SettingsView },
 
   show(name) {
     if (!this.views[name]) name = "clear";
@@ -17,6 +17,7 @@ const App = {
     $$(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
     $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
     if (name === "settings") SettingsView.render();
+    if (name === "plan") PlanView.shown();
     $("#work").scrollTop = 0;
     try { localStorage.setItem(VIEW_KEY, name); } catch (e) { /* ignore */ }
   },
@@ -42,17 +43,18 @@ window.addEventListener("DOMContentLoaded", async () => {
   await Store.load();
   $("#storeLineTop").textContent = Store.settings.storeLine;
   ClearView.init();
+  PlanView.init();
   SettingsView.init();
   $$(".tab").forEach((t) => (t.onclick = () => App.show(t.dataset.view)));
   let start = "clear";
   try { start = localStorage.getItem(VIEW_KEY) || "clear"; } catch (e) { /* ignore */ }
   App.show(start);
   checkForUpdate();
-  // Keyboard: Ctrl+1..2 switch tabs.
+  // Keyboard: Ctrl+1..3 switch tabs.
   document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && ["1", "2"].includes(e.key)) {
+    if ((e.ctrlKey || e.metaKey) && ["1", "2", "3"].includes(e.key)) {
       e.preventDefault();
-      App.show(["clear", "settings"][Number(e.key) - 1]);
+      App.show(["clear", "plan", "settings"][Number(e.key) - 1]);
     }
   });
 });

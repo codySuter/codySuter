@@ -149,7 +149,7 @@ func TestStaticCachePolicy(t *testing.T) {
 	})
 	h := staticCache(inner)
 
-	for _, p := range []string{"/fonts/Roboto-Bold.ttf", "/img/ace_logo_transparent.png", "/css/app.css", "/js/app.js"} {
+	for _, p := range []string{"/fonts/Roboto-Bold.ttf", "/img/ace_logo_transparent.png", "/css/app.css", "/js/app.js", "/vendor/pdfjs/pdf.min.mjs"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
 		cc := rec.Header().Get("Cache-Control")
@@ -178,6 +178,24 @@ func TestStaticCachePolicy(t *testing.T) {
 
 // A matching ETag short-circuits to 304 so a reload re-uses the decoded
 // asset instead of re-fetching ~2 MB of fonts and vendor code.
+// pdf.js loads as a module, which browsers refuse unless it's served as
+// JavaScript — whatever the Windows registry thinks .mjs is.
+func TestModuleScriptsServedAsJavaScript(t *testing.T) {
+	h := staticCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if w.Header().Get("Content-Type") == "" {
+			w.Header().Set("Content-Type", "text/plain")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	for _, p := range []string{"/vendor/pdfjs/pdf.min.mjs", "/vendor/pdfjs/pdf.worker.min.mjs", "/js/pog.js"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/javascript") {
+			t.Errorf("%s Content-Type = %q", p, ct)
+		}
+	}
+}
+
 func TestStaticCacheRevalidates(t *testing.T) {
 	served := 0
 	h := staticCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
