@@ -5,22 +5,41 @@
 "use strict";
 
 const DOWNLOAD_URL = "https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows/AceLocationStudio.exe";
-const VIEW_KEY = "als.view";
 
 const App = {
-  view: "clear",
-  views: { clear: ClearView, plan: PlanView, settings: SettingsView },
+  view: "home",
+  workflow: null,  // the open workflow's id (see workflows.js)
+  lastStep: "clear",
+  views: { home: HomeView, clear: ClearView, plan: PlanView, settings: SettingsView },
+
+  /** Open a workflow at its first step. */
+  openWorkflow(id) {
+    if (!WORKFLOW[id]) return;
+    this.workflow = id;
+    ClearView.setWorkflow(id);
+    this.show(WORKFLOW[id].steps[0].view);
+  },
 
   show(name) {
-    if (!this.views[name]) name = "clear";
+    if (name === "workflow") name = this.workflow ? this.lastStep : "home";
+    const w = this.workflow && WORKFLOW[this.workflow];
+    // A view outside the open workflow's steps goes back to the menu.
+    if ((name === "clear" || name === "plan") && !(w && w.steps.some((s) => s.view === name))) name = "home";
+    if (!this.views[name]) name = "home";
     this.view = name;
+    if (name === "clear" || name === "plan") this.lastStep = name;
     $$(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
-    $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
+    const inFlow = name === "clear" || name === "plan";
+    $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name || (inFlow && t.dataset.view === "workflow")));
+    const tab = $("#wfTab");
+    tab.hidden = !w;
+    if (w) tab.innerHTML = `${icon(w.icon)}${esc(w.title)}`;
+    FlowBar.render();
+    if (name === "home") HomeView.render();
     if (name === "settings") SettingsView.render();
     if (name === "plan") PlanView.shown();
     if (name === "clear") ClearView.checkWatch();
     $("#work").scrollTop = 0;
-    try { localStorage.setItem(VIEW_KEY, name); } catch (e) { /* ignore */ }
   },
 
   refreshAll(opts) {
@@ -48,16 +67,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   ClearView.init();
   PlanView.init();
   SettingsView.init();
+  HomeView.init();
   $$(".tab").forEach((t) => (t.onclick = () => App.show(t.dataset.view)));
-  let start = "clear";
-  try { start = localStorage.getItem(VIEW_KEY) || "clear"; } catch (e) { /* ignore */ }
-  App.show(start);
+  App.show("home"); // always start at the workflow menu
   checkForUpdate();
-  // Keyboard: Ctrl+1..3 switch tabs.
+  // Keyboard: Ctrl+1 workflows, Ctrl+2 back to the open workflow, Ctrl+3 settings.
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && ["1", "2", "3"].includes(e.key)) {
       e.preventDefault();
-      App.show(["clear", "plan", "settings"][Number(e.key) - 1]);
+      App.show(["home", "workflow", "settings"][Number(e.key) - 1]);
     }
   });
 });

@@ -32,7 +32,10 @@ const ClearView = {
   fileError: "",
   loading: "",
   codes: [],
-  slotsByCode: {},   // { "12R": [0, 3, 4, 5] } — which locations each code clears (default 1, 4, 5, 6)
+  slotsByCode: {},   // { "12R": [0, 3, 4, 5] } — which locations each code clears (Custom only; default 1, 4, 5, 6)
+  changeTo: {},      // { "12R": "14L05" } — codes that change instead of clear (Custom only)
+  wf: WORKFLOW.planogram, // the open workflow: which locations codes search, file names…
+  states: {},        // each workflow's codes etc., kept while another is open
   plan: null,
   customName: null,  // set when the file name was edited by hand
   saved: null,       // { path, skus, cells } after a save
@@ -46,8 +49,8 @@ const ClearView = {
     v.innerHTML = `
       <div class="view-head">
         <div>
-          <h2>Clear Locations</h2>
-          <p>The newest Compass export loads by itself (or drop an Eagle export). Type the codes being reset, check the preview, and save the import file for Eagle.</p>
+          <h2 id="clearHead">Clear Locations</h2>
+          <p id="clearLead"></p>
         </div>
       </div>
       <div class="clear-layout">
@@ -76,19 +79,49 @@ const ClearView = {
         if (this.canSave()) this.save(false);
       }
     });
-    this.refresh();
+    this.setWorkflow(this.wf.id); // headings + first draw
     this.checkWatch();
     setInterval(() => this.checkWatch(), WATCH_POLL_MS);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) this.checkWatch(); });
   },
 
+  /** Switch to a workflow, keeping each workflow's own codes. */
+  setWorkflow(id) {
+    const w = WORKFLOW[id];
+    if (!w) return;
+    if (this.wf.id !== id) {
+      const keep = ["codes", "slotsByCode", "changeTo", "customName", "saved", "saveError", "mode", "filter"];
+      this.states[this.wf.id] = Object.fromEntries(keep.map((k) => [k, this[k]]));
+      const st = this.states[id] || {};
+      this.codes = st.codes || [];
+      this.slotsByCode = st.slotsByCode || {};
+      this.changeTo = st.changeTo || {};
+      this.customName = st.customName != null ? st.customName : null;
+      this.saved = st.saved || null;
+      this.saveError = st.saveError || "";
+      this.mode = st.mode || "import";
+      this.filter = st.filter || "";
+      this.wf = w;
+    }
+    $("#clearHead").textContent = w.head;
+    $("#clearLead").textContent = w.lead + " The newest Compass export loads by itself (or drop an Eagle export); check the preview, then save the import file for Eagle.";
+    this.refresh();
+  },
+
+  /** Which locations each code searches in this workflow. */
+  planSlots() {
+    if (this.wf.slots) return Object.fromEntries(this.codes.map((c) => [c, this.wf.slots]));
+    return this.slotsByCode;
+  },
+
   refresh() {
-    this.plan = this.file && this.codes.length ? Clear.planClear(this.file.rows, this.codes, this.slotsByCode) : null;
+    this.plan = this.file && this.codes.length ? Clear.planClear(this.file.rows, this.codes, this.planSlots(), this.wf.change ? this.changeTo : null) : null;
     this.renderFile();
     this.renderCodes();
     this.renderSave();
     this.renderPreview();
     this.renderLog();
+    HomeView.refresh(); // the menu's "location data" line
   },
 
   /* ---------------- step 1: the file ---------------- */
@@ -374,6 +407,7 @@ const ClearView = {
   removeCode(code) {
     this.codes = this.codes.filter((c) => c !== code);
     delete this.slotsByCode[code];
+    delete this.changeTo[code];
     this.saved = null;
     this.saveError = "";
     this.refresh();
@@ -388,8 +422,17 @@ const ClearView = {
     this.refresh();
   },
 
-  /** Slots any code clears (the default four when there are no codes). */
+  /** Set a code to Clear (value null) or Change to a value. */
+  setAction(code, value) {
+    if (value == null) delete this.changeTo[code];
+    else this.changeTo[code] = String(value).toUpperCase().trim();
+    this.saved = null;
+    this.saveError = "";
+  },
+
+  /** Slots any code searches (the workflow's, or the default four with no codes). */
   activeSlots() {
+    if (this.wf.slots) return this.wf.slots.slice();
     if (!this.codes.length) return Clear.CLEARABLE.slice();
     const all = new Set();
     this.codes.forEach((c) => Clear.slotsFor(c, this.slotsByCode).forEach((s) => all.add(s)));
@@ -400,7 +443,8 @@ const ClearView = {
     const c = $("#stepCodes");
     const plan = this.plan;
     const statFor = (code) => plan && plan.stats.find((s) => s.code === code);
-    const slotsOf = (code) => Clear.slotsFor(code, this.slotsByCode);
+    const fixed = !!this.wf.slots;
+    const slotsOf = (code) => Clear.slotsFor(code, this.planSlots());
     // "12R03" adds nothing when "12R" is on the list and clears at least the same locations.
     const covered = Object.fromEntries(Clear.coveredCodes(this.codes)
       .filter((x) => slotsOf(x.code).every((s) => slotsOf(x.by).includes(s)))
@@ -430,6 +474,19 @@ const ClearView = {
         const over = s.bySlot[3] + s.bySlot[4] + s.bySlot[5];
         if (over) where.push(`Overstock: ${over.toLocaleString()}`);
       }
+      const changing = this.wf.change && code in this.changeTo;
+      const changeErr = changing ? Clear.changeProblem(this.changeTo[code]) : "";
+      if (changing && !changeErr && slots.length) notes.push(`<div class="notice info slim chg-note">${icon("edit")}<span>Every ticked location starting with “${esc(code)}” becomes <b>${esc(this.changeTo[code])}</b>.</span></div>`);
+      const action = !this.wf.change ? "" : `
+          <div class="act-pick">
+            <span class="sp-label">Then</span>
+            <div class="seg small" role="group">
+              <button data-act-code="${esc(code)}" data-act="clear" class="${changing ? "" : "active"}">Clear</button>
+              <button data-act-code="${esc(code)}" data-act="change" class="${changing ? "active" : ""}">Change to</button>
+            </div>
+            ${changing ? `<input class="f-input chg-input${changeErr ? " invalid" : ""}" data-chg-code="${esc(code)}" value="${esc(this.changeTo[code])}" maxlength="5" placeholder="e.g. 14L05" spellcheck="false" autocomplete="off" aria-label="New location for ${esc(code)}">` : ""}
+          </div>
+          ${changing && changeErr ? `<div class="field-error show chg-err">${esc(changeErr)}</div>` : ""}`;
       const pick = Clear.SLOT_ROLES.map((role, i) => {
         const on = slots.includes(i);
         const tag = ["Shelf", "Flag", "Cap", "Over", "Over", "Over"][i];
@@ -438,7 +495,8 @@ const ClearView = {
       return `
         <div class="code-detail" data-detail="${esc(code)}">
           <div class="cd-head"><b>${esc(code)}</b>${s ? `<span>${s.cells.toLocaleString()} location${s.cells === 1 ? "" : "s"} on ${s.skus.toLocaleString()} SKU${s.skus === 1 ? "" : "s"}</span>` : ""}</div>
-          <div class="slot-pick" role="group" aria-label="Locations ${esc(code)} clears"><span class="sp-label">Clears</span>${pick}</div>
+          ${fixed ? "" : `<div class="slot-pick" role="group" aria-label="Locations ${esc(code)} searches"><span class="sp-label">${this.wf.change ? "Search" : "Clears"}</span>${pick}</div>`}
+          ${action}
           ${s && s.cells ? `<div class="cd-values">${esc(Clear.valuesSummary(s.values, 8))}</div><div class="cd-where">${where.join(" · ")}</div>` : ""}
           ${notes.join("")}
         </div>`;
@@ -447,20 +505,21 @@ const ClearView = {
       const hits = plan.protectedHits;
       const list = hits.slice(0, 4).map((h) => `${esc(h.value)} in Location ${h.slot + 1} on SKU ${esc(h.sku)}`).join("; ");
       const more = hits.length > 4 ? ` and ${hits.length - 4} more` : "";
-      details += `<div class="notice info" id="protectedNote">${icon("lock")}<span><b>Left alone:</b> ${list}${more} — that location isn't ticked for the code.</span></div>`;
+      details += `<div class="notice info" id="protectedNote">${icon("lock")}<span><b>Left alone:</b> ${list}${more} — ${fixed ? "this workflow doesn't touch that location" : "that location isn't ticked for the code"}.</span></div>`;
     }
 
-    c.innerHTML = stepHead(2, "Codes to clear", this.codes.length > 0 && !!plan && plan.cells > 0) + `
+    c.innerHTML = stepHead(2, this.wf.codesTitle, this.codes.length > 0 && !!plan && plan.cells > 0) + `
       <div class="f-row code-entry">
         <input class="f-input code-input" id="codeInput" placeholder="e.g. 12R" autocomplete="off" spellcheck="false" aria-label="Location code to clear">
         <button class="btn btn-primary" id="codeAdd">${icon("plus")} Add</button>
       </div>
       <div class="field-error" id="codeError"></div>
-      <p class="f-help" style="margin-top:8px">Clears every location that <b>starts with</b> the code — <code>12R</code> clears 12R01–12R09, <code>12R03</code> only 12R03. Add as many as you need, and pick which locations each one clears.</p>
+      <p class="f-help" style="margin-top:8px">A code matches every location that <b>starts with</b> it — <code>12R</code> matches 12R01–12R09, <code>12R03</code> only 12R03. Add as many as you need${fixed ? "" : this.wf.change ? ", then pick the locations each one searches and whether it clears or changes them" : ", and pick which locations each one clears"}.</p>
+      ${fixed ? `<div class="searches-line" id="searchesLine">${icon("search")}<span>Searches ${this.wf.slots.map((s) => `<span class="sp-fixed${Clear.PROTECTED.includes(s) ? " prot" : ""}">L${s + 1}</span>`).join("")} — ${esc(this.wf.searches)}</span></div>` : ""}
       ${chips ? `<div class="chips">${chips}</div>` : ""}
       ${this.codes.length > 1 ? `<button class="link small" id="codesClear">Remove all codes</button>` : ""}
       <div class="code-details">${details}</div>
-      ${plan && plan.protectedHits.length ? "" : `<div class="lock-note">${icon("lock")}<span>Location 2 (flags) and Location 3 (capacity) are left alone unless you tick them for a code.</span></div>`}`;
+      ${plan && plan.protectedHits.length ? "" : `<div class="lock-note">${icon("lock")}<span>${esc(this.wf.lockNote)}</span></div>`}`;
 
 
     const inp = $("#codeInput");
@@ -481,17 +540,41 @@ const ClearView = {
     $("#codeAdd").onclick = () => { if (inp.value.trim()) this.addCodes(inp.value); else inp.focus(); };
     $$("[data-remove]", c).forEach((b) => (b.onclick = () => this.removeCode(b.dataset.remove)));
     $$("[data-slot-code]", c).forEach((b) => (b.onclick = () => this.toggleSlot(b.dataset.slotCode, Number(b.dataset.slot))));
-    if ($("#codesClear")) $("#codesClear").onclick = () => { this.codes = []; this.slotsByCode = {}; this.saved = null; this.refresh(); };
+    $$("[data-act-code]", c).forEach((b) => (b.onclick = () => {
+      const code = b.dataset.actCode;
+      this.setAction(code, b.dataset.act === "change" ? (this.changeTo[code] || "") : null);
+      this.refresh();
+      if (b.dataset.act === "change") { const i = $(`[data-chg-code="${CSS.escape(code)}"]`); if (i) i.focus(); }
+    }));
+    $$("[data-chg-code]", c).forEach((inp) => {
+      // Typing updates the preview and save step straight away; the codes
+      // step itself redraws when the box is left, so typing isn't interrupted.
+      inp.oninput = () => {
+        inp.value = inp.value.toUpperCase();
+        this.setAction(inp.dataset.chgCode, inp.value);
+        this.plan = this.file ? Clear.planClear(this.file.rows, this.codes, this.planSlots(), this.changeTo) : null;
+        inp.classList.toggle("invalid", !!Clear.changeProblem(inp.value));
+        this.renderSave();
+        this.renderPreview();
+      };
+      inp.onchange = () => this.refresh();
+      inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } };
+    });
+    if ($("#codesClear")) $("#codesClear").onclick = () => { this.codes = []; this.slotsByCode = {}; this.changeTo = {}; this.saved = null; this.refresh(); };
   },
 
   /* ---------------- step 3: save ---------------- */
 
-  autoName() { return Clear.importFileName(this.codes); },
+  autoName() { return Clear.importFileName(this.codes, this.wf.tag); },
   fileName() { return this.customName != null ? this.customName : this.autoName(); },
 
   blocker() {
     if (!this.file) return "Load the location data first.";
     if (!this.codes.length) return "Add the location codes to clear.";
+    if (this.wf.change) {
+      const bad = this.codes.find((c) => c in this.changeTo && Clear.changeProblem(this.changeTo[c]));
+      if (bad) return `Type the new location for ${bad} (or switch it back to Clear).`;
+    }
     if (!this.plan || !this.plan.changed.length) return "Nothing in this file matches those codes.";
     if (!SAFE_NAME.test(this.fileName())) return "The file name can only use letters, numbers, spaces and dashes, and must end in .csv.";
     return "";
@@ -559,6 +642,7 @@ const ClearView = {
     const name = this.fileName();
     const csv = Clear.importCSV(plan.changed);
     this.saving = true;
+    this.saved = null; // the "Saved" note comes back once this save is written
     this.saveError = "";
     this.renderSave();
     try {
@@ -582,7 +666,9 @@ const ClearView = {
       showToast(`${icon("check")} Saved ${esc(name)}`, { kind: "good" });
       Store.logExport({
         file: name, path: data.path, codes: this.codes.slice(),
-        slots: Object.fromEntries(this.codes.map((c) => [c, Clear.slotsFor(c, this.slotsByCode)])),
+        workflow: this.wf.id,
+        slots: Object.fromEntries(this.codes.map((c) => [c, Clear.slotsFor(c, this.planSlots())])),
+        ...(this.wf.change && Object.keys(this.changeTo).length ? { changeTo: Object.assign({}, this.changeTo) } : {}),
         skus: plan.changed.length, cells: plan.cells, source: this.file.name,
       }).then(() => this.renderLog());
     } catch (e) {
@@ -624,7 +710,7 @@ const ClearView = {
       <div class="tiles">
         <div class="tile"><div class="t-label">SKUs in the file</div><div class="t-value num">${f.rows.length.toLocaleString()}</div></div>
         <div class="tile hero-tile"><div class="t-label">SKUs in the import</div><div class="t-value num" id="tSkus">${plan.changed.length.toLocaleString()}</div></div>
-        <div class="tile"><div class="t-label">Locations cleared</div><div class="t-value num" id="tCells">${plan.cells.toLocaleString()}</div></div>
+        <div class="tile"><div class="t-label">${this.wf.change ? "Locations cleared / changed" : "Locations cleared"}</div><div class="t-value num" id="tCells">${plan.cells.toLocaleString()}</div></div>
         <div class="tile"><div class="t-label">Left out — nothing to clear</div><div class="t-value num" id="tSame">${plan.unchanged.toLocaleString()}</div></div>
       </div>` : `<div class="notice info slim">${icon("info")}<span>Add a location code to see what will be cleared. Showing the file as loaded.</span></div>`;
 
@@ -635,7 +721,11 @@ const ClearView = {
     }).join("");
     const body = shown.map((r) => {
       const cells = r.before.map((v, i) => {
-        if (r.cleared.includes(i)) return `<td class="loc cleared"><span class="q">?</span> <s>${esc(v)}</s></td>`;
+        if (r.cleared.includes(i)) {
+          return r.after[i] === Clear.CLEAR_MARK
+            ? `<td class="loc cleared"><span class="q">?</span> <s>${esc(v)}</s></td>`
+            : `<td class="loc changed"><span class="q chg">${esc(r.after[i])}</span> <s>${esc(v)}</s></td>`;
+        }
         return `<td class="loc${active.includes(i) ? "" : " locked"}">${esc(v)}</td>`;
       }).join("");
       return `<tr class="${r.same ? "same" : "chg"}"><td class="sku">${esc(r.sku)}</td><td class="desc" title="${esc(r.desc)}">${esc(r.desc)}</td>${cells}</tr>`;
@@ -661,7 +751,7 @@ const ClearView = {
         </table>
       </div>
       ${rows.length > PREVIEW_LIMIT ? `<p class="f-help center">Showing the first ${PREVIEW_LIMIT.toLocaleString()} of ${rows.length.toLocaleString()} rows — the saved file has all of them. Use the search box to find one.</p>` : ""}
-      ${plan ? `<p class="f-help prev-key"><span class="q">?</span> = cleared in Eagle (old location shown crossed out). Everything else is written back exactly as it is now.</p>` : ""}`;
+      ${plan ? `<p class="f-help prev-key"><span class="q">?</span> = cleared in Eagle${this.wf.change ? `, <span class="q chg">14L05</span> = changed to that location` : ""} (old location shown crossed out). Everything else is written back exactly as it is now.</p>` : ""}`;
 
     $$("[data-mode]", c).forEach((b) => (b.onclick = () => { this.mode = b.dataset.mode; this.renderPreview(); }));
     const fi = $("#prevFilter");
@@ -689,11 +779,12 @@ const ClearView = {
         <tbody>${list.slice(0, 10).map((x) => `
           <tr>
             <td class="nowrap">${esc(fmtDateTime(x.ts))}</td>
-            <td>${x.kind === "plan" ? `<span class="kind-tag">New plan</span> ` : ""}<span title="${esc(x.path || "")}">${esc(x.file)}</span>${x.source ? `<div class="muted small">from ${esc(x.source)}</div>` : ""}</td>
+            <td>${x.kind === "plan" ? `<span class="kind-tag">New plan</span> ` : x.workflow === "opti" ? `<span class="kind-tag">OPTI</span> ` : x.workflow === "custom" ? `<span class="kind-tag">Custom</span> ` : ""}<span title="${esc(x.path || "")}">${esc(x.file)}</span>${x.source ? `<div class="muted small">from ${esc(x.source)}</div>` : ""}</td>
             <td>${(x.codes || []).map((c) => {
               const sl = x.slots && x.slots[c];
-              const tag = sl && !Clear.isDefaultSlots(sl) ? ` <small>${sl.length ? sl.map((k) => "L" + (k + 1)).join(" ") : "none"}</small>` : "";
-              return `<span class="mini-code">${esc(c)}${tag}</span>`;
+              const tag = sl && !Clear.isDefaultSlots(sl) && x.workflow !== "opti" ? ` <small>${sl.length ? sl.map((k) => "L" + (k + 1)).join(" ") : "none"}</small>` : "";
+              const to = x.changeTo && x.changeTo[c] ? ` <small>→ ${esc(x.changeTo[c])}</small>` : "";
+              return `<span class="mini-code">${esc(c)}${tag}${to}</span>`;
             }).join(" ")}</td>
             <td class="r num">${Number(x.skus || 0).toLocaleString()}</td>
             <td class="r num">${x.kind === "plan" ? `<span class="muted small">${Number(x.cells || 0)} files</span>` : Number(x.cells || 0).toLocaleString()}</td>

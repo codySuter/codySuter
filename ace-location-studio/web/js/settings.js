@@ -29,7 +29,7 @@ const SettingsView = {
     const el = $("#sWatchNow");
     if (!el) return;
     const dir = Store.watchDir();
-    if (!Store.settings.watchOn) { el.innerHTML = "Off — load an export by hand in Clear Locations."; return; }
+    if (!Store.settings.watchOn) { el.innerHTML = "Off — load an export by hand in a workflow."; return; }
     let st;
     try {
       st = await fetch("/api/watch?dir=" + encodeURIComponent(dir), { cache: "no-store" }).then((r) => r.json());
@@ -87,8 +87,9 @@ const SettingsView = {
           <div class="card-head"><h3>${icon("info")} How clearing works</h3></div>
           <ul class="rules">
             <li>A code clears every location that <b>starts with</b> it: <code>12R</code> clears 12R01–12R09, <code>12R03</code> clears only 12R03.</li>
-            <li>Each code clears the locations ticked under it (L1–L6). By default that's <b>Location 1</b> (shelf) and <b>Locations 4–6</b> (overstock).</li>
-            <li><b>Location 2</b> (system flags like MDONE) and <b>Location 3</b> (shelf capacity) are left alone unless you tick them for a code — they're written back exactly as they are.</li>
+            <li><b>Planogram Change</b> searches Location 1 (shelf) and Locations 4–6 (overstock). <b>OPTI Clear</b> searches overstock 4–6 only.</li>
+            <li><b>Custom Location Change</b> searches the locations ticked under each code (L1–L6), and can <b>change</b> them to a new location instead of clearing them.</li>
+            <li><b>Location 2</b> (system flags like MDONE) and <b>Location 3</b> (shelf capacity) are only touched when you tick them in Custom Location Change — otherwise they're written back exactly as they are.</li>
             <li>Only SKUs with at least one cleared location go in the import file, always with all six location columns.</li>
             <li>In the file a <code>?</code> tells Eagle to clear that location.</li>
           </ul>
@@ -103,7 +104,7 @@ const SettingsView = {
         <div class="card span2" id="watchCard">
           <div class="card-head"><h3>${icon("refresh")} Compass exports — load automatically</h3></div>
           <p class="f-help">Compass can save a location export on a schedule (every 30 minutes, say). The app watches that folder:
-            Clear Locations loads the newest export by itself, picks up newer ones as they arrive, and warns when the newest is over an hour old.
+            Every workflow loads the newest export by itself, picks up newer ones as they arrive, and warns when the newest is over an hour old.
             It only reads the folder — nothing there is changed or deleted.</p>
           <label class="check-row"><input type="checkbox" id="sWatchOn" ${st.watchOn ? "checked" : ""}> Load the newest Compass export automatically</label>
           <label class="f-label" for="sWatch">Compass export folder</label>
@@ -113,7 +114,7 @@ const SettingsView = {
           </div>
           <p class="f-help" id="sWatchNow" style="margin-top:8px"></p>
           <label class="f-label" for="sCompassExe">Compass program</label>
-          <p class="f-help">Clear Locations has a <b>Get fresh data from Compass</b> button: it starts Compass (restarting it if it's open — after asking, and letting Compass ask about unsaved work), so the export task set to run when Compass starts saves a new export.</p>
+          <p class="f-help">Every workflow has a <b>Get fresh data from Compass</b> button: it starts Compass (restarting it if it's open — after asking, and letting Compass ask about unsaved work), so the export task set to run when Compass starts saves a new export.</p>
           <div class="f-row">
             <input class="f-input" id="sCompassExe" placeholder="${esc(window.__defaultCompassExe || "")}" value="${esc(st.compassExe)}" spellcheck="false">
             <button class="btn btn-secondary" id="sCompassExeReset" title="Go back to ${esc(window.__defaultCompassExe || "")}">Use default</button>

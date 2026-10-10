@@ -73,6 +73,18 @@ async function addCode(code) {
 
 const HEADER = "SKU,Location 1,Location 2,Location 3,Location 4,Location 5,Location 6";
 
+/** Open a workflow (from the menu if needed) at one of its steps. */
+async function openFlow(id, step = "clear") {
+  if ((await page.evaluate(() => App.workflow)) !== id) {
+    await page.click('.tab[data-view="home"]');
+    await page.click(`[data-workflow="${id}"]`);
+  }
+  for (let i = 0; i < 2 && (await page.evaluate(() => App.view)) !== step; i++) {
+    if (await page.$(`#flowBar [data-step="${step}"]`)) await page.click(`#flowBar [data-step="${step}"]`);
+    else await page.click('.tab[data-view="workflow"]');
+  }
+}
+
 async function run() {
   console.log("→ Building ace-location-studio…");
   const bin = path.join(mkdtempSync(path.join(os.tmpdir(), "als-e2e-")), "acelocationstudio");
@@ -114,7 +126,7 @@ wait
   page.on("pageerror", (e) => pageErrors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/status of 4\d\d/.test(m.text())) pageErrors.push(m.text()); });
   await page.goto(url);
-  await page.waitForSelector("#stepFile .dropzone");
+  await page.waitForSelector(".wf-card");
 
   /* ---------- update banner ---------- */
   console.log("\n# Update banner");
@@ -123,9 +135,22 @@ wait
   ok("banner offers Update & Restart", (await text("#updateBtn")) === "Update & Restart");
   await page.click("#updateDismiss");
 
+  /* ---------- the workflow menu ---------- */
+  console.log("\n# Workflow menu");
+  ok("menu: opens first, three workflows", (await page.$$eval(".wf-card .wf-title", (ts) => ts.map((t) => t.innerText))).join("|") === "Planogram Change|OPTI Clear|Custom Location Change");
+  ok("menu: says what each searches", (await text('[data-workflow="opti"] .wf-search')).includes("Overstock 4, 5, 6 only"));
+  ok("menu: no workflow tab yet", await page.$eval("#wfTab", (t) => t.hidden));
+  await shot("00-menu");
+  await page.click('[data-workflow="planogram"]');
+  await page.waitForSelector("#stepFile .dropzone");
+  const stepNames = await page.$$eval("#flowBar .flow-step", (bs) => bs.map((b) => b.innerText.replace(/\s+/g, " ").trim()));
+  ok("planogram: two guided steps", stepNames.join("|") === "1 Clear old locations|2 New planogram", stepNames);
+  ok("planogram: heading + workflow tab", (await text("#clearHead")) === "Clear old locations" && (await text("#wfTab")) === "Planogram Change");
+  ok("planogram: searches Loc 1, 4, 5, 6", (await text("#searchesLine")).includes("L1L4L5L6"), await text("#searchesLine"));
+
   /* ---------- empty state ---------- */
   console.log("\n# Before a file is loaded");
-  ok("version tag", (await text("#verTag")) === "v1.4.0", await text("#verTag"));
+  ok("version tag", (await text("#verTag")) === "v1.5.0", await text("#verTag"));
   ok("preview explains what to do", (await text("#previewCard")).includes("Load the location data"));
   ok("save is disabled", await page.$eval("#saveBtn", (b) => b.disabled));
   ok("says why", (await text("#saveBlocker")).includes("Load the location data first"));
@@ -171,24 +196,6 @@ wait
   ok("search filters the preview", (await page.$$("#previewTable tbody tr")).length === 1);
   await page.fill("#prevFilter", "");
   await shot("02-preview");
-
-  console.log("\n# Which locations a code clears");
-  const pick = (code, slot) => page.click(`[data-slot-code="${code}"][data-slot="${slot}"]`);
-  const pressed = () => page.$$eval('[data-slot-code="12R"]', (bs) => bs.map((b) => b.getAttribute("aria-pressed") === "true" ? 1 : 0).join(""));
-  ok("slots: Loc 1, 4, 5, 6 ticked by default", (await pressed()) === "100111", await pressed());
-  for (const s of [3, 4, 5]) await pick("12R", s); // shelf only
-  ok("slots: Loc 1 only → shelf locations only", (await text("#tSkus")) === "5" && (await text("#tCells")) === "5" && (await text(".cd-where")) === "Location 1: 5", [await text("#tSkus"), await text(".cd-where")]);
-  ok("slots: unticked overstock reported as left alone", (await text("#protectedNote")).includes("12R06 in Location 4 on SKU 779600"), await text("#protectedNote"));
-  ok("slots: preview locks the unticked columns", await page.$$eval("#previewTable thead th.loc-h", (hs) => hs.map((h) => h.classList.contains("locked") ? 1 : 0).join("")) === "011111");
-  for (const s of [3, 4, 5]) await pick("12R", s);
-  await pick("12R", 1); // Location 2 too
-  ok("slots: ticking Loc 2 warns", (await text(".risky-slots")).includes("Location 2 (flag)"), await text(".risky-slots").catch(() => ""));
-  ok("slots: and clears the flag match", (await text("#tSkus")) === "8" && (await text("#tCells")) === "9");
-  await pick("12R", 1);
-  for (const s of [0, 3, 4, 5]) await pick("12R", s);
-  ok("slots: none ticked says so", (await text(".no-slots")).includes("won't clear anything") && (await page.$eval("#saveBtn", (b) => b.disabled)));
-  for (const s of [0, 3, 4, 5]) await pick("12R", s);
-  ok("slots: back to the default", (await pressed()) === "100111" && (await text("#tSkus")) === "7" && (await text("#tCells")) === "8");
 
   /* ---------- save ---------- */
   console.log("\n# Save the import file");
@@ -285,7 +292,7 @@ wait
   await page.fill("#sDir", other);
   await page.waitForTimeout(600);
   ok("settings show the folder", (await text("#sDirNow")).includes(other));
-  await page.click('.tab[data-view="clear"]');
+  await openFlow("planogram", "clear");
   ok("save step uses the new folder", (await text("#destDir")) === other);
   await page.click("#saveBtn");
   await page.waitForSelector("#savedNote");
@@ -293,6 +300,8 @@ wait
   await shot("05-settings-folder");
 
   await page.reload();
+  await page.waitForSelector(".wf-card");
+  await openFlow("planogram", "clear");
   await page.waitForSelector("#stepFile .dropzone");
   ok("folder setting persisted", (await text("#destDir")) === other);
   const st = await page.evaluate(() => fetch("/api/state").then((r) => r.json()));
@@ -316,7 +325,7 @@ wait
     utimesSync(exportFile, t, t);
   };
   putExport(10 * 60000);
-  await page.click('.tab[data-view="clear"]'); // opening the tab checks the folder
+  await openFlow("planogram", "clear"); // opening it checks the folder
   await page.waitForSelector("#freshLine");
   ok("watch: loads the newest export by itself", (await text("#stepFile .file-meta")).includes("ALS Locations.xlsx") && (await text("#stepFile .file-meta")).includes("9 SKUs · Sheet1 · Compass export"), await text("#stepFile .file-meta"));
   ok("watch: says when Compass saved it", (await text("#freshLine")).includes("(10 min ago)"), await text("#freshLine"));
@@ -343,6 +352,10 @@ wait
 
   putExport(2 * 3600000 + 5 * 60000); // the schedule stopped two hours ago
   await page.reload();
+  await page.waitForSelector(".wf-card");
+  const ready = await page.waitForFunction(() => document.querySelector("#homeData")?.innerText.includes("Location data ready"), null, { timeout: 5000 }).then(() => true, () => false);
+  ok("watch: the menu says the location data is ready", ready, await text("#homeData"));
+  await openFlow("planogram", "clear");
   await page.waitForSelector("#staleNote");
   ok("watch: warns when the export is over an hour old", (await text("#staleNote")).includes("2 h 5 min old"), await text("#staleNote"));
   await shot("06c-compass-stale");
@@ -396,14 +409,78 @@ wait
   await page.waitForFunction(() => document.querySelector("#sWatchNow")?.innerText.startsWith("Off"));
   await page.waitForTimeout(500);
   await page.reload();
-  await page.click('.tab[data-view="clear"]');
+  await page.waitForSelector(".wf-card");
+  await openFlow("planogram", "clear");
   await page.waitForSelector("#stepFile .dropzone");
   await page.waitForTimeout(800);
   ok("watch: turned off, nothing loads by itself", await has("#stepFile .dropzone") && !(await has("#watchHint")));
 
+  /* ---------- OPTI Clear ---------- */
+  console.log("\n# OPTI Clear");
+  await openFlow("opti", "clear");
+  ok("opti: one step, no planogram", !(await has("#flowBar .flow-step")) && (await text("#clearHead")) === "OPTI Clear" && (await text("#wfTab")) === "OPTI Clear");
+  ok("opti: its own codes (none yet)", (await page.$$(".code-chip")).length === 0);
+  await page.setInputFiles("#fileInput", path.join(DATA, "eagle-sample.xls"));
+  await page.waitForFunction(() => document.querySelector("#stepFile .file-meta")?.innerText.includes("eagle-sample.xls"));
+  ok("opti: searches overstock only, no toggles", (await text("#searchesLine")).includes("L4L5L6") && !(await has(".slot-pick")) && !(await has(".act-pick")), await text("#searchesLine"));
+  await addCode("12R");
+  ok("opti: only overstock matches cleared", (await text("#tSkus")) === "3" && (await text("#tCells")) === "3", [await text("#tSkus"), await text("#tCells")]);
+  ok("opti: shelf matches left alone", (await text("#protectedNote")).includes("12R02 in Location 1") && (await text("#protectedNote")).includes("this workflow doesn't touch"), await text("#protectedNote"));
+  ok("opti: file name", (await val("#nameInput")) === "12R OPTICLEAR - Eagle Import.csv", await val("#nameInput"));
+  await page.click("#saveBtn");
+  await page.waitForSelector("#savedNote");
+  const optiGot = readFileSync(path.join(exportDir, "12R OPTICLEAR - Eagle Import.csv"), "utf8");
+  ok("opti: import file — same six columns, overstock cleared", optiGot === [HEADER, "779600,12R07,,100,?,,", "3008391,14L05,,4,?,,", "9087035,,,,?,,"].join("\r\n"), JSON.stringify(optiGot));
+  ok("opti: logged with its tag", (await text("#logCard tbody tr")).includes("OPTI"));
+  await shot("09-opti");
+
+  /* ---------- Custom Location Change ---------- */
+  console.log("\n# Custom Location Change");
+  await openFlow("custom", "clear");
+  ok("custom: location data shared with the other workflows", (await text("#stepFile .file-meta")).includes("eagle-sample.xls"));
+  ok("custom: its own codes", (await page.$$(".code-chip")).length === 0);
+  await addCode("12r");
+  // Which locations a code searches (L1–L6 per code)
+  const pick = (code, slot) => page.click(`[data-slot-code="${code}"][data-slot="${slot}"]`);
+  const pressed = () => page.$$eval('[data-slot-code="12R"]', (bs) => bs.map((b) => b.getAttribute("aria-pressed") === "true" ? 1 : 0).join(""));
+  ok("slots: Loc 1, 4, 5, 6 ticked by default", (await pressed()) === "100111", await pressed());
+  for (const s of [3, 4, 5]) await pick("12R", s); // shelf only
+  ok("slots: Loc 1 only → shelf locations only", (await text("#tSkus")) === "5" && (await text("#tCells")) === "5" && (await text(".cd-where")) === "Location 1: 5", [await text("#tSkus"), await text(".cd-where")]);
+  ok("slots: unticked overstock reported as left alone", (await text("#protectedNote")).includes("12R06 in Location 4 on SKU 779600"), await text("#protectedNote"));
+  ok("slots: preview locks the unticked columns", await page.$$eval("#previewTable thead th.loc-h", (hs) => hs.map((h) => h.classList.contains("locked") ? 1 : 0).join("")) === "011111");
+  for (const s of [3, 4, 5]) await pick("12R", s);
+  await pick("12R", 1); // Location 2 too
+  ok("slots: ticking Loc 2 warns", (await text(".risky-slots")).includes("Location 2 (flag)"), await text(".risky-slots").catch(() => ""));
+  ok("slots: and clears the flag match", (await text("#tSkus")) === "8" && (await text("#tCells")) === "9");
+  await pick("12R", 1);
+  for (const s of [0, 3, 4, 5]) await pick("12R", s);
+  ok("slots: none ticked says so", (await text(".no-slots")).includes("won't clear anything") && (await page.$eval("#saveBtn", (b) => b.disabled)));
+  for (const s of [0, 3, 4, 5]) await pick("12R", s);
+  ok("slots: back to the default", (await pressed()) === "100111" && (await text("#tSkus")) === "7" && (await text("#tCells")) === "8");
+
+  await page.click('[data-act-code="12R"][data-act="change"]');
+  ok("custom: Change to needs a value", (await page.$eval("#saveBtn", (b) => b.disabled)) && (await text("#saveBlocker")).includes("Type the new location for 12R"), await text("#saveBlocker").catch(() => ""));
+  for (const sl of [3, 4, 5]) await pick("12R", sl); // shelf only
+  await page.fill('[data-chg-code="12R"]', "14l05");
+  await page.press('[data-chg-code="12R"]', "Enter");
+  const chgPrev = await page.$$eval("#previewTable tbody tr", (rs) => rs.map((r) => [...r.cells].map((c) => c.innerText.replace(/\s+/g, " ").trim())));
+  ok("custom: preview shows the new location", chgPrev[0][2] === "14L05 12R02" && chgPrev.length === 5, chgPrev[0]);
+  ok("custom: note says what happens", (await text(".chg-note")).includes("becomes 14L05"));
+  ok("custom: file name", (await val("#nameInput")) === "12R LOCCHANGE - Eagle Import.csv", await val("#nameInput"));
+  await shot("10-custom-change");
+  await page.click("#saveBtn");
+  await page.waitForSelector("#savedNote");
+  const chgGot = readFileSync(path.join(exportDir, "12R LOCCHANGE - Eagle Import.csv"), "utf8");
+  ok("custom: import file — Location 1 changed, the rest written back", chgGot === [HEADER, "70013,14L05,,6,,,", "70018,14L05,,5,USTOR,,", "779600,14L05,,100,12R06,,", "6707640,14L05,MDONE,,,,", "7000137D,14L05,,3,,,"].join("\r\n"), JSON.stringify(chgGot));
+  ok("custom: logged with the change", (await text("#logCard tbody tr")).includes("Custom") && (await text("#logCard tbody tr")).includes("→ 14L05"), await text("#logCard tbody tr"));
+  await openFlow("opti", "clear");
+  ok("switching workflows keeps each one's codes", (await text(".code-chip")).startsWith("12R") && (await val("#nameInput")).includes("OPTICLEAR"));
+  await openFlow("custom", "clear");
+  ok("…and Custom's change", (await val('[data-chg-code="12R"]')) === "14L05");
+
   /* ---------- new planogram ---------- */
   console.log("\n# New planogram");
-  await page.click('.tab[data-view="plan"]');
+  await openFlow("planogram", "plan");
   ok("plan: save disabled before a PDF", await page.$eval("#planSaveBtn", (b) => b.disabled));
   ok("plan: says why", (await text("#planBlocker")).includes("Load the planogram PDF first"));
   await page.setInputFiles("#pogInput", { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
@@ -446,6 +523,8 @@ wait
 
   console.log("\n# Facings");
   await page.click('#hotspots .hs[data-sku="7000001"]');
+  const btnAt = async () => page.evaluate(() => ["#selMinus", "#selPlus"].map((s) => { const r = document.querySelector(s).getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)}`; }).join(" "));
+  const btns0 = await btnAt();
   ok("plan: click selects", (await text("#selBar")).includes("7000001") && (await text("#selBar")).includes("of 2 facings"));
   ok("plan: plan capacity", (await text("#selCap")) === "12");
   await page.keyboard.press("-");
@@ -454,6 +533,7 @@ wait
   ok("plan: drawing marks it", await page.$eval('#hotspots .hs[data-sku="7000001"]', (b) => b.classList.contains("reduced") && b.innerText.trim() === "1/2"));
   ok("plan: tab counts the change", (await text('#segTabs [data-tab="1"] .tab-n')) === "1");
   ok("plan: list shows it", (await page.$eval('#planTable tr[data-sku="7000001"] td.cap', (td) => td.innerText.trim())) === "6");
+  ok("plan: − / + buttons don't move", (await btnAt()) === btns0, [btns0, await btnAt()]);
   ok("plan: + capped at the plan", await page.$eval("#selPlus", (b) => !b.disabled) && (await page.click("#selPlus"), (await text("#selFacings")) === "2") && await page.$eval("#selPlus", (b) => b.disabled));
   await page.click("#selMinus");
   await page.click('#planTable tr[data-sku="7000006"]');
@@ -464,9 +544,22 @@ wait
   ok("plan: 5 at 2 facings → 2", (await text("#selCap")) === "2");
   await page.click("#selMinus");
   ok("plan: 0 facings drops it", (await text("#selBar")).includes("Dropped"));
+  ok("plan: buttons stay put when dropped", (await btnAt()) === btns0, [btns0, await btnAt()]);
   ok("plan: dropped on drawing", await page.$eval('#hotspots .hs[data-sku="7000006"]', (b) => b.classList.contains("dropped")));
   ok("plan: overhanging label shown faded", await page.$eval('#hotspots .hs[data-sku="7000004"]', (b) => b.classList.contains("other-seg")));
   ok("plan: list counts", (await text("#planCounts")) === "7 SKUs · 1 with fewer facings · 1 dropped", await text("#planCounts"));
+  // A list row's buttons stay under the pointer: the list keeps its scroll
+  // position (and column widths) when it redraws.
+  const squeeze = await page.addStyleTag({ content: ".plan-scroll{max-height:150px!important}" });
+  await page.$eval(".plan-scroll", (s) => { s.scrollTop = s.scrollHeight; });
+  await page.$eval('#planTable tr[data-sku="7000005"]', (r) => r.scrollIntoView({ block: "nearest" }));
+  const rowBtn = '#planTable tr[data-sku="7000005"] [data-bump]';
+  const rowAt = () => page.$eval(rowBtn, (b) => { const r = b.getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)} ${b.closest(".plan-scroll").scrollTop}`; });
+  const row0 = await rowAt();
+  await page.click(rowBtn);
+  ok("plan: list keeps its scroll and the button stays put", (await rowAt()) === row0 && !row0.endsWith(" 0"), [row0, await rowAt()]);
+  await page.click('#planTable tr[data-sku="7000005"] [data-bump="1"]');
+  await squeeze.evaluate((el) => el.remove());
   await page.click('#planTable tr[data-sku="7000004"]');
   ok("plan: no REC QTY explained", (await text("#selBar")).includes("No REC QTY"));
   await page.keyboard.press("Escape");
@@ -497,8 +590,9 @@ wait
   }, null, { polling: 100, timeout: 5000 });
   ok("plan: changes saved to disk", true);
   await page.reload();
-  await page.waitForSelector('.tab.active[data-view="plan"]');
-  ok("plan: reopens on the last tab", true);
+  await page.waitForSelector(".wf-card");
+  await openFlow("planogram", "plan");
+  ok("plan: Next/Back between the two steps", (await text("#flowBack")).includes("Clear old locations") && !(await has("#flowNext")));
   await page.setInputFiles("#pogInput", path.join(DATA, "pog-sample.pdf"));
   await page.waitForSelector("#hotspots .hs", { timeout: 20000 });
   ok("plan: restored notice", (await text("#planRestored")).includes("Picked up where you left off"));
@@ -514,7 +608,8 @@ wait
   page.on("pageerror", (e) => pageErrors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/status of 4\d\d/.test(m.text())) pageErrors.push(m.text()); });
   await page.goto(url);
-  await page.waitForSelector('.tab.active[data-view="plan"]');
+  await page.waitForSelector(".wf-card");
+  await openFlow("planogram", "plan");
   const flushed = await page.waitForFunction(async () => {
     const st = await fetch("/api/state", { cache: "no-store" }).then((r) => r.json());
     return st.plans && st.plans.SYNTH8FT && st.plans.SYNTH8FT.facings["7000002"] === 0;
@@ -539,7 +634,7 @@ wait
   await page.click('.modal [data-act="ok"]');
   ok("plan: start over clears codes and facings", (await val("#loc-1")) === "" && (await page.$$("#planTable tr.reduced, #planTable tr.dropped")).length === 0);
 
-  await page.click('.tab[data-view="clear"]');
+  await openFlow("planogram", "clear");
   ok("plan saves in the log", (await text("#logCard")).includes("New plan"));
 
   /* ---------- live data from Compass ---------- */
@@ -588,7 +683,7 @@ wait
     const found = await text("#cpFound");
     ok("compass: explore finds the SKU and location columns", found.includes("IN.ITEMNO") && found.includes("IN.LCD1"), found);
     ok("compass: report lists the location-like columns", (await text("#cpReportText")).includes("BINS.BINLOC"));
-    await page.click('.tab[data-view="clear"]');
+    await openFlow("planogram", "clear");
     await page.click('.tab[data-view="settings"]');
     ok("compass: remembered as connected", (await text("#compassCard .cp-status")).includes("Connected"));
     await shot("10-compass-live");
