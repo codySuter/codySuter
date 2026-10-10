@@ -355,6 +355,12 @@ async function run() {
   await shot("08-plan-saved");
 
   console.log("\n# Picks up where you left off");
+  await page.waitForFunction(async () => {
+    const st = await fetch("/api/state", { cache: "no-store" }).then((r) => r.json());
+    const p = st.plans && st.plans.SYNTH8FT;
+    return !!p && p.facings["7000006"] === 0 && p.codes["2"] === "12R04";
+  }, null, { polling: 100, timeout: 5000 });
+  ok("plan: changes saved to disk", true);
   await page.reload();
   await page.waitForSelector('.tab.active[data-view="plan"]');
   ok("plan: reopens on the last tab", true);
@@ -363,6 +369,24 @@ async function run() {
   ok("plan: restored notice", (await text("#planRestored")).includes("Picked up where you left off"));
   ok("plan: codes restored", (await val("#loc-1")) === "12R03" && (await val("#loc-2")) === "12R04");
   ok("plan: facings restored", (await page.$eval('#planTable tr[data-sku="7000001"] td.cap', (td) => td.innerText.trim())) === "6");
+
+  // A change made right before the window closes still gets saved: close
+  // the page outright (its timers die with it) and open a fresh one.
+  await page.click('#planTable tr[data-sku="7000002"]');
+  await page.keyboard.press("-");
+  await page.close();
+  page = await ctx.newPage();
+  page.on("pageerror", (e) => pageErrors.push(e.message));
+  page.on("console", (m) => { if (m.type() === "error" && !/status of 4\d\d/.test(m.text())) pageErrors.push(m.text()); });
+  await page.goto(url);
+  await page.waitForSelector('.tab.active[data-view="plan"]');
+  const flushed = await page.waitForFunction(async () => {
+    const st = await fetch("/api/state", { cache: "no-store" }).then((r) => r.json());
+    return st.plans && st.plans.SYNTH8FT && st.plans.SYNTH8FT.facings["7000002"] === 0;
+  }, null, { polling: 100, timeout: 5000 }).then(() => true, () => false);
+  ok("plan: last change saved as the window closes", flushed);
+  await page.setInputFiles("#pogInput", path.join(DATA, "pog-sample.pdf"));
+  await page.waitForSelector("#hotspots .hs", { timeout: 20000 });
 
   console.log("\n# Same location for both sections, replacing files");
   await page.fill("#loc-2", "12R03");
@@ -374,7 +398,7 @@ async function run() {
   await page.click('.modal [data-act="ok"]');
   await page.waitForSelector("#planSavedNote");
   ok("plan: replaced import uses one location", pf("SYNTH8FT NEWLOC - Eagle Import.csv").includes("7000005,12R03,2"));
-  ok("plan: single label file", pf("SYNTH8FT LABELS.csv").split("\r\n").length === 6);
+  ok("plan: single label file (both drops left out)", pf("SYNTH8FT LABELS.csv").split("\r\n").length === 5 && !pf("SYNTH8FT LABELS.csv").includes("7000002"));
 
   await page.click("#planStartOver");
   await page.click('.modal [data-act="ok"]');
