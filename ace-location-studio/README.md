@@ -20,10 +20,12 @@ it's an unrecognized app: click **More info → Run anyway**.
 
 | Slot | What it holds | Cleared by the app? |
 |---|---|---|
-| Location 1 | Primary shelf location, e.g. `12R03` (aisle 12, right side, panel 3) | **Yes**, when it matches |
-| Location 2 | System flag, e.g. `MDONE`, `16END` | **Never** |
-| Location 3 | Primary shelf capacity, e.g. `6` | **Never** |
-| Locations 4–6 | Overstock, e.g. `USTOR`, `107`, `12R06` | **Yes**, when they match |
+| Location 1 | Primary shelf location, e.g. `12R03` (aisle 12, right side, panel 3) | **Yes** by default, when it matches |
+| Location 2 | System flag, e.g. `MDONE`, `16END` | Only when ticked for a code |
+| Location 3 | Primary shelf capacity, e.g. `6` | Only when ticked for a code |
+| Locations 4–6 | Overstock, e.g. `USTOR`, `107`, `12R06` | **Yes** by default, when they match |
+
+Each code has its own L1–L6 choice (see Clear Locations, step 2).
 
 Locations are at most 5 characters. In an Eagle import, a `?` tells Eagle
 to clear that location.
@@ -45,7 +47,16 @@ to clear that location.
    - a code matches nothing,
    - a code is very short (`1` would also catch `107`, `12R01`, …),
    - a code is already covered by another one (`12R03` when `12R` is on the list),
-   - a code shows up in Location 2 or 3, which are left alone.
+   - a code matches a location that isn't ticked for it, which is left alone.
+
+   **Pick the locations each code clears.** Under every code is a row of
+   toggles, **L1** to **L6**. By default Location 1 (shelf) and Locations
+   4–6 (overstock) are ticked. Untick any to keep them (for example `12R`
+   on L1 only clears shelf locations and leaves overstock alone). Location
+   2 (flags) and Location 3 (capacity) start unticked and can be ticked
+   when you really mean it; the app warns when they are. The preview greys
+   out the columns no code clears, and the saved-files list notes any code
+   that didn't use the default.
 3. **Check the preview.** You'll see every SKU going into the import, with
    each cleared location shown as **?** next to the crossed-out old code.
    Switch to **All SKUs** to see the untouched rows too, or search for a
@@ -100,6 +111,13 @@ Then in Clear Locations:
   by hand is never replaced by itself.
 - If the loaded export is **over an hour old**, a warning says Compass may
   have stopped saving new ones.
+- **Get fresh data from Compass** starts Compass (`Conductor.exe`, path in
+  Settings). With Compass's task also set to run **when Compass starts**,
+  it saves a new export as you log in, and the app watches closely (every
+  few seconds, for up to 10 minutes) and loads it as soon as it lands,
+  even if codes are typed (they stay). If Compass is already open, the app
+  asks, then closes it the normal way (so Compass can ask about anything
+  unsaved; it's never forced) and starts it again.
 - A file still being written (changed in the last few seconds) is left
   until it's finished.
 
@@ -194,7 +212,10 @@ on the Eagle server, which Margin Master support or Epicor arranges.
   missing. Change it only if this PC's Eagle picks imports up from
   somewhere else.
 - **Compass exports.** Turns the automatic loading on or off, sets the
-  folder Compass saves to, and shows the newest export in it.
+  folder Compass saves to, and shows the newest export in it. Also where
+  Compass is installed (`Conductor.exe`, normally
+  `C:\Program Files (x86)\Epicor\Analytics\Eagle`), for **Get fresh data
+  from Compass**.
 - **Check for updates**, plus the version history. When a new version is
   out, a banner offers **Update & Restart**.
 
@@ -215,6 +236,9 @@ window. It quits about 90 seconds after the window closes.
   columns, and writing the import file (`/api/parse`, `/api/export`).
 - `watch.go`: the Compass export folder: the newest export in it
   (`/api/watch`) and reading one (`/api/watch/load`).
+- `compassapp.go`: starting Compass for **Get fresh data**
+  (`/api/compass/app`, `/api/compass/launch`); only `Conductor.exe` can
+  be started, and closing it is always the polite kind.
 - `web/js/clear.js`: the clearing rules (which slots, starts-with
   matching, the CSV layout, the file name). These are pure functions,
   shared by the app and the unit tests.

@@ -7,6 +7,17 @@
 
 const CHANGELOG = [
   {
+    version: "1.4.0",
+    date: "October 2026",
+    notes: [
+      "Choose which locations each code clears: under every code, tick L1–L6. By default a code clears Location 1 and the overstock locations (4–6) — untick any you want to keep, e.g. 12R on Location 1 only.",
+      "Location 2 (flags) and Location 3 (capacity) can now be ticked too when you really mean it; they start unticked and the app warns when they're on.",
+      "Matches in locations you didn't tick are listed as left alone, and the preview greys out the columns no code clears.",
+      "Get fresh data from Compass: one click starts Compass so its startup export runs, then the new data loads as soon as Compass saves it (log in to Compass when it asks). If Compass is already open, the app asks, then closes it the normal way — so Compass can ask about anything unsaved — and starts it again.",
+      "Settings → Compass exports: where Compass is installed (Conductor.exe), with a check that it's found.",
+    ],
+  },
+  {
     version: "1.3.0",
     date: "October 2026",
     notes: [

@@ -40,6 +40,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     window.__dataDir = h.dataDir;
     window.__defaultExportDir = h.defaultExportDir;
     window.__defaultWatchDir = h.defaultWatchDir;
+    window.__defaultCompassExe = h.defaultCompassExe;
     $("#verTag").textContent = "v" + h.version;
   } catch (e) { /* the conn bar will say so */ }
   await Store.load();

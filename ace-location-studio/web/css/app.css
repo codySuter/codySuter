@@ -262,6 +262,9 @@ button.chip{padding:4px 10px}
 .check-row{display:flex;align-items:center;gap:8px;font-weight:700;margin:4px 0 12px;cursor:pointer}
 .check-row input{width:16px;height:16px;accent-color:var(--ace-red)}
 .watch-how{margin-top:10px}
+.spinner.sm{width:16px;height:16px;border-width:2px}
+.fresh-btn{margin-top:12px}
+#stepFile .notice .spinner{align-self:center}
 .watch-how summary{cursor:pointer;font-weight:700;color:var(--text-2)}
 .watch-how ol{margin-top:8px}
 .spinner{width:22px;height:22px;border-radius:50%;border:3px solid var(--gray-1);border-top-color:var(--ace-red);animation:spin .8s linear infinite;flex:none}
@@ -445,3 +448,14 @@ button.chip{padding:4px 10px}
   .clear-layout,.settings-grid{grid-template-columns:1fr}
   .tab{padding:0 10px}
 }
+
+/* Which locations a code clears: L1–L6 toggles under each code. */
+.slot-pick{display:grid;grid-template-columns:auto repeat(6,minmax(0,1fr));align-items:center;gap:4px;margin:6px 0 4px}
+.slot-pick .sp-label{font-size:11.5px;font-weight:700;color:var(--text-3);margin-right:2px}
+.slot-pick .sp{border:1.5px solid var(--border);background:var(--surface);color:var(--text-3);border-radius:7px;padding:3px 0 2px;font:900 12px/1.1 'Roboto',system-ui,sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;min-width:0}
+.slot-pick .sp small{font-weight:500;font-size:9px;letter-spacing:.02em;text-transform:uppercase}
+.slot-pick .sp:hover{border-color:var(--text-3)}
+.slot-pick .sp.on{background:var(--ace-red);border-color:var(--ace-red);color:#fff}
+.slot-pick .sp.on.prot{background:var(--warn-ink);border-color:var(--warn-ink)}
+.slot-pick .sp:focus-visible{outline:2px solid var(--ace-dark-red);outline-offset:2px}
+.mini-code small{font-weight:500;opacity:.75}

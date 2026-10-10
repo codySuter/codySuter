@@ -19,6 +19,7 @@ function defaultSettings() {
     exportDir: "", // "" = the default, C:\3apps\Temp
     watchOn: true, // load the newest Compass export from watchDir by itself
     watchDir: "",  // "" = the default, %USERPROFILE%\Cody's Apps\Epicor Exports
+    compassExe: "", // "" = the default Compass (Conductor.exe) path
   };
 }
 
@@ -32,6 +33,9 @@ const Store = {
 
   /** The folder Compass saves its scheduled exports to. */
   watchDir() { return (this.settings.watchDir || "").trim() || window.__defaultWatchDir || ""; },
+
+  /** The Compass program "Get fresh data from Compass" starts. */
+  compassExe() { return (this.settings.compassExe || "").trim() || window.__defaultCompassExe || ""; },
 
   /** The folder import files are saved to. */
   exportDir() { return (this.settings.exportDir || "").trim() || window.__defaultExportDir || "C:\\3apps\\Temp"; },
@@ -94,6 +98,7 @@ function normalizeDoc(data) {
   if (typeof s.storeLine !== "string") s.storeLine = defaultSettings().storeLine;
   if (typeof s.watchDir !== "string") s.watchDir = "";
   if (typeof s.watchOn !== "boolean") s.watchOn = true;
+  if (typeof s.compassExe !== "string") s.compassExe = "";
   return {
     version: 1,
     settings: s,

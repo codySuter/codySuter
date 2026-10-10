@@ -35,7 +35,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "1.3.0"
+var appVersion = "1.4.0"
 
 const userAgent = "AceLocationStudio (+https://github.com/codysuter/codysuter)"
 
@@ -97,6 +97,8 @@ func main() {
 	mux.HandleFunc("/api/reveal", handleReveal)
 	mux.HandleFunc("/api/watch", handleWatch)
 	mux.HandleFunc("/api/watch/load", handleWatchLoad)
+	mux.HandleFunc("/api/compass/app", handleCompassApp)
+	mux.HandleFunc("/api/compass/launch", handleCompassLaunch)
 	mux.HandleFunc("/api/compass/settings", handleCompassSettings)
 	mux.HandleFunc("/api/compass/test", handleCompassTest)
 	mux.HandleFunc("/api/compass/explore", handleCompassExplore)
@@ -238,7 +240,7 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 	dir, _ := configDir()
 	writeJSON(w, map[string]any{
 		"ok": true, "version": appVersion, "host": host, "dataDir": dir,
-		"defaultExportDir": defaultExportDir(), "defaultWatchDir": defaultWatchDir(), "os": runtime.GOOS,
+		"defaultExportDir": defaultExportDir(), "defaultWatchDir": defaultWatchDir(), "defaultCompassExe": defaultCompassExe(), "os": runtime.GOOS,
 	})
 }
 

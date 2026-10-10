@@ -15,6 +15,8 @@ const PREVIEW_LIMIT = 1000; // rows drawn at once; the file itself has them all
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9 _.,()&+#-]{0,150}\.csv$/;
 const WATCH_POLL_MS = 60000;           // look for a newer Compass export every minute
 const STALE_MS = 60 * 60000;           // warn when the loaded export is over an hour old
+const FRESH_POLL_MS = 4000;            // after starting Compass, look for its export this often…
+const FRESH_WAIT_MS = 10 * 60000;      // …for up to 10 minutes (time to log in to Compass)
 
 const ClearView = {
   file: null,        // parsed Eagle file from /api/parse or /api/watch/load
@@ -23,9 +25,14 @@ const ClearView = {
   newer: null,       // a newer export waiting to be loaded (not loaded because codes are in use)
   watchBusy: false,
   watchError: "",
+  awaiting: 0,       // when "Get fresh data from Compass" started it (ms), while waiting for its export
+  launching: "",     // "Starting Compass…" while the request runs
+  launchError: "",
+  launchNote: "",    // shown after waiting ran out
   fileError: "",
   loading: "",
   codes: [],
+  slotsByCode: {},   // { "12R": [0, 3, 4, 5] } — which locations each code clears (default 1, 4, 5, 6)
   plan: null,
   customName: null,  // set when the file name was edited by hand
   saved: null,       // { path, skus, cells } after a save
@@ -76,7 +83,7 @@ const ClearView = {
   },
 
   refresh() {
-    this.plan = this.file && this.codes.length ? Clear.planClear(this.file.rows, this.codes) : null;
+    this.plan = this.file && this.codes.length ? Clear.planClear(this.file.rows, this.codes, this.slotsByCode) : null;
     this.renderFile();
     this.renderCodes();
     this.renderSave();
@@ -169,6 +176,10 @@ const ClearView = {
       this._settle = setTimeout(() => this.checkWatch(), 6000); // still being saved
     } else if (f) {
       const src = this.source;
+      if (this.awaiting && f.modified >= this.awaiting - 2000 && !(src && src.kind === "watch" && src.name === f.name && src.modified === f.modified)) {
+        this.stopAwaiting();
+        return this.loadWatch(f); // asked for: load it even with codes typed (they stay)
+      }
       if (!this.file) return this.loadWatch(f);
       if (src && src.kind === "watch") {
         const isNew = src.dir !== dir || f.name !== src.name || f.modified > src.modified;
@@ -200,6 +211,7 @@ const ClearView = {
       this.file = data;
       this.source = { kind: "watch", dir, name: f.name, modified: data.modified };
       this.newer = null;
+      this.launchNote = "";
       this.watchError = "";
       this.fileError = "";
       this.saved = null;
@@ -212,6 +224,73 @@ const ClearView = {
       this.loading = "";
       this.refresh();
     }
+  },
+
+  /* "Get fresh data from Compass": start Compass, whose startup task saves
+     an export, then watch the folder closely until it arrives. If Compass
+     is already open, its startup task won't run again, so (after asking)
+     it's closed politely — it can still ask about unsaved work — and
+     started again. */
+  async freshFromCompass() {
+    const exe = Store.compassExe();
+    this.launchError = "";
+    this.launchNote = "";
+    let st;
+    try {
+      st = await fetch("/api/compass/app?exe=" + encodeURIComponent(exe), { cache: "no-store" }).then((r) => r.json());
+    } catch (e) { this.launchError = friendlyError(e); return this.renderFile(); }
+    if (!st.found) { this.launchError = st.error || "Compass wasn't found."; return this.renderFile(); }
+    let restart = false;
+    if (st.running) {
+      const yes = await confirmBox("Restart Compass?",
+        "Compass is already open, so its startup export won't run again. The app will close Compass and start it again — if you're in the middle of something there, Compass asks about saving first.",
+        { okText: "Restart Compass" });
+      if (!yes) return;
+      restart = true;
+    }
+    this.launching = restart ? "Closing Compass…" : "Starting Compass…";
+    this.renderFile();
+    try {
+      const r = await fetch("/api/compass/launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exe, restart }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) throw new Error(data.error || `the app answered ${r.status}`);
+      this.awaiting = data.started || Date.now();
+      clearInterval(this._fast);
+      clearTimeout(this._fastEnd);
+      this._fast = setInterval(() => this.checkWatch(), FRESH_POLL_MS);
+      this._fastEnd = setTimeout(() => {
+        this.stopAwaiting();
+        this.launchNote = "No new export from Compass yet. Check you're logged in to Compass and that its startup task ran — the app keeps checking every minute.";
+        this.renderFile();
+      }, FRESH_WAIT_MS);
+    } catch (e) {
+      this.launchError = friendlyError(e);
+    } finally {
+      this.launching = "";
+      this.renderFile();
+    }
+  },
+
+  stopAwaiting() {
+    this.awaiting = 0;
+    clearInterval(this._fast);
+    clearTimeout(this._fastEnd);
+  },
+
+  freshHtml() {
+    if (!Store.settings.watchOn) return "";
+    if (this.launching) return `<div class="notice info slim" id="freshNote"><div class="spinner sm"></div><span>${esc(this.launching)}</span></div>`;
+    if (this.awaiting) {
+      return `<div class="notice info slim" id="freshNote"><div class="spinner sm"></div><span><b>Waiting for Compass's export…</b> Log in to Compass if it asks — the new data loads here as soon as Compass saves it. <button class="link" id="freshStop">Stop waiting</button></span></div>`;
+    }
+    let out = `<button class="btn btn-secondary btn-sm fresh-btn" id="freshBtn" title="Starts Compass so its startup task saves a new export">${icon("refresh")} Get fresh data from Compass</button>`;
+    if (this.launchError) out += `<div class="notice bad slim" id="freshError">${icon("x")}<span><b>Couldn't start Compass.</b> ${esc(this.launchError)}</span></div>`;
+    if (this.launchNote) out += `<div class="notice warn slim" id="freshTimeout">${icon("alert")}<span>${esc(this.launchNote)}</span></div>`;
+    return out;
   },
 
   renderFile() {
@@ -262,12 +341,14 @@ const ClearView = {
     if (this.fileError) {
       body += `<div class="notice bad" id="fileError">${icon("x")}<span><b>Couldn't load that file.</b> ${esc(this.fileError)}</span></div>`;
     }
-    c.innerHTML = stepHead(1, "Location data", !!f) + body;
+    c.innerHTML = stepHead(1, "Location data", !!f) + body + this.freshHtml();
     const pick = () => $("#fileInput").click();
     if ($("#fileDrop")) $("#fileDrop").onclick = pick;
     if ($("#fileChange")) $("#fileChange").onclick = pick;
     if ($("#newerLoad")) $("#newerLoad").onclick = () => this.loadWatch(this.newer);
     if ($("#watchSettings")) $("#watchSettings").onclick = () => App.show("settings");
+    if ($("#freshBtn")) $("#freshBtn").onclick = () => this.freshFromCompass();
+    if ($("#freshStop")) $("#freshStop").onclick = () => { this.stopAwaiting(); this.renderFile(); };
   },
 
   /* ---------------- step 2: the codes ---------------- */
@@ -292,46 +373,81 @@ const ClearView = {
 
   removeCode(code) {
     this.codes = this.codes.filter((c) => c !== code);
+    delete this.slotsByCode[code];
     this.saved = null;
     this.saveError = "";
     this.refresh();
+  },
+
+  /** Tick or untick one location for one code. */
+  toggleSlot(code, slot) {
+    const cur = Clear.slotsFor(code, this.slotsByCode);
+    this.slotsByCode[code] = cur.includes(slot) ? cur.filter((s) => s !== slot) : cur.concat(slot).sort((a, b) => a - b);
+    this.saved = null;
+    this.saveError = "";
+    this.refresh();
+  },
+
+  /** Slots any code clears (the default four when there are no codes). */
+  activeSlots() {
+    if (!this.codes.length) return Clear.CLEARABLE.slice();
+    const all = new Set();
+    this.codes.forEach((c) => Clear.slotsFor(c, this.slotsByCode).forEach((s) => all.add(s)));
+    return Array.from(all);
   },
 
   renderCodes() {
     const c = $("#stepCodes");
     const plan = this.plan;
     const statFor = (code) => plan && plan.stats.find((s) => s.code === code);
-    const covered = Object.fromEntries(Clear.coveredCodes(this.codes).map((x) => [x.code, x.by]));
+    const slotsOf = (code) => Clear.slotsFor(code, this.slotsByCode);
+    // "12R03" adds nothing when "12R" is on the list and clears at least the same locations.
+    const covered = Object.fromEntries(Clear.coveredCodes(this.codes)
+      .filter((x) => slotsOf(x.code).every((s) => slotsOf(x.by).includes(s)))
+      .map((x) => [x.code, x.by]));
+    const short = (slots) => slots.length ? slots.map((s) => "L" + (s + 1)).join(" ") : "nothing";
     const chips = this.codes.map((code) => {
       const s = statFor(code);
       const n = s ? `<span class="chip-n${s.cells ? "" : " zero"}">${s.cells.toLocaleString()}</span>` : "";
-      return `<span class="chip code-chip" data-code="${esc(code)}">${esc(code)}${n}<button title="Remove ${esc(code)}" data-remove="${esc(code)}">${icon("x")}</button></span>`;
+      return `<span class="chip code-chip" data-code="${esc(code)}" title="Clears ${esc(short(slotsOf(code)))}">${esc(code)}${n}<button title="Remove ${esc(code)}" data-remove="${esc(code)}">${icon("x")}</button></span>`;
     }).join("");
 
-    let details = "";
-    if (plan) {
-      details = plan.stats.map((s) => {
-        const notes = [];
-        if (covered[s.code]) notes.push(`<div class="notice info slim">${icon("info")}<span>Already covered by <b>${esc(covered[s.code])}</b>.</span></div>`);
-        else if (!s.cells) notes.push(`<div class="notice warn slim">${icon("alert")}<span>No Location 1 or overstock location in this file starts with <b>${esc(s.code)}</b>.</span></div>`);
-        if (s.code.length <= 2 && s.cells) notes.push(`<div class="notice warn slim">${icon("alert")}<span>Short code — it clears <b>every</b> location starting with “${esc(s.code)}”. Check the list below is only what you mean.</span></div>`);
-        const where = [];
+    let details = this.codes.map((code) => {
+      const s = statFor(code);
+      const slots = slotsOf(code);
+      const notes = [];
+      if (covered[code]) notes.push(`<div class="notice info slim">${icon("info")}<span>Already covered by <b>${esc(covered[code])}</b>.</span></div>`);
+      else if (s && !s.cells && slots.length) notes.push(`<div class="notice warn slim">${icon("alert")}<span>No ticked location in this file starts with <b>${esc(code)}</b>.</span></div>`);
+      if (!slots.length) notes.push(`<div class="notice warn slim no-slots">${icon("alert")}<span>No locations ticked — <b>${esc(code)}</b> won't clear anything.</span></div>`);
+      const risky = slots.filter((x) => Clear.PROTECTED.includes(x));
+      if (risky.length) notes.push(`<div class="notice warn slim risky-slots">${icon("alert")}<span>Also clears <b>${risky.map((x) => `Location ${x + 1} (${Clear.SLOT_ROLES[x].toLowerCase()})`).join(" and ")}</b> when it starts with “${esc(code)}”. Check the preview is only what you mean.</span></div>`);
+      if (code.length <= 2 && s && s.cells) notes.push(`<div class="notice warn slim">${icon("alert")}<span>Short code — it clears <b>every</b> ticked location starting with “${esc(code)}”. Check the list below is only what you mean.</span></div>`);
+      const where = [];
+      if (s) {
         if (s.bySlot[0]) where.push(`Location 1: ${s.bySlot[0].toLocaleString()}`);
+        if (s.bySlot[1]) where.push(`Location 2: ${s.bySlot[1].toLocaleString()}`);
+        if (s.bySlot[2]) where.push(`Location 3: ${s.bySlot[2].toLocaleString()}`);
         const over = s.bySlot[3] + s.bySlot[4] + s.bySlot[5];
         if (over) where.push(`Overstock: ${over.toLocaleString()}`);
-        return `
-          <div class="code-detail">
-            <div class="cd-head"><b>${esc(s.code)}</b><span>${s.cells.toLocaleString()} location${s.cells === 1 ? "" : "s"} on ${s.skus.toLocaleString()} SKU${s.skus === 1 ? "" : "s"}</span></div>
-            ${s.cells ? `<div class="cd-values">${esc(Clear.valuesSummary(s.values, 8))}</div><div class="cd-where">${where.join(" · ")}</div>` : ""}
-            ${notes.join("")}
-          </div>`;
-      }).join("");
-      if (plan.protectedHits.length) {
-        const hits = plan.protectedHits;
-        const list = hits.slice(0, 4).map((h) => `${esc(h.value)} in Location ${h.slot + 1} on SKU ${esc(h.sku)}`).join("; ");
-        const more = hits.length > 4 ? ` and ${hits.length - 4} more` : "";
-        details += `<div class="notice info" id="protectedNote">${icon("lock")}<span><b>Left alone:</b> ${list}${more}. Location 2 and Location 3 are never cleared.</span></div>`;
       }
+      const pick = Clear.SLOT_ROLES.map((role, i) => {
+        const on = slots.includes(i);
+        const tag = ["Shelf", "Flag", "Cap", "Over", "Over", "Over"][i];
+        return `<button class="sp${on ? " on" : ""}${Clear.PROTECTED.includes(i) ? " prot" : ""}" data-slot-code="${esc(code)}" data-slot="${i}" aria-pressed="${on}" title="${on ? "Clears" : "Leaves"} Location ${i + 1} (${role.toLowerCase()})">L${i + 1}<small>${tag}</small></button>`;
+      }).join("");
+      return `
+        <div class="code-detail" data-detail="${esc(code)}">
+          <div class="cd-head"><b>${esc(code)}</b>${s ? `<span>${s.cells.toLocaleString()} location${s.cells === 1 ? "" : "s"} on ${s.skus.toLocaleString()} SKU${s.skus === 1 ? "" : "s"}</span>` : ""}</div>
+          <div class="slot-pick" role="group" aria-label="Locations ${esc(code)} clears"><span class="sp-label">Clears</span>${pick}</div>
+          ${s && s.cells ? `<div class="cd-values">${esc(Clear.valuesSummary(s.values, 8))}</div><div class="cd-where">${where.join(" · ")}</div>` : ""}
+          ${notes.join("")}
+        </div>`;
+    }).join("");
+    if (plan && plan.protectedHits.length) {
+      const hits = plan.protectedHits;
+      const list = hits.slice(0, 4).map((h) => `${esc(h.value)} in Location ${h.slot + 1} on SKU ${esc(h.sku)}`).join("; ");
+      const more = hits.length > 4 ? ` and ${hits.length - 4} more` : "";
+      details += `<div class="notice info" id="protectedNote">${icon("lock")}<span><b>Left alone:</b> ${list}${more} — that location isn't ticked for the code.</span></div>`;
     }
 
     c.innerHTML = stepHead(2, "Codes to clear", this.codes.length > 0 && !!plan && plan.cells > 0) + `
@@ -340,11 +456,12 @@ const ClearView = {
         <button class="btn btn-primary" id="codeAdd">${icon("plus")} Add</button>
       </div>
       <div class="field-error" id="codeError"></div>
-      <p class="f-help" style="margin-top:8px">Clears every location that <b>starts with</b> the code — <code>12R</code> clears 12R01–12R09, <code>12R03</code> only 12R03. Add as many as you need.</p>
+      <p class="f-help" style="margin-top:8px">Clears every location that <b>starts with</b> the code — <code>12R</code> clears 12R01–12R09, <code>12R03</code> only 12R03. Add as many as you need, and pick which locations each one clears.</p>
       ${chips ? `<div class="chips">${chips}</div>` : ""}
       ${this.codes.length > 1 ? `<button class="link small" id="codesClear">Remove all codes</button>` : ""}
       <div class="code-details">${details}</div>
-      ${plan && plan.protectedHits.length ? "" : `<div class="lock-note">${icon("lock")}<span>Location 2 (flags) and Location 3 (capacity) are never cleared.</span></div>`}`;
+      ${plan && plan.protectedHits.length ? "" : `<div class="lock-note">${icon("lock")}<span>Location 2 (flags) and Location 3 (capacity) are left alone unless you tick them for a code.</span></div>`}`;
+
 
     const inp = $("#codeInput");
     inp.addEventListener("keydown", (e) => {
@@ -363,7 +480,8 @@ const ClearView = {
     });
     $("#codeAdd").onclick = () => { if (inp.value.trim()) this.addCodes(inp.value); else inp.focus(); };
     $$("[data-remove]", c).forEach((b) => (b.onclick = () => this.removeCode(b.dataset.remove)));
-    if ($("#codesClear")) $("#codesClear").onclick = () => { this.codes = []; this.saved = null; this.refresh(); };
+    $$("[data-slot-code]", c).forEach((b) => (b.onclick = () => this.toggleSlot(b.dataset.slotCode, Number(b.dataset.slot))));
+    if ($("#codesClear")) $("#codesClear").onclick = () => { this.codes = []; this.slotsByCode = {}; this.saved = null; this.refresh(); };
   },
 
   /* ---------------- step 3: save ---------------- */
@@ -464,6 +582,7 @@ const ClearView = {
       showToast(`${icon("check")} Saved ${esc(name)}`, { kind: "good" });
       Store.logExport({
         file: name, path: data.path, codes: this.codes.slice(),
+        slots: Object.fromEntries(this.codes.map((c) => [c, Clear.slotsFor(c, this.slotsByCode)])),
         skus: plan.changed.length, cells: plan.cells, source: this.file.name,
       }).then(() => this.renderLog());
     } catch (e) {
@@ -509,14 +628,15 @@ const ClearView = {
         <div class="tile"><div class="t-label">Left out — nothing to clear</div><div class="t-value num" id="tSame">${plan.unchanged.toLocaleString()}</div></div>
       </div>` : `<div class="notice info slim">${icon("info")}<span>Add a location code to see what will be cleared. Showing the file as loaded.</span></div>`;
 
+    const active = this.activeSlots();
     const head = Clear.SLOT_NAMES.map((n, i) => {
-      const locked = Clear.PROTECTED.includes(i);
-      return `<th class="loc-h${locked ? " locked" : ""}" title="${locked ? "Never cleared" : "Cleared when it matches"}">${locked ? icon("lock") : ""}Loc ${i + 1}<small>${Clear.SLOT_ROLES[i]}</small></th>`;
+      const locked = !active.includes(i);
+      return `<th class="loc-h${locked ? " locked" : ""}" title="${locked ? "Not ticked for any code — left as it is" : "Cleared when it matches a code ticked for it"}">${locked ? icon("lock") : ""}Loc ${i + 1}<small>${Clear.SLOT_ROLES[i]}</small></th>`;
     }).join("");
     const body = shown.map((r) => {
       const cells = r.before.map((v, i) => {
         if (r.cleared.includes(i)) return `<td class="loc cleared"><span class="q">?</span> <s>${esc(v)}</s></td>`;
-        return `<td class="loc${Clear.PROTECTED.includes(i) ? " locked" : ""}">${esc(v)}</td>`;
+        return `<td class="loc${active.includes(i) ? "" : " locked"}">${esc(v)}</td>`;
       }).join("");
       return `<tr class="${r.same ? "same" : "chg"}"><td class="sku">${esc(r.sku)}</td><td class="desc" title="${esc(r.desc)}">${esc(r.desc)}</td>${cells}</tr>`;
     }).join("");
@@ -570,7 +690,11 @@ const ClearView = {
           <tr>
             <td class="nowrap">${esc(fmtDateTime(x.ts))}</td>
             <td>${x.kind === "plan" ? `<span class="kind-tag">New plan</span> ` : ""}<span title="${esc(x.path || "")}">${esc(x.file)}</span>${x.source ? `<div class="muted small">from ${esc(x.source)}</div>` : ""}</td>
-            <td>${(x.codes || []).map((c) => `<span class="mini-code">${esc(c)}</span>`).join(" ")}</td>
+            <td>${(x.codes || []).map((c) => {
+              const sl = x.slots && x.slots[c];
+              const tag = sl && !Clear.isDefaultSlots(sl) ? ` <small>${sl.length ? sl.map((k) => "L" + (k + 1)).join(" ") : "none"}</small>` : "";
+              return `<span class="mini-code">${esc(c)}${tag}</span>`;
+            }).join(" ")}</td>
             <td class="r num">${Number(x.skus || 0).toLocaleString()}</td>
             <td class="r num">${x.kind === "plan" ? `<span class="muted small">${Number(x.cells || 0)} files</span>` : Number(x.cells || 0).toLocaleString()}</td>
             <td class="row-acts">${x.path ? `<button class="icon-btn-sm" title="Show in folder" data-reveal="${esc(x.path)}">${icon("folder")}</button>` : ""}</td>
