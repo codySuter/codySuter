@@ -2,7 +2,7 @@
  * Ace Studio family icon generator — one red gradient tile, a different
  * white subject card per app (see README.md for the design spec).
  *
- * Usage: node ace-studio-brand/icons.mjs [sign|document ...]
+ * Usage: node ace-studio-brand/icons.mjs [sign|document|bay|floor|change|location ...]
  * Writes straight into each app's icon locations + previews/ here.
  */
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
@@ -22,6 +22,7 @@ for (const candidate of [
   "@playwright/test",
   path.join(REPO, "ace-sign-studio/e2e/node_modules/playwright/index.mjs"),
   path.join(REPO, "ace-change-studio/e2e/node_modules/playwright/index.mjs"),
+  path.join(REPO, "ace-location-studio/e2e/node_modules/playwright/index.mjs"),
   path.join(REPO, "ace-document-studio/node_modules/@playwright/test/index.mjs"),
   path.join(REPO, "ace-document-studio/node_modules/playwright-core/index.mjs"),
   path.join(REPO, "ace-bay-studio/node_modules/@playwright/test/index.mjs"),
@@ -155,6 +156,35 @@ const APPS = {
     out: [
       { file: "ace-change-studio/winres/icon.png", size: 256 },
       { file: "ace-change-studio/web/img/appicon_256.png", size: 256 },
+    ],
+  },
+  location: {
+    name: "Ace Location Studio",
+    // A square shelf section: two shelves of product, one spot cleared to
+    // a big red "?" — the Eagle clear mark. The square card is the
+    // silhouette no sibling has.
+    html: `<!doctype html><html><head><style>${TILE_CSS}
+      .card{position:relative;width:66%;height:66%;background:#fff;border-radius:6%}
+      .card div{position:absolute}
+      .board{left:8%;right:8%;height:6.5%;background:#15181D;border-radius:3px}
+      .it{background:#BCBEC0;border-radius:6% 6% 0 0;width:17%}
+      .ink{background:#15181D}
+      .q{left:33%;top:50.5%;width:34%;height:34%;border-radius:50%;background:#D40029;color:#fff;
+        font-family:'RB';display:flex;align-items:center;justify-content:center;font-size:17vh;line-height:1}
+    </style></head><body><div class="wrap"><div class="sheen"></div>
+      <div class="card">
+        <div class="it" style="left:13%;top:12%;height:30%"></div>
+        <div class="it ink" style="left:41.5%;top:21%;height:21%"></div>
+        <div class="it" style="left:70%;top:12%;height:30%"></div>
+        <div class="board" style="top:42%"></div>
+        <div class="it" style="left:13%;top:63%;height:21%"></div>
+        <div class="q">?</div>
+        <div class="it" style="left:70%;top:54%;height:30%"></div>
+        <div class="board" style="top:84%"></div>
+      </div></div></body></html>`,
+    out: [
+      { file: "ace-location-studio/winres/icon.png", size: 256 },
+      { file: "ace-location-studio/web/img/appicon_256.png", size: 256 },
     ],
   },
 };
