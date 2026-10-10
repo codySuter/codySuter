@@ -7,6 +7,17 @@
 
 const CHANGELOG = [
   {
+    version: "1.2.1",
+    date: "October 2026",
+    notes: [
+      "Compass now works with Epicor-hosted Eagle servers, reached over the store's VPN, and with older Compass versions whose encryption (SSL) is too old to use — the app connects without it, the same fallback Margin Master's troubleshooter uses.",
+      "The connection test shows the real reason a login fails (wrong password, computer not allowed, blocked after too many tries) instead of an SSL error, and names the Compass version it found.",
+      "It spots when the port is the server's remote login (SSH, port 22) rather than Compass, and says to use port 3306.",
+      "Remembers the way in that worked, so it doesn't retry failed ones every time — old Compass servers lock a computer out after too many failed tries.",
+      "SSL set to \"Required\" now really is: the app never connects without it.",
+    ],
+  },
+  {
     version: "1.2.0",
     date: "October 2026",
     notes: [

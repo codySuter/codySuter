@@ -2,22 +2,25 @@ package main
 
 // Live data from Epicor Compass.
 //
-// Compass keeps a MySQL copy ("data warehouse") of the store's Eagle data on
-// the store network. Margin Master reads its inventory from it directly,
+// Compass keeps a MySQL copy ("data warehouse") of the store's Eagle data,
+// on the store network or, for Epicor-hosted Eagle, on Epicor's server over
+// the store's VPN. Margin Master reads its inventory from it directly,
 // read-only (its handbook: "MySQL Compass does not use a file. Margin
 // Master connects directly, read-only, to the Compass database on your
 // local network"), and this app connects the same way, with the same five
 // settings: server, port, database, username, password.
 //
 // The app only ever reads: every query is a SELECT (or a read of
-// information_schema), the session is put in READ ONLY mode, and changes
-// still go into Eagle through its import files.
+// information_schema), the session is put in READ ONLY mode where the
+// server supports it (MySQL 5.6 and later), and changes still go into
+// Eagle through its import files.
 //
 // Settings live in compass.json beside state.json — not in state.json,
 // which the UI reads back whole, so the password never reaches the page.
 // On Windows the password is encrypted with DPAPI for the signed-in user.
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
@@ -48,6 +51,11 @@ type compassSettings struct {
 	Username string `json:"username"`
 	TLS      string `json:"tls"`                // "preferred" (default), "off", "on"
 	Password string `json:"password,omitempty"` // protected + base64; never sent to the UI
+	// Mode is the way in that last worked ("ssl", "nossl" or "oldpw"), tried
+	// first next time. Old servers count every failed attempt against this
+	// PC and lock it out after a handful (MySQL 5.1's max_connect_errors is
+	// 10 by default), so the app shouldn't fail its way in on every connect.
+	Mode string `json:"mode,omitempty"`
 }
 
 var compassMu sync.Mutex
@@ -172,13 +180,18 @@ func applyCompassUpdate(s compassSettings, u compassUpdate) (compassSettings, er
 	default:
 		return s, errors.New("unknown SSL setting")
 	}
+	if server != s.Server || port != s.Port || db != s.Database || user != s.Username || tls != s.TLS {
+		s.Mode = ""
+	}
 	s.Server, s.Port, s.Database, s.Username, s.TLS = server, port, db, user, tls
 	if u.ClearPassword {
 		s.Password = ""
+		s.Mode = ""
 	} else if u.Password != nil && *u.Password != "" {
 		if err := s.setPassword(*u.Password); err != nil {
 			return s, err
 		}
+		s.Mode = ""
 	}
 	return s, nil
 }
@@ -224,9 +237,12 @@ func quoteIdent(s string) string { return "`" + strings.ReplaceAll(s, "`", "``")
 
 // compassConn is one read-only connection to Compass.
 type compassConn struct {
-	db   *sql.DB
-	conn *sql.Conn
-	mode string // how it got in, e.g. "SSL off (fallback)"
+	db       *sql.DB
+	conn     *sql.Conn
+	key      string    // the way in: "ssl", "nossl" or "oldpw"
+	mode     string    // how it got in, for people, e.g. "SSL off"
+	hello    helloInfo // what the server said first
+	readOnly bool      // the server put the session in READ ONLY mode
 }
 
 func (c *compassConn) Close() {
@@ -238,7 +254,90 @@ func (c *compassConn) Close() {
 	}
 }
 
-func compassConfig(s compassSettings, pw, tls string, oldPasswords bool) *mysql.Config {
+// serverHello records what the server sent first. MySQL speaks first, with
+// a greeting that names its version (or with an error when it won't let
+// this PC in at all); an SSH server speaks first too, with its banner. Only
+// what the app's own connection reads is recorded — no extra connections.
+type serverHello struct {
+	dialErr error
+	raw     []byte
+}
+
+// helloInfo is what a serverHello says, for people.
+type helloInfo struct {
+	Kind    string // "mysql", "mysql-error", "ssh", "other", or "" (nothing arrived)
+	Version string // MySQL's version, e.g. 5.1.73-log
+	Code    int    // MySQL error number, when it refused straight away
+	Message string // MySQL's refusal, or the SSH banner
+}
+
+var errSSHPort = errors.New("this port answers with SSH (remote login), not MySQL")
+
+type tapConn struct {
+	net.Conn
+	h *serverHello
+}
+
+func (c *tapConn) Read(p []byte) (int, error) {
+	n, err := c.Conn.Read(p)
+	if room := 256 - len(c.h.raw); room > 0 && n > 0 {
+		c.h.raw = append(c.h.raw, p[:min(n, room)]...)
+	}
+	if len(c.h.raw) >= 4 && string(c.h.raw[:4]) == "SSH-" {
+		// Don't wait for a MySQL greeting that will never come.
+		return 0, errSSHPort
+	}
+	return n, err
+}
+
+func (h *serverHello) info() helloInfo {
+	r := h.raw
+	printable := func(b []byte) string {
+		var out []rune
+		for _, c := range b {
+			if c == '\r' || c == '\n' || c == 0 {
+				break
+			}
+			if c >= 32 && c < 127 {
+				out = append(out, rune(c))
+			}
+		}
+		return string(out)
+	}
+	switch {
+	case len(r) == 0:
+		return helloInfo{}
+	case len(r) >= 4 && string(r[:4]) == "SSH-":
+		return helloInfo{Kind: "ssh", Message: printable(r)}
+	case len(r) < 5:
+		return helloInfo{Kind: "other"}
+	}
+	payload := r[4:]
+	if n := int(r[0]) | int(r[1])<<8 | int(r[2])<<16; n < len(payload) {
+		payload = payload[:n]
+	}
+	switch payload[0] {
+	case 10: // protocol 10 greeting: version, NUL-terminated
+		if i := bytes.IndexByte(payload[1:], 0); i > 0 {
+			v := printable(payload[1 : 1+i])
+			if strings.HasPrefix(v, "5.5.5-") && strings.Contains(v, "MariaDB") {
+				v = strings.TrimPrefix(v, "5.5.5-") // MariaDB's prefix for old clients
+			}
+			return helloInfo{Kind: "mysql", Version: v}
+		}
+	case 0xff: // error: number, then (with a '#' and SQL state) the message
+		if len(payload) >= 3 {
+			msg := payload[3:]
+			if len(msg) > 6 && msg[0] == '#' {
+				msg = msg[6:]
+			}
+			return helloInfo{Kind: "mysql-error", Code: int(payload[1]) | int(payload[2])<<8, Message: printable(msg)}
+		}
+	}
+	return helloInfo{Kind: "other"}
+}
+
+func compassConfig(s compassSettings, pw, tls string, oldPasswords bool, h *serverHello) *mysql.Config {
 	cfg := mysql.NewConfig()
 	cfg.User = s.Username
 	cfg.Passwd = pw
@@ -251,30 +350,83 @@ func compassConfig(s compassSettings, pw, tls string, oldPasswords bool) *mysql.
 	cfg.AllowNativePasswords = true
 	cfg.AllowOldPasswords = oldPasswords
 	cfg.TLSConfig = tls
+	cfg.DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		c, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+		if err != nil {
+			h.dialErr = err
+			return nil, err
+		}
+		return &tapConn{Conn: c, h: h}, nil
+	}
 	return cfg
 }
 
-// openCompass connects with the saved settings, falling back the way
-// Margin Master's troubleshooter does: SSL off if the server won't do SSL,
-// and old-style passwords if the account still uses them.
-func openCompass(ctx context.Context, s compassSettings, pw string) (*compassConn, error) {
-	tls := map[string]string{"preferred": "preferred", "off": "false", "on": "skip-verify"}[s.TLS]
-	if tls == "" {
-		tls = "preferred"
+// compassOpenError is a failed connect: the most telling of the errors from
+// each way the app tried, plus what the server said first.
+type compassOpenError struct {
+	err     error
+	hello   helloInfo
+	dialErr error // the port couldn't be reached at all
+}
+
+func (e *compassOpenError) Error() string { return e.err.Error() }
+func (e *compassOpenError) Unwrap() error { return e.err }
+
+type compassAttempt struct {
+	key, tls string
+	old      bool
+	mode     string
+}
+
+// compassAttempts lists the ways in for the SSL setting, the one that
+// worked last time first. "Use if the server has it" falls back to SSL off
+// when the server's SSL can't be used (MySQL 5.1's is too old for modern
+// encryption); "Required" never sends anything without SSL.
+func compassAttempts(s compassSettings) []compassAttempt {
+	var tries []compassAttempt
+	switch s.TLS {
+	case "on":
+		tries = []compassAttempt{
+			{"ssl", "skip-verify", false, "SSL on"},
+			{"oldpw", "skip-verify", true, "SSL on, old-style password"},
+		}
+	case "off":
+		tries = []compassAttempt{
+			{"nossl", "false", false, "SSL off"},
+			{"oldpw", "false", true, "SSL off, old-style password"},
+		}
+	default:
+		tries = []compassAttempt{
+			{"ssl", "preferred", false, "SSL if available"},
+			{"nossl", "false", false, "SSL off — the server's SSL can't be used"},
+			{"oldpw", "false", true, "SSL off, old-style password"},
+		}
 	}
-	type attempt struct {
-		tls  string
-		old  bool
-		mode string
-	}
-	tries := []attempt{{tls, false, ""}}
-	if tls != "false" {
-		tries = append(tries, attempt{"false", false, "SSL off (fallback)"})
-	}
-	tries = append(tries, attempt{"false", true, "SSL off, old-style password (fallback)"})
-	var firstErr error
 	for i, a := range tries {
-		connector, err := mysql.NewConnector(compassConfig(s, pw, a.tls, a.old))
+		if a.key == s.Mode && i > 0 {
+			tries = append([]compassAttempt{a}, append(tries[:i:i], tries[i+1:]...)...)
+			break
+		}
+	}
+	return tries
+}
+
+// openCompass connects with the saved settings, falling back the way
+// Margin Master's troubleshooter does: SSL off if the server's SSL can't be
+// used, and old-style passwords if the account still uses them.
+func openCompass(ctx context.Context, s compassSettings, pw string) (*compassConn, error) {
+	var (
+		best      error
+		bestIsSQL bool
+		first     *serverHello
+	)
+	tries := compassAttempts(s)
+	for i, a := range tries {
+		h := &serverHello{}
+		if first == nil {
+			first = h
+		}
+		connector, err := mysql.NewConnector(compassConfig(s, pw, a.tls, a.old, h))
 		if err != nil {
 			return nil, err
 		}
@@ -286,27 +438,34 @@ func openCompass(ctx context.Context, s compassSettings, pw string) (*compassCon
 		}
 		if err == nil {
 			// Belt and braces: the app only runs SELECTs, but ask the server
-			// to refuse anything else too. Older servers may not support it.
-			_, _ = conn.ExecContext(ctx, "SET SESSION TRANSACTION READ ONLY")
-			mode := a.mode
-			if mode == "" {
-				mode = map[string]string{"preferred": "SSL if available", "false": "SSL off", "skip-verify": "SSL on"}[a.tls]
-			}
-			return &compassConn{db: db, conn: conn, mode: mode}, nil
+			// to refuse anything else too. MySQL before 5.6 can't.
+			_, roErr := conn.ExecContext(ctx, "SET SESSION TRANSACTION READ ONLY")
+			return &compassConn{db: db, conn: conn, key: a.key, mode: a.mode, hello: h.info(), readOnly: roErr == nil}, nil
 		}
 		if conn != nil {
 			conn.Close()
 		}
 		db.Close()
-		if firstErr == nil {
-			firstErr = err
+		// Keep the server's own words over a network or SSL error.
+		var me *mysql.MySQLError
+		if errors.As(err, &me) {
+			best, bestIsSQL = err, true
+		} else if !bestIsSQL {
+			best = err
+		}
+		if h.dialErr != nil || h.info().Kind == "ssh" {
+			break
 		}
 		// Only retry for problems a different SSL/password mode can fix.
 		if i+1 < len(tries) && !retryableLogin(err) {
 			break
 		}
 	}
-	return nil, firstErr
+	hello := first.info()
+	if hello.Kind == "ssh" {
+		best = errSSHPort // the driver only says "invalid connection"
+	}
+	return nil, &compassOpenError{err: best, hello: hello, dialErr: first.dialErr}
 }
 
 func retryableLogin(err error) bool {
@@ -318,6 +477,23 @@ func retryableLogin(err error) bool {
 		strings.Contains(m, "handshake") || strings.Contains(m, "authentication plugin")
 }
 
+// rememberCompassMode saves the way in that worked, so the next connect
+// doesn't have to fail its way there (see compassSettings.Mode).
+func rememberCompassMode(s compassSettings, key string) {
+	if key == s.Mode {
+		return
+	}
+	compassMu.Lock()
+	defer compassMu.Unlock()
+	cur, err := loadCompass()
+	if err != nil || cur.Server != s.Server || cur.Port != s.Port || cur.Database != s.Database ||
+		cur.Username != s.Username || cur.TLS != s.TLS || cur.Password != s.Password {
+		return // the settings changed meanwhile
+	}
+	cur.Mode = key
+	_ = saveCompass(cur)
+}
+
 // explainMySQLError turns a driver error into what to do about it.
 func explainMySQLError(err error) (detail, fix string) {
 	var me *mysql.MySQLError
@@ -325,7 +501,10 @@ func explainMySQLError(err error) (detail, fix string) {
 		switch me.Number {
 		case 1045:
 			return "The server refused the username or password (" + me.Message + ").",
-				"Check the username and password match Margin Master's Epicor tab. If they do, this computer may not be allowed in yet — the Eagle server only lets approved computers connect."
+				"Check the username and password match Margin Master's Epicor tab. If they do, this login may not be allowed from this computer — the Eagle server only lets approved computers in."
+		case 1129:
+			return "The server has blocked this computer after too many failed connection attempts (" + me.Message + ").",
+				"Don't keep retrying — every try counts against it. Ask Epicor to run FLUSH HOSTS on the Compass MySQL server to unblock it."
 		case 1130:
 			return "The server doesn't allow this computer to connect (" + me.Message + ").",
 				"The Eagle server only lets approved computers in. Ask whoever enabled Margin Master's access (Margin Master support or Epicor) to allow this PC too."
@@ -337,10 +516,14 @@ func explainMySQLError(err error) (detail, fix string) {
 	}
 	m := err.Error()
 	switch {
+	case errors.Is(err, errSSHPort):
+		return "That port answers with SSH (remote login), not MySQL.", "Use MySQL's port — usually 3306."
 	case errors.Is(err, context.DeadlineExceeded) || strings.Contains(m, "i/o timeout"):
-		return "The server didn't answer in time.", "Check the server address, and that this PC is on the store network (not over VPN or Remote Desktop)."
+		return "The server didn't answer in time.", "Check the server address and port. An Epicor-hosted server is reached through the store's VPN — check this PC can reach it."
 	case strings.Contains(m, "connection refused"):
 		return "Nothing is listening on that port.", "Check the port number — MySQL usually uses 3306."
+	case strings.Contains(m, "tls:") || errors.Is(err, mysql.ErrNoTLS):
+		return "SSL (encryption) couldn't be set up with this server (" + m + ").", "Older Compass servers have SSL too old to use. Set SSL to \"Use if the server has it\" or Off."
 	}
 	return m, ""
 }
@@ -440,41 +623,54 @@ func runCompassTest(ctx context.Context, s compassSettings) compassTestResult {
 	case ipInLocalNetwork(ip):
 		add("Network path", "pass", "On the same network as this PC.", "")
 	case ip.IsPrivate():
-		add("Network path", "warn", "A private address on a different network segment (routed, VPN or Remote Desktop).", "If imports are slow or time out, run the app on a PC on the same network as the Eagle server.")
+		add("Network path", "pass", "On another network, reached through a router or VPN — normal for an Epicor-hosted Eagle server.", "")
 	default:
-		add("Network path", "warn", "A public (remote / hosted) address.", "Remote servers are slow and often blocked; use the exact host and port Epicor gave you.")
+		add("Network path", "warn", "A public (internet) address.", "Compass is normally reached on a private address over the store network or VPN; use the exact host and port Epicor gave you.")
 	}
 
-	// MySQL port
-	addr := net.JoinHostPort(ip.String(), strconv.Itoa(s.Port))
-	d := net.Dialer{Timeout: 4 * time.Second}
-	c, err := d.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		detail := fmt.Sprintf("Port %d isn't reachable (%v).", s.Port, shortNetErr(err))
-		fix := "Check the port, and that a firewall on the Eagle/Compass server isn't blocking this PC."
-		for _, p := range []int{3306, 3307, 3308, 3309, 3310, 13306} {
-			if p == s.Port {
-				continue
-			}
-			alt, err := (&net.Dialer{Timeout: 1500 * time.Millisecond}).DialContext(ctx, "tcp", net.JoinHostPort(ip.String(), strconv.Itoa(p)))
-			if err == nil {
-				alt.Close()
-				fix = fmt.Sprintf("Something answers on port %d instead — try that port.", p)
-				break
-			}
-		}
-		add("MySQL port", "fail", detail, fix)
-		skipRest("MySQL login", "Database", "Inventory (IN) table", "Link speed")
-		return res
-	}
-	c.Close()
-	add("MySQL port", "pass", fmt.Sprintf("Port %d is open.", s.Port), "")
-
-	// Login + database
+	// MySQL port and login. The login's own connection doubles as the port
+	// check: old MySQL servers count every abandoned connection against this
+	// PC (and lock it out after a handful), so the test opens no extra ones.
 	cctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	cc, err := openCompass(cctx, s, pw)
 	cancel()
 	if err != nil {
+		var oe *compassOpenError
+		if !errors.As(err, &oe) {
+			add("MySQL login", "fail", err.Error(), "")
+			skipRest("Database", "Inventory (IN) table", "Link speed")
+			return res
+		}
+		portFail := func(detail, fix string) compassTestResult {
+			add("MySQL port", "fail", detail, fix)
+			skipRest("MySQL login", "Database", "Inventory (IN) table", "Link speed")
+			return res
+		}
+		switch oe.hello.Kind {
+		case "mysql", "mysql-error":
+			add("MySQL port", "pass", portDetail(s.Port, oe.hello), "")
+		case "ssh":
+			return portFail(fmt.Sprintf("Port %d answers with SSH (%s), the server's remote login — not MySQL.", s.Port, oe.hello.Message), "Use MySQL's port instead — usually 3306.")
+		case "other":
+			return portFail(fmt.Sprintf("Port %d is open, but what answers isn't MySQL.", s.Port), "Check the port number — MySQL usually uses 3306.")
+		default:
+			if oe.dialErr == nil {
+				return portFail(fmt.Sprintf("Port %d is open, but nothing answered.", s.Port), "Check the port number (MySQL usually uses 3306) and, for an Epicor-hosted server, that the store's VPN is up.")
+			}
+			fix := "Check the port, and that a firewall isn't blocking this PC."
+			for _, p := range []int{3306, 3307, 3308, 3309, 3310, 13306} {
+				if p == s.Port {
+					continue
+				}
+				alt, err := (&net.Dialer{Timeout: 1500 * time.Millisecond}).DialContext(ctx, "tcp", net.JoinHostPort(ip.String(), strconv.Itoa(p)))
+				if err == nil {
+					alt.Close()
+					fix = fmt.Sprintf("Something answers on port %d instead — try that port.", p)
+					break
+				}
+			}
+			return portFail(fmt.Sprintf("Port %d isn't reachable (%v).", s.Port, shortNetErr(oe.dialErr)), fix)
+		}
 		detail, fix := explainMySQLError(err)
 		var me *mysql.MySQLError
 		if errors.As(err, &me) && (me.Number == 1044 || me.Number == 1049) {
@@ -488,12 +684,18 @@ func runCompassTest(ctx context.Context, s compassSettings) compassTestResult {
 		return res
 	}
 	defer cc.Close()
+	rememberCompassMode(s, cc.key)
 	res.Mode = cc.mode
-	loginStatus := "pass"
-	if strings.Contains(cc.mode, "fallback") {
+	add("MySQL port", "pass", portDetail(s.Port, cc.hello), "")
+	loginStatus, loginDetail := "pass", "Logged in as "+s.Username+" ("+cc.mode+")."
+	if cc.key == "oldpw" {
 		loginStatus = "warn"
+		loginDetail += " This login still uses MySQL's old, weak password scheme."
 	}
-	add("MySQL login", loginStatus, "Logged in as "+s.Username+" ("+cc.mode+").", "")
+	if !cc.readOnly {
+		loginDetail += " This MySQL version can't lock the session to read-only, but the app only ever reads."
+	}
+	add("MySQL login", loginStatus, loginDetail, "")
 
 	qctx, qcancel := context.WithTimeout(ctx, 15*time.Second)
 	defer qcancel()
@@ -558,8 +760,8 @@ func runCompassTest(ctx context.Context, s compassSettings) compassTestResult {
 	if ok {
 		avg := total / pings
 		detail := fmt.Sprintf("Average %d ms, worst %d ms.", avg.Milliseconds(), worst.Milliseconds())
-		if avg > 40*time.Millisecond {
-			add("Link speed", "warn", detail+" That's slow for a local network.", "Slow links make large reads time out — use a PC on the same network as the server.")
+		if avg > 150*time.Millisecond {
+			add("Link speed", "warn", detail+" That's a slow link.", "Reading the whole inventory will take longer; if it times out, check the store's connection to the server.")
 		} else {
 			add("Link speed", "pass", detail, "")
 		}
@@ -572,6 +774,13 @@ func runCompassTest(ctx context.Context, s compassSettings) compassTestResult {
 		}
 	}
 	return res
+}
+
+func portDetail(port int, h helloInfo) string {
+	if h.Version != "" {
+		return fmt.Sprintf("Port %d is open — MySQL %s answered.", port, h.Version)
+	}
+	return fmt.Sprintf("Port %d is open — MySQL answered.", port)
 }
 
 func shortNetErr(err error) string {
@@ -709,6 +918,7 @@ func runCompassExplore(ctx context.Context, s compassSettings, sku, loc string) 
 		return nil, errors.New(strings.TrimSpace(detail + " " + fix))
 	}
 	defer cc.Close()
+	rememberCompassMode(s, cc.key)
 	rep := &exploreReport{Generated: time.Now().Format("2006-01-02 15:04"), Server: fmt.Sprintf("%s:%d", s.Server, s.Port), Database: s.Database, Mode: cc.mode}
 	note := func(f string, a ...any) { rep.Notes = append(rep.Notes, fmt.Sprintf(f, a...)) }
 	q := func(timeout time.Duration, query string, args ...any) ([]string, [][]string, error) {
