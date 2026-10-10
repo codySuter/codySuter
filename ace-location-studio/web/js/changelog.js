@@ -15,6 +15,7 @@ const CHANGELOG = [
       "OPTI Clear: clears matching overstock — Locations 4, 5 and 6 only — into \"<codes> OPTICLEAR - Eagle Import.csv\".",
       "Custom Location Change: pick the locations each code searches (L1–L6), then Clear them or Change them to one new location (12R → 14L05 turns every match into 14L05). Saved as \"<codes> LOCCHANGE - Eagle Import.csv\".",
       "Every workflow saves the same six-location Eagle import file, shares the Compass location data, and keeps its own codes, so switching between them doesn't mix them up. The saved-files list tags OPTI and Custom saves.",
+      "New Planogram: the − and + facings buttons stay put while you click them — the text beside them no longer pushes them around, and the SKU list keeps its scroll position.",
     ],
   },
   {

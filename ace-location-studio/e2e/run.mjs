@@ -523,6 +523,8 @@ wait
 
   console.log("\n# Facings");
   await page.click('#hotspots .hs[data-sku="7000001"]');
+  const btnAt = async () => page.evaluate(() => ["#selMinus", "#selPlus"].map((s) => { const r = document.querySelector(s).getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)}`; }).join(" "));
+  const btns0 = await btnAt();
   ok("plan: click selects", (await text("#selBar")).includes("7000001") && (await text("#selBar")).includes("of 2 facings"));
   ok("plan: plan capacity", (await text("#selCap")) === "12");
   await page.keyboard.press("-");
@@ -531,6 +533,7 @@ wait
   ok("plan: drawing marks it", await page.$eval('#hotspots .hs[data-sku="7000001"]', (b) => b.classList.contains("reduced") && b.innerText.trim() === "1/2"));
   ok("plan: tab counts the change", (await text('#segTabs [data-tab="1"] .tab-n')) === "1");
   ok("plan: list shows it", (await page.$eval('#planTable tr[data-sku="7000001"] td.cap', (td) => td.innerText.trim())) === "6");
+  ok("plan: − / + buttons don't move", (await btnAt()) === btns0, [btns0, await btnAt()]);
   ok("plan: + capped at the plan", await page.$eval("#selPlus", (b) => !b.disabled) && (await page.click("#selPlus"), (await text("#selFacings")) === "2") && await page.$eval("#selPlus", (b) => b.disabled));
   await page.click("#selMinus");
   await page.click('#planTable tr[data-sku="7000006"]');
@@ -541,9 +544,22 @@ wait
   ok("plan: 5 at 2 facings → 2", (await text("#selCap")) === "2");
   await page.click("#selMinus");
   ok("plan: 0 facings drops it", (await text("#selBar")).includes("Dropped"));
+  ok("plan: buttons stay put when dropped", (await btnAt()) === btns0, [btns0, await btnAt()]);
   ok("plan: dropped on drawing", await page.$eval('#hotspots .hs[data-sku="7000006"]', (b) => b.classList.contains("dropped")));
   ok("plan: overhanging label shown faded", await page.$eval('#hotspots .hs[data-sku="7000004"]', (b) => b.classList.contains("other-seg")));
   ok("plan: list counts", (await text("#planCounts")) === "7 SKUs · 1 with fewer facings · 1 dropped", await text("#planCounts"));
+  // A list row's buttons stay under the pointer: the list keeps its scroll
+  // position (and column widths) when it redraws.
+  const squeeze = await page.addStyleTag({ content: ".plan-scroll{max-height:150px!important}" });
+  await page.$eval(".plan-scroll", (s) => { s.scrollTop = s.scrollHeight; });
+  await page.$eval('#planTable tr[data-sku="7000005"]', (r) => r.scrollIntoView({ block: "nearest" }));
+  const rowBtn = '#planTable tr[data-sku="7000005"] [data-bump]';
+  const rowAt = () => page.$eval(rowBtn, (b) => { const r = b.getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)} ${b.closest(".plan-scroll").scrollTop}`; });
+  const row0 = await rowAt();
+  await page.click(rowBtn);
+  ok("plan: list keeps its scroll and the button stays put", (await rowAt()) === row0 && !row0.endsWith(" 0"), [row0, await rowAt()]);
+  await page.click('#planTable tr[data-sku="7000005"] [data-bump="1"]');
+  await squeeze.evaluate((el) => el.remove());
   await page.click('#planTable tr[data-sku="7000004"]');
   ok("plan: no REC QTY explained", (await text("#selBar")).includes("No REC QTY"));
   await page.keyboard.press("Escape");
