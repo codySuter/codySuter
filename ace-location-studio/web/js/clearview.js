@@ -642,6 +642,7 @@ const ClearView = {
     const name = this.fileName();
     const csv = Clear.importCSV(plan.changed);
     this.saving = true;
+    this.saved = null; // the "Saved" note comes back once this save is written
     this.saveError = "";
     this.renderSave();
     try {

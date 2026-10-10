@@ -344,6 +344,7 @@ const PlanView = {
     const files = this.files();
     const dir = Store.exportDir();
     this.saving = true;
+    this.saved = null; // the "Saved" note comes back once these files are written
     this.saveError = "";
     this.renderSave();
     const post = (f, overwrite) => fetch("/api/export", {
