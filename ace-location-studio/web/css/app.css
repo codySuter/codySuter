@@ -398,6 +398,34 @@ button.chip{padding:4px 10px}
 .mini-facing span{color:var(--text-3);font-size:12px;margin-left:-4px}
 .cap-new{color:#9A5A00}
 
+
+/* ============ Compass ============ */
+.cp-status{font-size:12.5px;font-weight:900;color:var(--text-3);display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.cp-status .ico{width:14px;height:14px;stroke-width:3}
+.cp-status.ok{color:var(--good-ink)} .cp-status.ok .ico{color:var(--good)}
+.cp-status.bad{color:var(--bad-ink)} .cp-status.bad .ico{color:var(--bad)}
+.cp-grid{display:grid;grid-template-columns:2fr 90px 1.4fr 1.4fr 1.4fr 1.4fr;gap:10px;margin-top:14px}
+.cp-grid label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:700;color:var(--text-2);min-width:0}
+.cp-checks{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.cp-checks li{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border-radius:9px;font-size:13px;line-height:1.4;background:var(--surface-alt)}
+.cp-checks li b{color:var(--ink)}
+.cp-checks li span{color:var(--text-2)}
+.cp-ico{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--gray-5);margin-top:1px}
+.cp-ico .ico{width:12px;height:12px;stroke-width:3.5}
+.cp-checks li.pass .cp-ico{background:var(--good)}
+.cp-checks li.warn .cp-ico{background:#E09A00}
+.cp-checks li.fail{background:var(--bad-bg)} .cp-checks li.fail .cp-ico{background:var(--bad)}
+.cp-checks li.skip{opacity:.6}
+.cp-fix{margin-top:3px;color:var(--ink);font-weight:500}
+.cp-fix::before{content:"→ ";color:var(--text-3)}
+.cp-explore{margin-top:18px;padding-top:14px;border-top:1px solid var(--hair)}
+.cp-explore h4{margin:0 0 4px;font-size:14.5px;font-weight:900;color:var(--ink);display:flex;align-items:center;gap:7px}
+.cp-explore h4 .ico{color:var(--ace-red);width:16px;height:16px}
+.narrow-sku{width:170px}
+.narrow-loc{width:150px;text-transform:uppercase}
+.cp-report{margin:10px 0 0;max-height:380px;overflow:auto;background:#15181D;color:#E6E7E8;border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.45;white-space:pre}
+@media (max-width:1180px){.cp-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
 /* ============ Narrower windows ============ */
 @media (max-width:1180px){
   .clear-layout{grid-template-columns:340px minmax(0,1fr)}

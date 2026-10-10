@@ -5,7 +5,10 @@
  * checking the bytes on disk), the replace-file prompt, the warnings, a
  * bad file, the big file, settings + persistence, the update banner, and
  * the New Planogram tab (synthetic planogram PDF: section locations,
- * facings on the drawing, the import + label files, picking back up).
+ * facings on the drawing, the import + label files, picking back up), and
+ * Settings → Live data from Compass (a refused connection, the password
+ * never leaving the backend, and — with ACE_TEST_COMPASS set — a live
+ * MySQL: test + Explore).
  *
  * Usage: node e2e/run.mjs            (from ace-location-studio/ or e2e/)
  * Env:   CHROMIUM_PATH — explicit browser executable
@@ -106,7 +109,7 @@ async function run() {
 
   /* ---------- empty state ---------- */
   console.log("\n# Before a file is loaded");
-  ok("version tag", (await text("#verTag")) === "v1.1.0", await text("#verTag"));
+  ok("version tag", (await text("#verTag")) === "v1.2.0", await text("#verTag"));
   ok("preview explains what to do", (await text("#previewCard")).includes("Load the Eagle export"));
   ok("save is disabled", await page.$eval("#saveBtn", (b) => b.disabled));
   ok("says why", (await text("#saveBlocker")).includes("Load the Eagle export first"));
@@ -406,6 +409,60 @@ async function run() {
 
   await page.click('.tab[data-view="clear"]');
   ok("plan saves in the log", (await text("#logCard")).includes("New plan"));
+
+  /* ---------- live data from Compass ---------- */
+  console.log("\n# Compass connection");
+  await page.click('.tab[data-view="settings"]');
+  await page.waitForSelector("#cpServer");
+  ok("compass: not set up yet", (await text("#compassCard .cp-status")) === "Not set up");
+  ok("compass: explore needs settings first", await page.$eval("#cpExplore", (b) => b.disabled));
+  const closed = await new Promise((resolve) => { const s = http.createServer(); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => resolve(p)); }); });
+  await page.fill("#cpServer", "127.0.0.1");
+  await page.fill("#cpPort", String(closed));
+  await page.fill("#cpDb", "compass");
+  await page.fill("#cpUser", "mm");
+  await page.fill("#cpPass", "pw-e2e-secret");
+  await page.click("#cpSave");
+  await page.waitForSelector("#cpCheckList", { timeout: 30000 });
+  const checks = await page.$$eval("#cpCheckList li", (ls) => ls.map((l) => l.className + ":" + l.querySelector("b").textContent));
+  ok("compass: closed port caught", checks.includes("fail:MySQL port") && checks.includes("skip:MySQL login"), checks);
+  ok("compass: says it isn't connected", (await text("#compassCard .cp-status")).includes("Not connected"));
+  ok("compass: password field cleared", (await val("#cpPass")) === "" && (await page.$eval("#cpPass", (i) => i.placeholder)).includes("Saved"));
+  const pub = await page.evaluate(() => fetch("/api/compass/settings").then((r) => r.text()));
+  ok("compass: password never sent back", !pub.includes("pw-e2e-secret") && pub.includes('"hasPassword":true'), pub);
+  const stTxt = await page.evaluate(() => fetch("/api/state").then((r) => r.text()));
+  ok("compass: password not in state.json", !stTxt.includes("pw-e2e-secret"));
+  ok("compass: password not on the page", !(await page.content()).includes("pw-e2e-secret"));
+  ok("compass: password not stored in plain text", !readFileSync(path.join(cfgDir, "compass.json"), "utf8").includes("pw-e2e-secret"));
+  await shot("09-compass-fail");
+
+  // A live server, when one is available (CI loads testdata/compass-seed.sql).
+  if (process.env.ACE_TEST_COMPASS) {
+    const [h, p, db, u, pw] = process.env.ACE_TEST_COMPASS.split(":");
+    await page.fill("#cpServer", h);
+    await page.fill("#cpPort", p);
+    await page.fill("#cpDb", db);
+    await page.fill("#cpUser", u);
+    await page.fill("#cpPass", pw);
+    await page.click("#cpSave");
+    await page.waitForFunction(() => document.querySelector("#cpCheckList") && !document.querySelector("#cpSave").disabled, null, { timeout: 60000 });
+    const live = await page.$$eval("#cpCheckList li", (ls) => ls.map((l) => l.className + ":" + l.querySelector("b").textContent));
+    ok("compass: live server passes", live.every((c) => c.startsWith("pass:") || c.startsWith("warn:")) && (await text("#compassCard .cp-status")).includes("Connected"), live);
+    ok("compass: inventory rows counted", (await text("#cpCheckList")).includes("IN table has 3 rows"));
+    await page.fill("#cpSku", "70013");
+    await page.fill("#cpLoc", "12r02");
+    await page.click("#cpExplore");
+    await page.waitForSelector("#cpReportText", { timeout: 120000 });
+    const found = await text("#cpFound");
+    ok("compass: explore finds the SKU and location columns", found.includes("IN.ITEMNO") && found.includes("IN.LCD1"), found);
+    ok("compass: report lists the location-like columns", (await text("#cpReportText")).includes("BINS.BINLOC"));
+    await page.click('.tab[data-view="clear"]');
+    await page.click('.tab[data-view="settings"]');
+    ok("compass: remembered as connected", (await text("#compassCard .cp-status")).includes("Connected"));
+    await shot("10-compass-live");
+  } else {
+    console.log("  (no ACE_TEST_COMPASS — skipping the live-server checks)");
+  }
 
   ok("no page errors", pageErrors.length === 0, pageErrors);
   await browser.close();

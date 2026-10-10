@@ -47,7 +47,18 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      - name: Start MySQL (a stand-in Compass server)
+        # The runner image ships MySQL (root/root), stopped. The Compass
+        # tests run against it: a seeded fake Compass database and a
+        # read-only login like the one Margin Master is given.
+        run: |
+          sudo systemctl start mysql.service
+          for i in $(seq 1 30); do mysqladmin -h127.0.0.1 -uroot -proot ping --silent && break; sleep 1; done
+          mysql -h127.0.0.1 -uroot -proot < testdata/compass-seed.sql
+
       - name: Go tests
+        env:
+          ACE_TEST_MYSQL: "root:root@127.0.0.1:3306"
         run: go test ./...
 
       - uses: actions/setup-node@v4
@@ -63,6 +74,8 @@ jobs:
           node tests/pog.mjs
 
       - name: E2E suite (real binary in headless Chromium)
+        env:
+          ACE_TEST_COMPASS: "127.0.0.1:3306:compasstest:mmuser:s3cret-test"
         run: |
           cd e2e
           npm install --no-audit --no-fund
