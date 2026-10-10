@@ -48,9 +48,16 @@ const Store = {
     return this.save();
   },
 
-  /** Persist the whole document. Resolves true on success. */
-  save() {
+  /** Persist the whole document. Resolves true on success. With
+   *  { keepalive: true } the request outlives the page — for saving as the
+   *  window closes or reloads. */
+  save(opts) {
     const body = JSON.stringify(this.doc);
+    const keepalive = !!(opts && opts.keepalive) && body.length < 60000; // browsers cap keepalive bodies at 64 KB
+    if (keepalive) {
+      try { fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }); } catch (e) { /* page is going away */ }
+      return Promise.resolve(true);
+    }
     const run = async () => {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {

@@ -70,6 +70,8 @@ const PlanView = {
       else if (e.key === "+" || e.key === "=") { e.preventDefault(); this.bump(this.selected, 1); }
       else if (e.key === "Escape") { this.select(null); }
     });
+    window.addEventListener("pagehide", () => this.flush());
+    document.addEventListener("visibilitychange", () => { if (document.hidden) this.flush(); });
     let t = null;
     window.addEventListener("resize", () => {
       clearTimeout(t);
@@ -684,15 +686,24 @@ const PlanView = {
 
   /* ---------------- memory ---------------- */
 
+  /** Record the plan's codes and facings in the saved document right
+   *  away (so any other save carries them too), and save it shortly — or
+   *  at once if the window is closing (see init). */
   persist() {
     if (!this.plan || !this.plan.pogId) return;
+    const plans = Store.doc.plans || (Store.doc.plans = {});
+    plans[this.plan.pogId] = { codes: Object.assign({}, this.codes), facings: Object.assign({}, this.facings), ts: Date.now() };
+    const keys = Object.keys(plans).sort((a, b) => (plans[b].ts || 0) - (plans[a].ts || 0));
+    keys.slice(PLAN_MEMORY).forEach((k) => delete plans[k]);
     clearTimeout(this._persistT);
-    this._persistT = setTimeout(() => {
-      const plans = Store.doc.plans || (Store.doc.plans = {});
-      plans[this.plan.pogId] = { codes: Object.assign({}, this.codes), facings: Object.assign({}, this.facings), ts: Date.now() };
-      const keys = Object.keys(plans).sort((a, b) => (plans[b].ts || 0) - (plans[a].ts || 0));
-      keys.slice(PLAN_MEMORY).forEach((k) => delete plans[k]);
-      Store.save();
-    }, 400);
+    this._persistT = setTimeout(() => { this._persistT = null; Store.save(); }, 300);
+  },
+
+  /** Send a save that's still waiting, before the page goes away. */
+  flush() {
+    if (!this._persistT) return;
+    clearTimeout(this._persistT);
+    this._persistT = null;
+    Store.save({ keepalive: true });
   },
 };
