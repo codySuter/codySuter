@@ -16,8 +16,8 @@
     <span class="ver" id="verTag"></span>
   </div>
   <nav class="tabs" aria-label="Sections">
-    <button class="tab" data-view="clear" title="Clear locations (Ctrl+1)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 21"/><path d="M6 11l7 7"/></svg>Clear Locations</button>
-    <button class="tab" data-view="plan" title="New planogram (Ctrl+2)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>New Planogram</button>
+    <button class="tab" data-view="home" title="Workflows (Ctrl+1)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Workflows</button>
+    <button class="tab wf-tab" data-view="workflow" id="wfTab" title="Back to the workflow (Ctrl+2)" hidden></button>
     <button class="tab" data-view="settings" title="Settings (Ctrl+3)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</button>
   </nav>
   <div class="spacer"></div>
@@ -45,6 +45,8 @@
 </div>
 
 <main class="work" id="work">
+  <div class="flow-bar" id="flowBar"></div>
+  <section class="view" id="view-home"></section>
   <section class="view" id="view-clear"></section>
   <section class="view" id="view-plan"></section>
   <section class="view" id="view-settings"></section>
@@ -64,6 +66,7 @@
 <script src="js/util.js"></script>
 <script src="js/changelog.js"></script>
 <script src="js/store.js"></script>
+<script src="js/workflows.js"></script>
 <script src="js/clearview.js"></script>
 <script src="js/planview.js"></script>
 <script src="js/compass.js"></script>

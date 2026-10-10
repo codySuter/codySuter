@@ -344,6 +344,7 @@ const PlanView = {
     const files = this.files();
     const dir = Store.exportDir();
     this.saving = true;
+    this.saved = null; // the "Saved" note comes back once these files are written
     this.saveError = "";
     this.renderSave();
     const post = (f, overwrite) => fetch("/api/export", {
@@ -580,28 +581,30 @@ const PlanView = {
     if (it.row) where.push(`peg row ${esc(it.row)}, col ${esc(it.col)}`);
     else if (it.peg) where.push(esc(it.peg.toLowerCase()));
     let capText;
-    if (fc === 0) capText = `<b class="drop-text">Dropped</b> — not in the import or the labels`;
-    else if (it.rec == null) capText = "No REC QTY in the plan — Location 3 left blank";
+    if (fc === 0) capText = `<b class="drop-text">Dropped</b> — not in the import or labels`;
+    else if (it.rec == null) capText = "No REC QTY — Location 3 left blank";
     else if (cap !== it.rec) capText = `Shelf cap (Loc 3): <s>${it.rec}</s> → <b id="selCap">${cap}</b>`;
     else capText = `Shelf cap (Loc 3): <b id="selCap">${cap}</b>`;
     c.className = "sel-bar";
     c.innerHTML = `
       <div class="sel-main">
-        <div class="sel-sku"><b>${esc(it.sku)}</b> ${esc(it.desc)}</div>
-        <div class="sel-where">${where.join(" · ")}</div>
+        <div class="sel-sku" title="${esc(it.sku)} ${esc(it.desc)}"><b>${esc(it.sku)}</b> ${esc(it.desc)}</div>
+        <div class="sel-where" title="${where.join(" · ")}">${where.join(" · ")}</div>
       </div>
       <div class="facing-ctl">
         <button class="fc-step" id="selMinus" title="One less facing (−)" ${fc <= 0 ? "disabled" : ""}>${icon("minus")}</button>
         <div class="fc-num"><b id="selFacings">${fc}</b><span>of ${it.facings} facing${it.facings === 1 ? "" : "s"}</span></div>
         <button class="fc-step" id="selPlus" title="One more facing (+)" ${fc >= it.facings ? "disabled" : ""}>${icon("plus")}</button>
       </div>
-      <div class="sel-cap">${capText}</div>
-      ${fc !== it.facings ? `<button class="link small" id="selReset">Back to plan</button>` : ""}
+      <div class="sel-cap">
+        <div class="sel-cap-text">${capText}</div>
+        <button class="link small sel-reset" id="selReset" ${fc === it.facings ? `disabled tabindex="-1"` : ""}>Back to plan</button>
+      </div>
       <button class="icon-btn-sm" id="selClose" title="Deselect (Esc)">${icon("x")}</button>`;
     $("#selMinus").onclick = () => this.bump(it.sku, -1);
     $("#selPlus").onclick = () => this.bump(it.sku, 1);
     $("#selClose").onclick = () => this.select(null);
-    if ($("#selReset")) $("#selReset").onclick = () => this.setFacings(it.sku, it.facings);
+    $("#selReset").onclick = () => this.setFacings(it.sku, it.facings);
   },
 
   bump(sku, delta) {
@@ -650,6 +653,8 @@ const PlanView = {
           <td class="r num cap">${fc === 0 ? `<span class="drop-text">dropped</span>` : cap == null ? `<span class="muted">blank</span>` : cap !== it.rec ? `<b class="cap-new">${cap}</b>` : cap}</td>
         </tr>`;
     }).join("");
+    const scroller = $(".plan-scroll", c);
+    const scrollTop = scroller ? scroller.scrollTop : 0;
     c.innerHTML = `
       <div class="card-head">
         <h3>${icon("list")} SKUs in the plan</h3>
@@ -660,10 +665,13 @@ const PlanView = {
       </div>
       <div class="tbl-scroll plan-scroll">
         <table class="tbl compact plan-tbl" id="planTable">
-          <thead><tr><th>SKU</th><th>Description</th><th>Section</th><th class="center">Facings</th><th class="r">REC QTY</th><th class="r">Loc 3</th></tr></thead>
+          <thead><tr><th>SKU</th><th>Description</th><th>Section</th><th class="center c-fac">Facings</th><th class="r c-rec">REC QTY</th><th class="r c-cap">Loc 3</th></tr></thead>
           <tbody>${rows || `<tr><td colspan="6" class="center muted">Nothing matches that search.</td></tr>`}</tbody>
         </table>
       </div>`;
+    // Redrawing the list must not scroll it back to the top — the row whose
+    // facings you just changed (and its − / + buttons) stays where it was.
+    $(".plan-scroll", c).scrollTop = scrollTop;
     $$("#planTable tbody tr[data-sku]").forEach((tr) => {
       tr.onclick = (e) => {
         const b = e.target.closest("[data-bump]");

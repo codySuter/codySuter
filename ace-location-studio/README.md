@@ -1,16 +1,19 @@
 # Ace Location Studio
 
 A Windows app for Snyder's Ace Hardware that takes the busywork out of
-Epicor Eagle location changes during a reset (say, aisle 12 going over to
-Christmas):
+Epicor Eagle location changes. It opens on a menu of workflows:
 
-- **Clear Locations** turns the location data for the section being reset
-  into the Eagle import file that clears those locations. The data can load
-  by itself from a Compass export that Compass saves on a schedule.
-- **New Planogram** reads the planogram PDF from Ace and writes the Eagle
-  import that gives every SKU its new Location 1 and shelf capacity, plus
-  the label printer files. You can take facings away on the plan's own
-  drawing first.
+| Workflow | Searches | Does | File |
+|---|---|---|---|
+| **Planogram Change** | Location 1 + overstock 4–6 | ① clears the old locations for the section being reset, ② reads the planogram PDF from Ace and writes each SKU's new Location 1, shelf capacity and labels | `<codes> LOCCLEAR - Eagle Import.csv`, then the planogram files |
+| **OPTI Clear** | Overstock 4–6 only | clears matching overstock locations | `<codes> OPTICLEAR - Eagle Import.csv` |
+| **Custom Location Change** | Any of Locations 1–6, chosen per code | clears matches, or changes them to one new location | `<codes> LOCCHANGE - Eagle Import.csv` |
+
+Every workflow writes the same six-location Eagle import file, so Eagle
+sees changes coming back in the same way. The location data loads by
+itself from Compass (see below), or from an export dropped on the window.
+**Workflows** at the top goes back to the menu any time. Each workflow keeps
+its own codes while you switch between them.
 
 **[Download AceLocationStudio.exe](https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows/AceLocationStudio.exe)**
 — portable, no install (Windows 10/11). The first time, SmartScreen may say
@@ -30,7 +33,11 @@ Each code has its own L1–L6 choice (see Clear Locations, step 2).
 Locations are at most 5 characters. In an Eagle import, a `?` tells Eagle
 to clear that location.
 
-## Clear Locations
+## Clearing and changing locations (every workflow)
+
+The Planogram Change workflow's first step, OPTI Clear and Custom Location
+Change all work the same way. What differs is which locations a code
+searches, and whether it can change a location instead of clearing it.
 
 1. **Load the location data.** If Compass saves exports to the watched
    folder (see below), the newest one is already loaded. Otherwise drag
@@ -49,8 +56,14 @@ to clear that location.
    - a code is already covered by another one (`12R03` when `12R` is on the list),
    - a code matches a location that isn't ticked for it, which is left alone.
 
-   **Pick the locations each code clears.** Under every code is a row of
-   toggles, **L1** to **L6**. By default Location 1 (shelf) and Locations
+   **Custom Location Change: pick the locations and the action.** Under
+   every code is a row of toggles, **L1** to **L6**, then **Clear** or
+   **Change to**. Change to turns every match into one new location (at most
+   5 characters): `12R` → `14L05` makes 12R03 and 12R07 both 14L05.
+   Planogram Change and OPTI Clear have no toggles; the line under the code
+   box shows what they search.
+
+   About the toggles: by default Location 1 (shelf) and Locations
    4–6 (overstock) are ticked. Untick any to keep them (for example `12R`
    on L1 only clears shelf locations and leaves overstock alone). Location
    2 (flags) and Location 3 (capacity) start unticked and can be ticked
@@ -58,7 +71,8 @@ to clear that location.
    out the columns no code clears, and the saved-files list notes any code
    that didn't use the default.
 3. **Check the preview.** You'll see every SKU going into the import, with
-   each cleared location shown as **?** next to the crossed-out old code.
+   each cleared location shown as **?** (or the new location, in Custom)
+   next to the crossed-out old code.
    Switch to **All SKUs** to see the untouched rows too, or search for a
    SKU, item or location.
 4. **Save for Eagle.** This writes the import file straight into
@@ -124,7 +138,7 @@ Then in Clear Locations:
 The app only ever reads that folder; nothing in it is changed, moved or
 deleted.
 
-## New Planogram
+## New Planogram (step 2 of Planogram Change)
 
 1. **Load the planogram PDF** from Ace (drag it onto the window or click to
    choose it). The app reads the **ACE HARDWARE PRODUCT REPORT** for every
@@ -239,6 +253,9 @@ window. It quits about 90 seconds after the window closes.
 - `compassapp.go`: starting Compass for **Get fresh data**
   (`/api/compass/app`, `/api/compass/launch`); only `Conductor.exe` can
   be started, and closing it is always the polite kind.
+- `web/js/workflows.js`: the three workflows (which locations their codes
+  search, Clear / Change, file tags, steps), the start menu and the bar
+  above a workflow.
 - `web/js/clear.js`: the clearing rules (which slots, starts-with
   matching, the CSV layout, the file name). These are pure functions,
   shared by the app and the unit tests.

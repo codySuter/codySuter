@@ -81,6 +81,21 @@ eq("capacity hit reported", Clear.planClear(capRows, ["12", "MD"]).protectedHits
 eq("short code matches widely", Clear.planClear(rows, ["1"]).stats[0].values.includes("107"), true);
 eq("nothing", Clear.planClear(rows, []).changed.length, 0);
 
+/* ---------- change instead of clear (Custom Location Change) ---------- */
+const moved = Clear.planClear(rows, ["12R"], { "12R": [0] }, { "12R": "14l05" });
+eq("change: every match becomes the new value", moved.changed.map((r) => r.after[0]), ["14L05", "14L05", "14L05", "14L05", "14L05", "14L05"]);
+eq("change: other slots untouched", moved.changed.find((r) => r.sku === "779600").after, ["14L05", "", "100", "12R06", "", ""]);
+const same = Clear.planClear([{ sku: "1", desc: "", locs: ["12R03", "", "", "", "", ""] }], ["12R"], { "12R": [0] }, { "12R": "12R03" });
+eq("change: already that value is left out", same.changed.length, 0);
+const mix = Clear.planClear(rows, ["12R", "USTOR"], { "12R": [0], USTOR: [3] }, { USTOR: "107" });
+eq("change + clear together", mix.changed.find((r) => r.sku === "70018").after, ["?", "", "5", "107", "", ""]);
+eq("change value: ok", Clear.changeProblem("14l05"), "");
+ok("change value: too long / ? / blank", /at most 5/.test(Clear.changeProblem("14L055")) && /Clear instead/.test(Clear.changeProblem("?")) && Clear.changeProblem(" ") !== "");
+eq("file name tag", [Clear.importFileName(["12R"], "OPTICLEAR"), Clear.importFileName(["12R"], "LOCCHANGE"), Clear.importFileName(["12R"])],
+  ["12R OPTICLEAR - Eagle Import.csv", "12R LOCCHANGE - Eagle Import.csv", "12R LOCCLEAR - Eagle Import.csv"]);
+const opti = Clear.planClear(rows, ["12R"], { "12R": [3, 4, 5] });
+eq("OPTI slots: overstock only", opti.changed.map((r) => r.sku), ["779600", "3008391", "9087035", "5555556"]);
+
 /* ---------- each code clears its own choice of locations ---------- */
 eq("default slots", Clear.slotsFor("12R", {}), [0, 3, 4, 5]);
 eq("chosen slots, tidied", Clear.slotsFor("12R", { "12R": [3, 0, 0, 9, -1, 1.5] }), [0, 3]);
