@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="1.2.0"
+VERSION="1.2.1"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Settings: connect to your Compass data warehouse (read-only, like Margin Master) and Explore where your SKUs and locations live — the first step toward skipping the Eagle export."
+NOTES="Compass: works with Epicor-hosted Eagle servers and older Compass versions, and the connection test now shows the real reason a login fails."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows"

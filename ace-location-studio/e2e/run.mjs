@@ -109,7 +109,7 @@ async function run() {
 
   /* ---------- empty state ---------- */
   console.log("\n# Before a file is loaded");
-  ok("version tag", (await text("#verTag")) === "v1.2.0", await text("#verTag"));
+  ok("version tag", (await text("#verTag")) === "v1.2.1", await text("#verTag"));
   ok("preview explains what to do", (await text("#previewCard")).includes("Load the Eagle export"));
   ok("save is disabled", await page.$eval("#saveBtn", (b) => b.disabled));
   ok("says why", (await text("#saveBlocker")).includes("Load the Eagle export first"));

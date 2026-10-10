@@ -2,7 +2,8 @@
    Ace Location Studio — Settings → Live data from Compass.
 
    The Compass data warehouse is a read-only MySQL copy of the store's
-   Eagle data on the store network; Margin Master reads from it the same
+   Eagle data (on the store network, or on Epicor's server over the store's
+   VPN for hosted Eagle); Margin Master reads from it the same
    way. This card holds the connection (copied from Margin Master's
    Epicor tab), tests it like Margin Master's troubleshooter, and runs
    Explore — a report that finds which tables and columns hold the SKU
@@ -53,7 +54,7 @@ const CompassPanel = {
       <p class="f-help">The app can read SKUs and locations straight from your <b>Compass data warehouse</b>, the same way Margin Master does,
         instead of you exporting a file from Eagle. It only ever <b>reads</b> — changes still go into Eagle through the import files.</p>
       <div class="notice info slim">${icon("info")}<span>Copy these from <b>Margin Master</b>: Options → POS / Connections → <b>Epicor</b> tab, with <b>Connect via MySQL / Compass</b> checked.
-        Run this on a PC on the store network (not over VPN or Remote Desktop).</span></div>
+        Run this on a store PC that can reach the Eagle server — on the store network, or over the store's VPN when Epicor hosts Eagle.</span></div>
       ${this.error ? `<div class="notice bad">${icon("x")}<span>${esc(this.error)}</span></div>` : ""}
       <div class="cp-grid">
         <label><span>Server</span><input class="f-input" id="cpServer" value="${esc(s.server || "")}" placeholder="e.g. 192.168.1.20" spellcheck="false" autocomplete="off"></label>

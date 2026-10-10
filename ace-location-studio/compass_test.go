@@ -192,7 +192,15 @@ func (m testMySQL) admin(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	if err := db.Ping(); err != nil {
-		t.Fatalf("admin connect: %v", err)
+		// A server whose SSL can't be used (like an old Compass): go without.
+		db.Close()
+		cfg.TLSConfig = "false"
+		if db, err = sql.Open("mysql", cfg.FormatDSN()); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Ping(); err != nil {
+			t.Fatalf("admin connect: %v", err)
+		}
 	}
 	return db
 }
@@ -201,6 +209,7 @@ func (m testMySQL) admin(t *testing.T) *sql.DB {
 // inventory table whose location columns have cryptic names, a few other
 // tables, and a read-only login (like the one Margin Master is given).
 func seedCompass(t *testing.T, m testMySQL) (compassSettings, string) {
+	t.Setenv("ACE_CONFIG_DIR", t.TempDir()) // the remembered way in is saved there
 	db := m.admin(t)
 	t.Cleanup(func() { db.Close() }) // runs after the drops below (LIFO)
 	suffix := fmt.Sprintf("%d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(1e6))

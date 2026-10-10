@@ -105,8 +105,9 @@ you.
 ## Live data from Compass (Settings)
 
 Margin Master doesn't need a file from Eagle: it reads inventory straight
-from the store's **Compass data warehouse**, a MySQL copy of the Eagle data
-on the store network. In its handbook's words, it connects "directly,
+from the store's **Compass data warehouse**, a MySQL copy of the Eagle data.
+It's on the store network or, when Epicor hosts Eagle, on Epicor's server,
+reached over the store's VPN. In its handbook's words, it connects "directly,
 read-only, to the Compass database on your local network". Ace Location
 Studio connects the same way, and this is the first step toward skipping
 the `.xls` export.
@@ -117,10 +118,12 @@ the `.xls` export.
 2. In Ace Location Studio, go to **Settings → Live data from Compass**,
    enter the same five values, and click **Save & test connection**. Like
    Margin Master's troubleshooter, it runs every check and says what to
-   fix: settings, server address, network path (same network vs VPN /
-   remote), MySQL port (and whether MySQL answers on another port),
-   login (with SSL-off / old-password fallbacks), database, the inventory
-   (`IN`) table and link speed.
+   fix: settings, server address, network path (same network, or routed /
+   VPN), MySQL port (with the Compass version that answered, or a warning
+   that the port is SSH, the server's remote login, rather than MySQL),
+   login (with SSL-off / old-password fallbacks, reporting the server's own
+   reason when it refuses), database, the inventory (`IN`) table and link
+   speed.
 3. **Explore.** Compass's table layout isn't published. Type a SKU and its
    Location 1 that you know from Eagle, then click **Explore Compass**. The
    report lists the tables, the `IN` table's columns with a few sample
@@ -129,8 +132,19 @@ the `.xls` export.
    so it can be sent to whoever is setting up the app. The next version
    uses it to read the six locations live.
 
-It only reads: every query is a `SELECT`, and the session is set to
-`READ ONLY` too. Changes still go into Eagle through the import files.
+It only reads: every query is a `SELECT`, and on MySQL 5.6 and later the
+session is set to `READ ONLY` too (older versions can't do that). Changes
+still go into Eagle through the import files.
+
+Older Compass servers (MySQL 5.1, for example) have SSL too old for modern
+encryption, so with SSL on **Use if the server has it** the app connects
+without it (the same fallback Margin Master's troubleshooter uses).
+**Required** never goes without. The way
+in that worked is remembered and tried first next time. Old servers count
+each failed attempt against the computer and block it after a handful
+(Epicor can lift that with `FLUSH HOSTS`), so the app avoids failing its way
+in each time.
+
 The settings live in `compass.json` beside `state.json`. The password is
 encrypted with Windows DPAPI for the signed-in Windows user, and the page
 never sees it.
