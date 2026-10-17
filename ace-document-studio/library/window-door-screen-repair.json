@@ -1,0 +1,78 @@
+{
+  "id": "window-door-screen-repair",
+  "title": "Window & Door Screen Repair",
+  "kicker": "Snyder's Ace Hardware · Media, PA",
+  "subtitle": "Deposits · Wait Time · What to Bring",
+  "chip": null,
+  "accent": "#C8102E",
+  "typeScale": 140,
+  "footer": {
+    "show": false,
+    "effective": "",
+    "version": "",
+    "supersedes": "",
+    "approvedBy": ""
+  },
+  "headerAlign": "center",
+  "blocks": [
+    {
+      "id": "a8cdfa3e-7ca7-4202-872e-2d65e6614f71",
+      "type": "badgeRow",
+      "badge": "$5 · $10",
+      "badgeColor": "accent",
+      "html": "<strong>Deposit to start — $5 per window, $10 per door.</strong> Applied toward your final repair cost."
+    },
+    {
+      "id": "7045d68c-225d-40e1-8558-58135f2d49ad",
+      "type": "badgeRow",
+      "badge": "~4 WKS",
+      "badgeColor": "ink",
+      "html": "<strong>Current wait — about 4 weeks.</strong> Repairs are backlogged; your screen joins the queue the day you drop it off."
+    },
+    {
+      "id": "bf14b56c-efa7-4400-8cb1-b613417b53c0",
+      "type": "header",
+      "title": "How it works"
+    },
+    {
+      "id": "82652387-d3a3-4056-a783-72f728dc3cfc",
+      "type": "steps",
+      "items": [
+        "<strong>Bring it in.</strong> Pay your deposit and join the queue.",
+        "<strong>We repair it.</strong> Our team evaluates & fixes your screen.",
+        "<strong>We call you.</strong> Pick up when it’s ready."
+      ]
+    },
+    {
+      "id": "fedad3d2-b87c-4c76-9c7a-f2738e4ef001",
+      "type": "badgeRow",
+      "badge": "PRICING",
+      "badgeColor": "ink",
+      "html": "<strong>Final price is set after our team sees your screen</strong> and evaluates parts & labor. Want a number first? Ask for a quote before repairs begin — no obligation."
+    },
+    {
+      "id": "8d0ab6b5-9fca-4756-ac22-8986d8836f60",
+      "type": "header",
+      "title": "Before you bring it in"
+    },
+    {
+      "id": "b5bb8087-0a48-4bc6-9e39-4e17612f3fa8",
+      "type": "bullets",
+      "items": [
+        "<strong>Standard re-screening</strong> — All four sides and corners must be intact.",
+        "<strong>Frame repair</strong> — Bring at least one side of each length plus a corner bracket, so the team can identify the parts needed.",
+        "<strong>Frame repair: 2015 or newer only</strong> — Parts for older frames are too difficult to source, so we can’t repair them.",
+        "<strong>We don’t repair Andersen</strong> — Andersen windows & doors must go back to the manufacturer."
+      ]
+    },
+    {
+      "id": "eb50b698-74d5-414d-a98b-9c0fb80f05c6",
+      "type": "callout",
+      "spaceBefore": 8,
+      "heading": "Questions about your repair? <span class=\"hl\">Ask for Karen K.</span>",
+      "body": "(610) 459-0221 · Snyder’s Ace Hardware · 5400 Pennell Rd, Media, PA"
+    }
+  ],
+  "createdAt": 1790804527044,
+  "updatedAt": 1790804527044
+}
