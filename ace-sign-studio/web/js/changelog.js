@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.12.1",
+    date: "October 2026",
+    notes: [
+      "Fixed the app icon: it now shows correctly on the taskbar, the window's title bar, Alt-Tab, the Start menu, desktop shortcuts and File Explorer. The program only carried one large icon, so Windows shrank it into a blur or showed a blank generic icon instead; it now has a sharp version for every size, with a simplified “$” design at the smallest sizes so it stays readable.",
+    ],
+  },
+  {
     version: "3.12.0",
     date: "September 2026",
     notes: [

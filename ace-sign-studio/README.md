@@ -124,7 +124,8 @@ cd e2e && npm install && node run.mjs   # Playwright E2E: builds the real
 ```
 
 Requires Go 1.26+. Windows resources (icon/version/DPI manifest) are
-pre-generated in `rsrc_windows_*.syso` from `winres/winres.json`
+pre-generated in `rsrc_windows_*.syso` from `winres/winres.json` (the icon is a
+multi-size `winres/icon.ico`, 16–256px)
 (regenerate with [go-winres](https://github.com/tc-hib/go-winres)). The
 app icon comes from the shared family style in
 [`../ace-studio-brand/`](../ace-studio-brand/) —
