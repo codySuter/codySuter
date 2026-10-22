@@ -55,6 +55,17 @@ const TILE_CSS = `
     background:rgba(255,255,255,.07);transform:rotate(-14deg);border-radius:50%}
 `;
 
+function smallSign(text) {
+  return `<!doctype html><html><head><style>${TILE_CSS}
+    .wrap{border-radius:22%}
+    .card{position:relative;width:80%;height:66%;background:#fff;border-radius:10%;
+      display:flex;align-items:center;justify-content:center}
+    .price{font-family:'RB';color:#D40029;font-size:${text.length > 1 ? 44 : 58}vh;line-height:1;letter-spacing:-.02em}
+  </style></head><body><div class="wrap">
+    <div class="card"><div class="price">${text}</div></div>
+  </div></body></html>`;
+}
+
 const APPS = {
   sign: {
     name: "Ace Sign Studio",
@@ -68,9 +79,22 @@ const APPS = {
     </style></head><body><div class="wrap"><div class="sheen"></div>
       <div class="card"><div class="chip">SALE</div><div class="price">$9<sup>99</sup></div></div>
     </div></body></html>`,
+    // At taskbar / title-bar sizes the SALE chip and cents turn to mush, so
+    // small renders keep the tile and card but drop detail: "$9" up to 40px,
+    // a lone "$" at 16–20px. Bigger card + no sheen so the shape reads.
+    small: [
+      { max: 20, html: smallSign("$") },
+      { max: 40, html: smallSign("$9") },
+    ],
     out: [
-      { file: "ace-sign-studio/winres/icon.png", size: 256 },
+      // Every size Windows asks for (title bar, taskbar, Alt-Tab, Start,
+      // Explorer list/tile views at 100–250% scaling), each rendered
+      // natively at that size — a lone 256px entry left Windows to
+      // down-scale it badly or fall back to the generic app icon.
+      { file: "ace-sign-studio/winres/icon.ico", ico: [16, 20, 24, 32, 40, 48, 64, 96, 128, 256] },
       { file: "ace-sign-studio/web/img/appicon_256.png", size: 256 },
+      { file: "ace-sign-studio/web/img/appicon_32.png", size: 32 },
+      { file: "ace-sign-studio/web/img/appicon_16.png", size: 16 },
     ],
   },
   document: {
@@ -227,7 +251,8 @@ for (const key of wanted) {
   const shots = {};
   for (const size of sizes) {
     const page = await browser.newPage({ viewport: { width: size, height: size } });
-    await page.setContent(app.html);
+    const small = (app.small || []).find((v) => size <= v.max);
+    await page.setContent(small ? small.html : app.html);
     await page.evaluate(() => document.fonts.ready);
     shots[size] = await page.screenshot({ omitBackground: true });
     await page.close();
