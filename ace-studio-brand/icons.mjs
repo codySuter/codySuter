@@ -2,7 +2,7 @@
  * Ace Studio family icon generator — one red gradient tile, a different
  * white subject card per app (see README.md for the design spec).
  *
- * Usage: node ace-studio-brand/icons.mjs [sign|document ...]
+ * Usage: node ace-studio-brand/icons.mjs [sign|document|bay|floor|change|location ...]
  * Writes straight into each app's icon locations + previews/ here.
  */
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
@@ -21,6 +21,8 @@ for (const candidate of [
   "playwright-core",
   "@playwright/test",
   path.join(REPO, "ace-sign-studio/e2e/node_modules/playwright/index.mjs"),
+  path.join(REPO, "ace-change-studio/e2e/node_modules/playwright/index.mjs"),
+  path.join(REPO, "ace-location-studio/e2e/node_modules/playwright/index.mjs"),
   path.join(REPO, "ace-document-studio/node_modules/@playwright/test/index.mjs"),
   path.join(REPO, "ace-document-studio/node_modules/playwright-core/index.mjs"),
   path.join(REPO, "ace-bay-studio/node_modules/@playwright/test/index.mjs"),
@@ -129,6 +131,60 @@ const APPS = {
     out: [
       { file: "ace-floor-studio/build/icon.png", size: 512 },
       { file: "ace-floor-studio/build/icon.ico", ico: [16, 24, 32, 48, 64, 128, 256] },
+    ],
+  },
+  change: {
+    name: "Ace Change Studio",
+    // A till tray from above: five bill slots over four round coin cups —
+    // the circles are the silhouette no sibling has.
+    html: `<!doctype html><html><head><style>${TILE_CSS}
+      .card{position:relative;width:76%;height:60%;background:#fff;border-radius:6%;
+        display:flex;flex-direction:column;gap:7%;padding:7% 7% 8%;box-sizing:border-box}
+      .bills{flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:4.5%}
+      .slot{border-radius:12%;background:#BCBEC0}
+      .slot.red{background:#D40029}
+      .slot.ink{background:#15181D}
+      .coins{flex:none;height:31%;display:flex;justify-content:space-between;padding:0 1%}
+      .cup{height:100%;aspect-ratio:1;border-radius:50%;background:#BCBEC0}
+      .cup.red{background:#D40029}
+      .cup.ink{background:#15181D}
+    </style></head><body><div class="wrap"><div class="sheen"></div>
+      <div class="card">
+        <div class="bills"><div class="slot red"></div><div class="slot"></div><div class="slot"></div><div class="slot ink"></div><div class="slot"></div></div>
+        <div class="coins"><div class="cup"></div><div class="cup red"></div><div class="cup"></div><div class="cup ink"></div></div>
+      </div></div></body></html>`,
+    out: [
+      { file: "ace-change-studio/winres/icon.png", size: 256 },
+      { file: "ace-change-studio/web/img/appicon_256.png", size: 256 },
+    ],
+  },
+  location: {
+    name: "Ace Location Studio",
+    // A square shelf section: two shelves of product, one spot cleared to
+    // a big red "?" — the Eagle clear mark. The square card is the
+    // silhouette no sibling has.
+    html: `<!doctype html><html><head><style>${TILE_CSS}
+      .card{position:relative;width:66%;height:66%;background:#fff;border-radius:6%}
+      .card div{position:absolute}
+      .board{left:8%;right:8%;height:6.5%;background:#15181D;border-radius:3px}
+      .it{background:#BCBEC0;border-radius:6% 6% 0 0;width:17%}
+      .ink{background:#15181D}
+      .q{left:33%;top:50.5%;width:34%;height:34%;border-radius:50%;background:#D40029;color:#fff;
+        font-family:'RB';display:flex;align-items:center;justify-content:center;font-size:17vh;line-height:1}
+    </style></head><body><div class="wrap"><div class="sheen"></div>
+      <div class="card">
+        <div class="it" style="left:13%;top:12%;height:30%"></div>
+        <div class="it ink" style="left:41.5%;top:21%;height:21%"></div>
+        <div class="it" style="left:70%;top:12%;height:30%"></div>
+        <div class="board" style="top:42%"></div>
+        <div class="it" style="left:13%;top:63%;height:21%"></div>
+        <div class="q">?</div>
+        <div class="it" style="left:70%;top:54%;height:30%"></div>
+        <div class="board" style="top:84%"></div>
+      </div></div></body></html>`,
+    out: [
+      { file: "ace-location-studio/winres/icon.png", size: 256 },
+      { file: "ace-location-studio/web/img/appicon_256.png", size: 256 },
     ],
   },
 };

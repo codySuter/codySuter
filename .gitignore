@@ -41,3 +41,15 @@ yarn-error.log*
 ace-sign-studio/e2e/node_modules/
 ace-sign-studio/e2e/screenshots/
 ace-sign-studio/e2e/package-lock.json
+
+# ace-change-studio
+ace-change-studio/e2e/node_modules/
+ace-change-studio/e2e/screenshots/
+ace-change-studio/e2e/package-lock.json
+
+# ace-location-studio
+ace-location-studio/e2e/node_modules/
+ace-location-studio/e2e/screenshots/
+ace-location-studio/e2e/package-lock.json
+# `go build` in ace-location-studio/ leaves the binary there
+ace-location-studio/ace-location-studio

@@ -21,6 +21,17 @@
 > an Epicor Compass export — count currency, dead stock, on-hand accuracy,
 > and more
 > ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-floor-studio-windows/AceFloorStudio.exe)) ·
+> [`ace-change-studio/`](ace-change-studio/) — **Ace Change Studio**, a Windows
+> app for counting register drawers (what to leave for the $150 reset, what
+> to pull, over/short vs. the register), tracking over/short over time, and
+> working out even-swap change-box orders
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-change-studio-windows/AceChangeStudio.exe)) ·
+> [`ace-location-studio/`](ace-location-studio/) — **Ace Location Studio**, a
+> Windows app for Epicor Eagle location changes: clear a section's old
+> locations from an Eagle export, and turn an Ace planogram PDF into the
+> Eagle import (new Location 1 + shelf capacity) and label files, with
+> facings adjustable on the plan's drawing
+> ([download the .exe](https://github.com/codysuter/codysuter/releases/download/ace-location-studio-windows/AceLocationStudio.exe)) ·
 > [`ace-studio-brand/`](ace-studio-brand/) — the shared **Ace Studio** app-icon
 > style both apps (and future siblings) draw from.
 
