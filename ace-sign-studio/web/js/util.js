@@ -64,7 +64,20 @@ function fitTextSize(text, family, maxSize, maxWidth, minSize) {
 /* Balanced split of a name into up to `maxLines` lines that maximizes font
    size within maxWidth — port of the legacy large-text balancing logic. */
 function balancedLines(text, family, maxSize, maxWidth, maxLines) {
-  const clean = String(text || "").trim().replace(/\s+/g, " ");
+  // Line breaks typed by the user win over automatic balancing: each line
+  // prints as typed, sized so the widest one fits. More than two lines
+  // share the height two automatic lines would have had, so the layout
+  // around the text never overflows.
+  const raw = String(text || "");
+  if (raw.includes("\n")) {
+    const lines = raw.split("\n").map((l) => l.trim().replace(/\s+/g, " ")).filter(Boolean).slice(0, 6);
+    if (lines.length > 1) {
+      let size = Math.min(...lines.map((l) => fitTextSize(l, family, maxSize, maxWidth, 4)));
+      if (lines.length > 2) size = Math.min(size, (maxSize * 2) / lines.length);
+      return { size, lines };
+    }
+  }
+  const clean = raw.trim().replace(/\s+/g, " ");
   if (!clean) return { size: maxSize, lines: [""] };
   const one = fitTextSize(clean, family, maxSize, maxWidth, 4);
   let best = { size: one, lines: [clean] };

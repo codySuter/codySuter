@@ -18,10 +18,11 @@
   </div>
   <div class="spacer"></div>
   <div class="store-line" id="storeLineTop">Snyder's Ace Hardware · Media, PA</div>
+  <button class="icon-btn" id="navToggleBtn" title="Show the list of sign types" aria-controls="nav" aria-expanded="false">☰ Sign types</button>
   <button class="icon-btn" id="homeBtn" title="All sign types">⌂ Home</button>
   <button class="icon-btn" id="batchesBtn" title="Save or load a named set of signs">🗂 Batches</button>
   <button class="icon-btn" id="historyBtn" title="What was printed, with one-click restore">🕘 History</button>
-  <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+  <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings"><span class="ib-gear" aria-hidden="true">⚙</span></button>
 </header>
 
 <div class="update-bar" id="updateBar">
@@ -80,7 +81,7 @@
       </details>
     </div>
     <div class="queue-foot">
-      <div class="sel-bar" id="selBar" style="display:none"><span id="selBarText"></span> <span class="link" id="selClearBtn">clear selection</span></div>
+      <div class="sel-bar" id="selBar" style="display:none"><span id="selBarText"></span> <button type="button" class="link" id="selClearBtn">clear selection</button></div>
       <div class="row">
         <button class="btn btn-primary" id="printAllBtn" disabled>🖨 Print All</button>
         <button class="btn btn-secondary" id="exportAllBtn" disabled>Save PDF</button>
@@ -108,7 +109,7 @@
     <div class="modal-head"><h3>Bulk add by SKU</h3><button class="modal-close">✕</button></div>
     <div class="modal-body">
       <div class="bulk-inner">
-        <textarea id="bulkSkus" placeholder="Paste SKUs from anywhere — one per line, comma separated, or a whole spreadsheet column. Runs of 4+ digits are detected."></textarea>
+        <textarea id="bulkSkus" data-autofocus placeholder="Paste SKUs from anywhere — one per line, comma separated, or a whole spreadsheet column. Runs of 4+ digits are detected."></textarea>
         <div class="bulk-meta">
           <select class="f-select" id="bulkType" style="flex:1"></select>
           <select class="f-select" id="bulkSize" style="flex:1"></select>
@@ -218,7 +219,7 @@
     <div class="modal-body">
       <label class="f-label">Save the current queue as a batch</label>
       <div class="f-row">
-        <input class="f-input" id="batchName" placeholder="e.g. Spring Grill Sale">
+        <input class="f-input" id="batchName" data-autofocus placeholder="e.g. Spring Grill Sale">
         <button class="btn btn-primary btn-sm" id="batchSaveBtn" style="flex:none">Save</button>
       </div>
       <div class="f-help" id="batchSaveHint"></div>
@@ -238,7 +239,7 @@
   </div>
 </div>
 
-<div id="toastHost"></div>
+<div id="toastHost" role="status" aria-live="polite"></div>
 
 <iframe id="printFrame" style="position:fixed;right:0;bottom:0;width:0;height:0;border:0" title="print"></iframe>
 
@@ -250,12 +251,15 @@
 <script src="vendor/qrcode.js"></script>
 <script src="js/barcode.js"></script>
 <script src="js/render-ace.js"></script>
+<script src="js/render-custom.js"></script>
 <script src="js/signtypes.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/pdf.js"></script>
 <script src="js/lookup.js"></script>
 <script src="js/queue.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/editor-assist.js"></script>
+<script src="js/editor-custom.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

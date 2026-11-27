@@ -254,6 +254,7 @@ function stateJSON() {
     queue: Queue.items,
     batches: Batches.data,
     history: History.data,
+    favorites: typeof Favorites !== "undefined" ? Favorites.data : undefined,
   });
 }
 function persistState() {
@@ -305,6 +306,7 @@ async function restoreState() {
     if (Array.isArray(state.queue)) Queue.items = state.queue;
     if (state.batches && typeof state.batches === "object") Batches.data = state.batches;
     if (Array.isArray(state.history)) History.data = state.history;
+    if (state.favorites && typeof state.favorites === "object" && typeof Favorites !== "undefined") Favorites.data = state.favorites;
   }
   // sync migrations: pre-3.0 history rows have no uid (the sync dedupe
   // key), and batch tombstones only matter for 60 days

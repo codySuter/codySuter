@@ -63,6 +63,11 @@ jobs:
         run: |
           cd e2e
           npm install --no-audit --no-fund
+          # The runner image ships a packages.microsoft.com apt source that
+          # started answering 403 ("no longer signed"), which makes the
+          # apt-get update inside --with-deps fail before any test runs.
+          # Nothing here needs that repo, so drop it for this ephemeral VM.
+          grep -rl "packages.microsoft.com" /etc/apt/sources.list.d/ 2>/dev/null | xargs -r sudo rm -f
           npx playwright install --with-deps chromium
           node run.mjs
 

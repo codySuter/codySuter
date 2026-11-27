@@ -31,7 +31,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "3.12.2"
+var appVersion = "4.0.0"
 
 var (
 	heartbeatMu   sync.Mutex

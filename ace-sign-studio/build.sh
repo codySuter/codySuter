@@ -6,9 +6,9 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.12.2"
+VERSION="4.0.0"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Sync between store computers works again, with a built-in connection that does not expire. The token box is gone from Settings."
+NOTES="Ace Sign Studio 4.0: a smoother, friendlier sign editor (problems marked on the field, undo, bigger preview, line breaks, layouts, sign colors, extra text and pictures, shared favorites) plus fluid animations everywhere, including the SKU lookup."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"

@@ -39,7 +39,7 @@ function supBaseline(base, S, glyphSize, glyphTopEm) {
    layout treats them as preferences and re-balances: when a boosted
    element no longer fits, every flexible element shrinks proportionally,
    so nothing can overlap a neighbor or run off the sign. */
-const SCALE_MIN = 0.5, SCALE_MAX = 1.6;
+const SCALE_MIN = 0.35, SCALE_MAX = 2.0;
 function elemScale(spec, key) {
   const v = spec && spec.scale ? parseFloat(spec.scale[key]) : NaN;
   return isNaN(v) ? 1 : Math.min(SCALE_MAX, Math.max(SCALE_MIN, v));
@@ -338,6 +338,48 @@ async function productSignTemplate(spec, Win, Hin, priceAreaFrac, priceArea, opt
   const scName = elemScale(spec, "name");
   const scPrice = elemScale(spec, "price");
 
+  // Arrangement (editor's Layout picker): the photo in its own column
+  // beside the name + price, instead of stacked above them.
+  const side = !o.noImage && imgURI && (spec.arrange === "photo-left" || spec.arrange === "photo-right") ? spec.arrange : null;
+  if (side) {
+    const left = cx - maxW / 2;
+    const gapX = Math.max(10, maxW * 0.04);
+    const imgColW = Math.max(maxW * 0.22, Math.min(maxW * 0.62, maxW * 0.42 * scImage));
+    const textW = maxW - imgColW - gapX;
+    const imgCx = side === "photo-left" ? left + imgColW / 2 : left + maxW - imgColW / 2;
+    const textCx = side === "photo-left" ? left + imgColW + gapX + textW / 2 : left + textW / 2;
+    const gapY = Math.max(5, H * 0.012);
+    let mk = frame.markup + header.markup;
+    mk += imageMarkup(imgURI, imgNat, imgCx, contentTop, imgColW, contentH).markup;
+    const nameTarget2 = Math.max(13, H * 0.07) * scName;
+    const probe = (target) => {
+      if (!spec.name) return { size: 0, lines: [], h: 0 };
+      const p = balancedLines(spec.name, "RobotoBold", target, textW, 3);
+      p.h = p.lines.length * (Math.max(9, p.size) * 1.16);
+      return p;
+    };
+    let nf = probe(nameTarget2);
+    let priceH = priceAreaFrac > 0 ? contentH * Math.min(0.75, Math.max(0.45, priceAreaFrac * 1.3)) * scPrice : 0;
+    const room = contentH - gapY * 2;
+    if (nf.h + priceH > room) {
+      const k = room / (nf.h + priceH);
+      priceH *= k;
+      nf = probe(Math.max(9, nameTarget2 * k));
+    }
+    let y = contentTop + Math.max(0, (contentH - nf.h - priceH - (spec.name && priceH ? gapY : 0)) / 2);
+    if (spec.name) {
+      const nb = nameBlock(textCx, y, spec.name, textW, nf.size);
+      mk += nb.markup;
+      y += nb.h + gapY;
+    }
+    if (priceAreaFrac > 0) {
+      const pa = priceArea(textCx, y, textW, Math.max(24, priceH), spec);
+      mk += `<g data-elem="price">${pa.markup}</g>`;
+    }
+    mk += footer.markup;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${mk}</svg>`;
+  }
+
   const nameTarget = Math.max(13, H * 0.058);
   const gap = Math.max(5, H * 0.012);
   const probeName = (target) => {
@@ -434,8 +476,11 @@ function withCutGuide(svg, Win, Hin, cutIn) {
 async function renderSignSVG(typeId, spec, sizeId) {
   const t = typeById(typeId);
   const size = sizeById(sizeId);
-  if (!size.cut) return t.render(spec, size.w, size.h);
-  const svg = await t.render(spec, size.w - 2 * size.cut, size.h - 2 * size.cut);
+  // extra boxes, nudges and colour live in render-custom.js; a sign with
+  // none of them renders exactly as before
+  const draw = (w, h) => (typeof renderCustomized === "function" ? renderCustomized(t, spec, w, h) : t.render(spec, w, h));
+  if (!size.cut) return draw(size.w, size.h);
+  const svg = await draw(size.w - 2 * size.cut, size.h - 2 * size.cut);
   return withCutGuide(svg, size.w, size.h, size.cut);
 }
 

@@ -9,6 +9,29 @@
 
 const CHANGELOG = [
   {
+    version: "4.0.0",
+    date: "November 2026",
+    notes: [
+      "If something looks missing when you add or print a sign, every field that looks unfinished turns red with a note right under it (the note clears as soon as it's filled in). It never stops you: the sign is always added and printed exactly as the preview shows it.",
+      "Friendly checks while you type: a sale price that isn't below the regular price, a percent over 99, or sale dates that are already over get a heads-up (it never stops you printing). Sale and clearance signs also show how much the customer saves, and 2 for $X shows the price each.",
+      "Instant Savings works out the savings amount from the two prices by itself. Type your own amount to override it.",
+      "One-click buttons for common percents (10% to 50%) and for sale dates: This week, 2 weeks, or Through month end.",
+      "Undo and Redo in the editor (Ctrl+Z / Ctrl+Y), a New sign button, and Ctrl+Enter to add the sign to the queue.",
+      "A bigger preview that stays in view while you scroll the form. On smaller screens the sign-type list tucks into a “☰ Sign types” button to make room.",
+      "The four arrow signs are now one Arrow Sign — pick which way it points. Signs saved with the old arrows still open and print.",
+      "Multi Product: each filled-in product folds down to one line so the list stays short. Click it to edit.",
+      "Press Enter in a product name or Big Text to start a new line exactly where you want it.",
+      "New “Layout & color” section: put the photo beside the name and price (left or right), change the sign's main color (Ace Red stays the default), and nudge any part a little at a time.",
+      "New “Extra text & pictures” section: add your own words (like “Limit 2”) or a picture. Drag it on the preview to move it and drag its corner dot to resize it — or tick “Make room” so it gets its own strip along an edge and the rest of the sign moves over.",
+      "Favorites: save how a sign looks (type, size, layout, color, extra boxes) under a name and reuse it with any product. Favorites are shared with every store computer and show at the top of the home screen.",
+      "Smoother everywhere: when you resize a part of the sign (slider, − / + buttons, or dragging it on the preview) it glides to its new size instead of jumping, and the preview keeps up as you type. Pages, menus, dialogs, messages and the print queue now ease in and out too. If Windows is set to show fewer animations, the app follows that setting.",
+      "Buttons, sign choices and options now react when you point at or press them, so you can see what you're about to click. A green check or a short “Done” shows when something worked, like adding to the queue, saving a favorite or exporting. Pressing Tab shows a clear outline around where you are.",
+      "Smoother screen changes: going from the home screen to a sign and back now glides instead of flashing, you land back where you were in the list, and switching sign types fades the preview across.",
+      "SKU lookup: while it looks up a product the box shows a small spinner, then a check. The name, price and photo fill in with a short highlight so you can see what changed, and the preview slides the new words into place.",
+      "Parts of a sign can now be made smaller or bigger than before, with − and + buttons beside each size slider.",
+    ],
+  },
+  {
     version: "3.12.2",
     date: "November 2026",
     notes: [
