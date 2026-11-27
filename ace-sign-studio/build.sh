@@ -6,16 +6,16 @@
 set -e
 cd "$(dirname "$0")"
 
-VERSION="3.12.1"
+VERSION="3.12.2"
 # One-line summary shown in the in-app update banner for older versions.
-NOTES="Fixed the app icon: it now shows correctly on the taskbar, title bar, desktop shortcut and in File Explorer."
+NOTES="Sync between store computers works again, with a built-in connection that does not expire. The token box is gone from Settings."
 # Updates are served from the stable GitHub Release (CI uploads the exe +
 # this manifest there on every green build) — the exe is not in git.
 DL_BASE="https://github.com/codysuter/codysuter/releases/download/ace-sign-studio-windows"
 LDFLAGS="-s -w -X main.appVersion=$VERSION"
 # Release builds embed the store's sync token (base64) from the
-# ACE_SYNC_TOKEN repo secret — CI sets it; local builds go without and
-# sync then needs a token pasted in Settings.
+# ACE_SYNC_TOKEN repo secret — CI sets it. It is the only token sync uses
+# (there is no Settings field), so local builds without it cannot sync.
 if [ -n "$ACE_SYNC_TOKEN" ]; then
   LDFLAGS="$LDFLAGS -X main.embeddedSyncTokenB64=$(printf %s "$ACE_SYNC_TOKEN" | base64 | tr -d '\n')"
 fi

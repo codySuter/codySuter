@@ -86,6 +86,46 @@ jobs:
           path: ace-sign-studio/e2e/screenshots/
           if-no-files-found: ignore
 
+      - name: Verify the built-in sync token
+        # The token is baked into the exe and is the only one sync uses, so a
+        # dead token means every store PC stops syncing at once (that's how
+        # 3.12.1 broke). Check it against the sync repo before building, and
+        # flag an expiry date — it's meant to be a no-expiration token. The
+        # token is never echoed; only HTTP status codes are printed.
+        env:
+          ACE_SYNC_TOKEN: ${{ secrets.ACE_SYNC_TOKEN }}
+          SYNC_REPO: codysuter/ace-sign-sync
+        run: |
+          if [ -z "$ACE_SYNC_TOKEN" ]; then
+            echo "::warning::ACE_SYNC_TOKEN is not set — this build will have no sync"
+            exit 0
+          fi
+          gh_get() { # $1 = API path; prints the status code, headers to /tmp/h
+            curl -sS -o /dev/null -D /tmp/h -w '%{http_code}' \
+              -H "Authorization: Bearer $ACE_SYNC_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com$1"
+          }
+          repo=$(gh_get "/repos/$SYNC_REPO")
+          echo "repo check: HTTP $repo"
+          case "$repo" in
+            200) ;;
+            401) echo "::error::ACE_SYNC_TOKEN was rejected by GitHub (expired or revoked)"; exit 1 ;;
+            *)   echo "::error::ACE_SYNC_TOKEN can't see $SYNC_REPO (HTTP $repo) — check its repository access"; exit 1 ;;
+          esac
+          exp=$(grep -i '^github-authentication-token-expiration:' /tmp/h | cut -d' ' -f2- | tr -d '\r')
+          if [ -n "$exp" ]; then
+            echo "::warning::ACE_SYNC_TOKEN expires $exp — sync will stop then; replace it with a no-expiration token"
+          else
+            echo "token has no expiration date"
+          fi
+          file=$(gh_get "/repos/$SYNC_REPO/contents/acesignstudio-sync.json")
+          echo "sync file check: HTTP $file"
+          case "$file" in
+            200|404) ;; # 404 = no sync file yet; the first PC to sync creates it
+            *) echo "::error::ACE_SYNC_TOKEN can't read the sync file (HTTP $file) — it needs Contents read & write"; exit 1 ;;
+          esac
+
       - name: Build Windows EXE
         # ACE_SYNC_TOKEN (repo secret) is baked into the exe so store PCs
         # sync with zero per-machine setup; when absent (e.g. fork PRs)
