@@ -24,6 +24,7 @@ const CHANGELOG = [
       "New “Layout & color” section: put the photo beside the name and price (left or right), change the sign's main color (Ace Red stays the default), and nudge any part a little at a time.",
       "New “Extra text & pictures” section: add your own words (like “Limit 2”) or a picture. Drag it on the preview to move it and drag its corner dot to resize it — or tick “Make room” so it gets its own strip along an edge and the rest of the sign moves over.",
       "Favorites: save how a sign looks (type, size, layout, color, extra boxes) under a name and reuse it with any product. Favorites are shared with every store computer and show at the top of the home screen.",
+      "Smoother everywhere: when you resize a part of the sign (slider, − / + buttons, or dragging it on the preview) it glides to its new size instead of jumping, and the preview keeps up as you type. Pages, menus, dialogs, messages and the print queue now ease in and out too. If Windows is set to show fewer animations, the app follows that setting.",
       "Parts of a sign can now be made smaller or bigger than before, with − and + buttons beside each size slider.",
     ],
   },

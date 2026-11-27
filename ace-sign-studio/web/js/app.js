@@ -55,6 +55,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   initBackup();
   window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
   document.addEventListener("keydown", editorShortcuts);
+  // fold-out sections animate only when someone opens one, not every
+  // time the editor rebuilds them already open
+  document.addEventListener("click", (e) => {
+    const sum = e.target.closest && e.target.closest("summary");
+    const box = sum && sum.parentElement;
+    if (!box || box.open || !box.matches(".ed-section, .sheet-box, .fine-tune, .mp-extras, .mp-paste")) return;
+    box.classList.add("opening");
+    setTimeout(() => box.classList.remove("opening"), 260);
+  }, true);
   fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => {
     window.__appVersion = h.version;
     window.__appHost = h.host;
@@ -345,12 +354,13 @@ function showGallery() {
     </div>`;
   buildFavoritesStrip($("#favStrip"));
   const g = $("#gallery");
-  for (const t of menuTypes()) {
+  menuTypes().forEach((t, i) => {
     const card = el("button", "g-card");
+    card.style.setProperty("--i", String(Math.min(i, 16)));
     card.innerHTML = `<div class="g-prev" id="g-prev-${t.id}"></div><div class="g-label">${esc(menuLabel(t))}</div><div class="g-note">${esc(menuNote(t) || "")}</div>`;
     card.onclick = () => showEditor(t.id);
     g.appendChild(card);
-  }
+  });
   buildGalleryThumbs();
 }
 
@@ -1613,25 +1623,134 @@ function showMsg(id, cls, text) {
   m.textContent = text;
 }
 
-/* live preview */
-const schedulePreview = debounce(async () => {
-  if (App.view === "editor") {
-    const t = typeById(App.typeId);
-    if (!t) return;
+/* live preview
+   A render costs a millisecond or two, so the preview redraws on the very
+   next animation frame instead of after a fixed delay: sliders, drags and
+   typing all follow the hand. Many calls inside one frame collapse into a
+   single render; one already in flight is followed by exactly one more. */
+let _previewFrame = 0;
+let _previewBusy = false;
+let _previewAgain = false;
+function schedulePreview() {
+  if (_previewFrame) return;
+  _previewFrame = requestAnimationFrame(() => { _previewFrame = 0; runPreview(); });
+}
+async function runPreview() {
+  if (_previewBusy) { _previewAgain = true; return; }
+  if (App.view !== "editor") return;
+  const t = typeById(App.typeId);
+  if (!t) return;
+  _previewBusy = true;
+  try {
     paintAllFieldMessages();
     recordEditorHistory();
     const seq = ++App._previewSeq;
     await ensureFontsLoaded();
     const size = sizeById(App.sizeId);
-    try {
-      const svg = await renderSignSVG(App.typeId, currentRenderSpec(), App.sizeId);
-      if (seq !== App._previewSeq) return;
-      setPreviewSVG(svg, size);
-    } catch (e) {
-      console.error(e);
-    }
+    const svg = await renderSignSVG(App.typeId, currentRenderSpec(), App.sizeId);
+    if (seq === App._previewSeq) setPreviewSVG(svg, size);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    _previewBusy = false;
+    if (_previewAgain) { _previewAgain = false; schedulePreview(); }
   }
-}, 160);
+}
+
+/* ---------------- smooth preview motion ----------------
+   Each redraw replaces the whole SVG, which on its own makes a resized
+   part jump straight to its new size. To make it glide, the parts of the
+   old drawing are measured just before the swap, and each matching part
+   of the new drawing starts out transformed back onto its old spot, then
+   eases to where it belongs (the "FLIP" technique: First, Last, Invert,
+   Play). Measuring the on-screen box catches a part mid-glide, so a fast
+   drag keeps flowing instead of restarting. It only touches the preview
+   on screen — print, PDF and thumbnails are rendered separately. */
+const PREVIEW_GLIDE_MS = 190;
+let _glides = [];
+function previewMotionOK() {
+  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+function previewPartKey(g) {
+  const cell = g.parentElement && g.parentElement.closest("g[data-product]");
+  const pre = cell ? "p" + cell.dataset.product + ":" : "";
+  if (g.hasAttribute("data-extra")) return pre + "x" + g.dataset.extra;
+  if (g.hasAttribute("data-elem")) return pre + "e" + g.dataset.elem;
+  return "o";
+}
+function previewParts(svg) {
+  const all = [...svg.querySelectorAll("g[data-elem], g[data-extra]")];
+  const set = new Set(all);
+  // outermost parts only: a part inside a moving part rides along with it
+  return all.filter((g) => {
+    for (let a = g.parentElement; a && a !== svg; a = a.parentElement) {
+      if (set.has(a)) return false;
+    }
+    return true;
+  });
+}
+function measureParts(svg) {
+  const out = new Map();
+  if (!svg) return out;
+  for (const g of previewParts(svg)) {
+    const r = g.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) out.set(previewPartKey(g), r);
+  }
+  return out;
+}
+function stopGlides() {
+  for (const gl of _glides) cancelAnimationFrame(gl.raf);
+  _glides = [];
+}
+function glideParts(svg, before) {
+  stopGlides();
+  const ease = (p) => 1 - Math.pow(1 - p, 3);
+  for (const g of previewParts(svg)) {
+    const key = previewPartKey(g);
+    const was = before.get(key);
+    const now = g.getBoundingClientRect();
+    if (!now.width || !now.height) continue;
+    // a brand-new part (just switched on) fades in instead
+    if (!was) {
+      if (before.size) {
+        g.style.opacity = "0";
+        g.style.transition = `opacity ${PREVIEW_GLIDE_MS}ms ease-out`;
+        requestAnimationFrame(() => { g.style.opacity = ""; });
+      }
+      continue;
+    }
+    if (Math.abs(was.left - now.left) < 0.5 && Math.abs(was.top - now.top) < 0.5 &&
+        Math.abs(was.width - now.width) < 0.5 && Math.abs(was.height - now.height) < 0.5) continue;
+    const ctm = g.parentNode.getScreenCTM && g.parentNode.getScreenCTM();
+    if (!ctm || !ctm.a || !ctm.d) continue;
+    // screen px -> the part's own drawing units
+    const ux = (x) => (x - ctm.e) / ctm.a, uy = (y) => (y - ctm.f) / ctm.d;
+    const nx = ux(now.left), ny = uy(now.top);
+    const ox = ux(was.left), oy = uy(was.top);
+    const kx = was.width / now.width, ky = was.height / now.height;
+    // wrap the part so its own transform (if any) stays untouched
+    const wrap = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    wrap.setAttribute("class", "glide");
+    g.parentNode.insertBefore(wrap, g);
+    wrap.appendChild(g);
+    const set = (q) => {
+      const tx = nx + (ox - nx) * q, ty = ny + (oy - ny) * q;
+      const sx = 1 + (kx - 1) * q, sy = 1 + (ky - 1) * q;
+      wrap.setAttribute("transform", `translate(${tx} ${ty}) scale(${sx} ${sy}) translate(${-nx} ${-ny})`);
+    };
+    set(1);
+    const gl = { raf: 0 };
+    const t0 = performance.now();
+    const step = (ts) => {
+      const p = Math.min(1, (ts - t0) / PREVIEW_GLIDE_MS);
+      if (p >= 1) { wrap.removeAttribute("transform"); return; }
+      set(1 - ease(p));
+      gl.raf = requestAnimationFrame(step);
+    };
+    gl.raf = requestAnimationFrame(step);
+    _glides.push(gl);
+  }
+}
 
 function setPreviewSVG(svg, size) {
   const holder = $("#signHolder");
@@ -1646,7 +1765,30 @@ function setPreviewSVG(svg, size) {
   const stacked = window.matchMedia("(max-width: 1250px)").matches;
   const availH = Math.max(260, (stacked ? window.innerHeight * 0.55 : window.innerHeight - 56 - 36) - chrome - 28);
   const scale = Math.min(availW / (size.w * PPI), availH / (size.h * PPI), 1.6);
-  holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
+  const markup = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
+  if (markup === holder._markup && holder.firstElementChild) return; // nothing changed
+  // Glide parts to their new size when the same sign is redrawn at the
+  // same size — but not while typing (text reflows on every key) or while
+  // a picture/text box is being dragged (it already follows the pointer).
+  const oldSvg = holder.querySelector("svg");
+  const sameSign = oldSvg && holder._signKey === App.typeId + "|" + App.sizeId &&
+    Math.abs(oldSvg.getBoundingClientRect().width - size.w * PPI * scale) < 1;
+  const act = document.activeElement;
+  const typing = act && (act.tagName === "TEXTAREA" || (act.tagName === "INPUT" && !/^(range|checkbox|radio|button|color|file)$/.test(act.type)));
+  const glide = sameSign && !typing && !App._extraDragging && previewMotionOK();
+  const before = glide ? measureParts(oldSvg) : null;
+  stopGlides();
+  holder.innerHTML = markup;
+  holder._markup = markup;
+  const newSign = holder._signKey !== App.typeId + "|" + App.sizeId;
+  holder._signKey = App.typeId + "|" + App.sizeId;
+  if (before && before.size) glideParts(holder.querySelector("svg"), before);
+  else if (newSign && oldSvg && previewMotionOK()) {
+    // a different sign type or size: a quick fade instead of a hard cut
+    holder.classList.remove("swap-in");
+    void holder.offsetWidth;
+    holder.classList.add("swap-in");
+  }
   attachPreviewDrag(holder);
   const meta = $("#previewMeta");
   if (meta) {
@@ -2087,14 +2229,53 @@ function selectedQueueItems() {
   return Queue.items.filter((q) => _qSel.has(q.uid));
 }
 
+/* Queue rows are rebuilt on every change, so motion is added back the
+   same FLIP way as the preview: remember where each row (by its uid) sat,
+   rebuild, then let each kept row glide from its old spot. Rows that
+   weren't there before slide in. */
+let _queueKnown = null; // uids drawn last time (null = first draw: no slide-ins)
+function queueRowRects(host) {
+  const m = new Map();
+  for (const r of host.querySelectorAll(".q-item[data-uid]")) m.set(r.dataset.uid, r.getBoundingClientRect().top);
+  return m;
+}
+function animateQueueRows(host, before) {
+  const known = _queueKnown;
+  _queueKnown = new Set(Queue.items.map((q) => q.uid));
+  if (!previewMotionOK()) return;
+  for (const r of host.querySelectorAll(".q-item[data-uid]")) {
+    const uid = r.dataset.uid;
+    if (known && !known.has(uid)) { r.classList.add("q-new"); continue; }
+    const was = before.get(uid);
+    if (was == null) continue;
+    const dy = was - r.getBoundingClientRect().top;
+    if (Math.abs(dy) < 1) continue;
+    r.style.transition = "none";
+    r.style.transform = `translateY(${dy}px)`;
+    requestAnimationFrame(() => {
+      r.style.transition = "transform 200ms cubic-bezier(.22,.8,.24,1)";
+      r.style.transform = "";
+      setTimeout(() => { r.style.transition = ""; }, 220);
+    });
+  }
+}
+
 function renderQueue() {
   const host = $("#queueItems");
   const count = $("#queueCount");
-  count.textContent = String(Queue.totalSigns());
+  const before = queueRowRects(host);
+  const total = String(Queue.totalSigns());
+  if (count.textContent !== total && _queueKnown && previewMotionOK()) {
+    count.classList.remove("bump");
+    void count.offsetWidth;
+    count.classList.add("bump");
+  }
+  count.textContent = total;
   // selection can only reference rows that still exist
   for (const uid of [..._qSel]) if (!Queue.items.some((q) => q.uid === uid)) _qSel.delete(uid);
   if (!Queue.items.length) {
     _queueSeq++; // cancel any in-flight thumbnail pass for the old contents
+    _queueKnown = new Set();
     host.innerHTML = `<div class="queue-empty">Queue is empty.<br>Build a sign and hit <b>＋ Add to Queue</b> — mix any types and sizes, then print them all at once.</div>`;
     $("#sheetPreviews").innerHTML = "";
     $("#queueStats").textContent = "";
@@ -2112,6 +2293,7 @@ function renderQueue() {
   }
   Queue.items.forEach((q, idx) => {
     const item = el("div", "q-item" + (q.uid === App.editingUid ? " editing" : ""));
+    item.dataset.uid = q.uid;
     item.title = "Click to edit this sign";
     const main = el("div", "q-main");
     const thumb = el("div", "q-thumb");
@@ -2201,6 +2383,7 @@ function renderQueue() {
     item.appendChild(copies);
     host.appendChild(item);
   });
+  animateQueueRows(host, before);
   updateQueueButtons();
   scheduleQueueVisuals(); // thumbnails + sheet previews, batched to one pass
 }
@@ -2246,17 +2429,24 @@ function showToast(text, opts) {
   host.innerHTML = "";
   const t = el("div", "toast");
   t.appendChild(el("span", "toast-text", text));
+  // slide away, then remove (instantly when motion is turned off)
+  const dismiss = () => {
+    clearTimeout(_toastTimer);
+    if (!t.isConnected || t.classList.contains("leaving")) return;
+    t.classList.add("leaving");
+    setTimeout(() => t.remove(), previewMotionOK() ? 170 : 0);
+  };
   if (o.undo) {
     const u = el("button", "toast-undo", "Undo");
-    u.onclick = () => { clearTimeout(_toastTimer); host.innerHTML = ""; o.undo(); };
+    u.onclick = () => { clearTimeout(_toastTimer); t.remove(); o.undo(); };
     t.appendChild(u);
   }
   const x = el("button", "toast-close", "✕");
   x.title = "Dismiss";
-  x.onclick = () => { clearTimeout(_toastTimer); host.innerHTML = ""; };
+  x.onclick = dismiss;
   t.appendChild(x);
   host.appendChild(t);
-  _toastTimer = setTimeout(() => { host.innerHTML = ""; }, o.ms || (o.undo ? 10000 : 5000));
+  _toastTimer = setTimeout(dismiss, o.ms || (o.undo ? 10000 : 5000));
 }
 
 /* ---------------- price refresh ---------------- */

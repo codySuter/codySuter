@@ -348,6 +348,7 @@ function attachExtrasDrag(svg) {
         const dx = (ev.clientX - sx) * fx, dy = (ev.clientY - sy) * fy;
         if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return;
         moved = true;
+        App._extraDragging = true;
         if (mode === "move") {
           x.x = Math.max(-0.1, Math.min(1 - x.w * 0.3, start.x + dx));
           x.y = Math.max(-0.1, Math.min(1 - x.h * 0.3, start.y + dy));
@@ -363,6 +364,7 @@ function attachExtrasDrag(svg) {
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
         window.removeEventListener("pointercancel", up);
+        App._extraDragging = false;
         if (moved) { _swallowClick = true; setTimeout(() => { _swallowClick = false; }, 0); }
       };
       window.addEventListener("pointermove", move);

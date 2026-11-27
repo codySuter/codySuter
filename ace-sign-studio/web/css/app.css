@@ -643,3 +643,91 @@ body.nav-compact.nav-open .nav{transform:none;box-shadow:6px 0 24px rgba(0,0,0,.
 .fav-menu{min-width:240px;max-width:300px}
 .editor-head .editor-title{flex:1 1 100%}
 .editor-head .editor-tools{flex:1 1 100%;flex-wrap:wrap}
+
+/* ============ Motion (3.13) ============
+   One shared timing so everything in the app moves the same way: quick
+   (120–220ms), easing out (fast start, soft landing). Nothing here waits
+   on an animation — every control works the instant it appears. The
+   "reduce motion" setting in Windows turns all of it off (bottom). */
+:root{
+  --ease-out:cubic-bezier(.22,.8,.24,1);
+  --ease-pop:cubic-bezier(.3,1.35,.5,1);
+  --t-fast:120ms;
+  --t-med:190ms;
+}
+@keyframes rise-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes pop-in{from{opacity:0;transform:translateY(-4px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes slide-in-row{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes toast-out{to{opacity:0;transform:translateY(8px)}}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+
+/* buttons, chips and inputs ease between states instead of snapping */
+.btn,.size-chip,.seg-btn,.quick-chip,.q-step,.mini-btn,.pick-item,.fav-chip,.nav .nav-item,
+.topbar .icon-btn,.q-item .q-btn,.mp-fold,.swatch,.q-item{
+  transition:background-color var(--t-fast) var(--ease-out),border-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out),opacity var(--t-fast) var(--ease-out),outline-color var(--t-fast);
+}
+.btn:active:not([disabled]),.size-chip:active,.seg-btn:active,.quick-chip:active,.q-step:active:not([disabled]),
+.mini-btn:active,.fav-chip:active,.swatch:active{transform:scale(.96)}
+.f-input,.f-select,.f-textarea{transition:border-color var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out)}
+.f-input:focus,.f-select:focus,.f-textarea:focus{box-shadow:0 0 0 3px rgba(109,110,113,.14)}
+.nav .nav-item.active::before{animation:fade-in var(--t-med) var(--ease-out)}
+
+/* page changes (gallery <-> editor, switching sign types) */
+.work-inner{animation:rise-in var(--t-med) var(--ease-out)}
+.gallery .g-card{animation:rise-in 220ms var(--ease-out) both;animation-delay:calc(var(--i,0) * 18ms)}
+.g-card .g-prev svg,.fav-chip{animation:fade-in var(--t-med) var(--ease-out)}
+
+/* preview: a different sign type or size fades in (same sign: parts glide, see app.js) */
+.sign-holder.swap-in{animation:fade-in 160ms var(--ease-out)}
+
+/* messages, hints and field notes appear softly */
+.msg.show,.sale-hint,.edit-banner,.f-msg:not(:empty),.update-bar.show{animation:rise-in var(--t-med) var(--ease-out)}
+.f-field.has-error .f-input,.f-field.has-error .f-textarea{transition:border-color var(--t-med),box-shadow var(--t-med)}
+
+/* menus and the click-to-edit box pop open from where they were clicked */
+.pick-menu,.inline-edit{animation:pop-in 150ms var(--ease-out);transform-origin:top left}
+.drag-badge{animation:fade-in var(--t-fast) var(--ease-out)}
+
+/* dialogs: backdrop fades, the box rises in; closing fades out too where
+   the browser supports it (Edge/Chrome 117+). Pointer events stop at once
+   on close, so nothing behind it is ever blocked. */
+.modal-back{
+  opacity:0;pointer-events:none;
+  transition:opacity var(--t-med) var(--ease-out),display var(--t-med) allow-discrete,overlay var(--t-med) allow-discrete;
+}
+.modal-back.show{opacity:1;pointer-events:auto}
+.modal-back .modal{transform:translateY(10px) scale(.98);transition:transform var(--t-med) var(--ease-out)}
+.modal-back.show .modal{transform:none}
+@starting-style{
+  .modal-back.show{opacity:0}
+  .modal-back.show .modal{transform:translateY(10px) scale(.98)}
+}
+
+/* toasts slide away instead of vanishing */
+.toast.leaving{animation:toast-out 160ms var(--ease-out) forwards;pointer-events:none}
+
+/* queue: new signs slide in, the rest glide to their new spots (app.js),
+   thumbnails fade in as they're drawn, and the count gives a little bump */
+.q-item.q-new{animation:slide-in-row 220ms var(--ease-out)}
+.q-item .q-thumb svg,.sheet-thumb{animation:fade-in var(--t-med) var(--ease-out)}
+.bump{animation:bump 260ms var(--ease-out)}
+
+/* fold-out sections: arrow turns, contents fade in */
+.ed-section>summary::before,.sheet-box summary .queue-section-label::before,.fine-tune>summary::before,.mp-extras>summary::before,.mp-paste>summary::before{
+  content:'▸';margin-right:6px;display:inline-block;transition:transform var(--t-med) var(--ease-out);
+}
+.ed-section[open]>summary::before,.fine-tune[open]>summary::before,.mp-extras[open]>summary::before,.mp-paste[open]>summary::before{content:'▸';transform:rotate(90deg)}
+.opening[open]>:not(summary){animation:rise-in var(--t-med) var(--ease-out)}
+.mp-card{transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.sheet-box[open] summary .queue-section-label::before{content:'▸';transform:rotate(90deg)}
+
+/* drawer menu on small screens: a bit softer */
+body.nav-compact .nav{transition:transform 220ms var(--ease-out),box-shadow 220ms var(--ease-out)}
+
+/* Windows "Show animations" off / reduce motion: no movement at all */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:1ms !important;animation-delay:0s !important;transition-duration:1ms !important}
+}
