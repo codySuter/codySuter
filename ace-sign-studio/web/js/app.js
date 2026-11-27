@@ -39,6 +39,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   scanBatchPricesAtLaunch();
   $("#settingsBtn").onclick = openSettings;
   $("#homeBtn").onclick = showGallery;
+  initNavDrawer();
   $("#clearQueueBtn").onclick = clearQueueWithUndo;
   $("#refreshPricesBtn").onclick = refreshQueuePrices;
   $("#batchesBtn").onclick = openBatches;
@@ -198,7 +199,7 @@ async function applyUpdate(btn, bar) {
 function buildNav() {
   const nav = $("#nav");
   nav.innerHTML = "";
-  const groups = [...new Set(SIGN_TYPES.map((t) => t.group))];
+  const groups = [...new Set(menuTypes().map((t) => t.group))];
   const sec = (title) => {
     const s = el("div", "nav-section");
     s.appendChild(el("div", "nav-head", title));
@@ -214,11 +215,13 @@ function buildNav() {
 
   for (const g of groups) {
     const s = sec(g);
-    for (const t of SIGN_TYPES.filter((x) => x.group === g)) {
-      const b = el("button", "nav-item", t.label);
+    for (const t of menuTypes().filter((x) => x.group === g)) {
+      const b = el("button", "nav-item", menuLabel(t));
       b.dataset.type = t.id;
-      b.title = t.note || "";
-      b.onclick = () => showEditor(t.id);
+      if (t.family) b.dataset.family = t.family;
+      b.title = menuNote(t) || "";
+      // a family entry reopens the member last used this session
+      b.onclick = () => showEditor(t.family ? (App._familyLast && App._familyLast[t.family]) || t.id : t.id);
       s.appendChild(b);
     }
   }
@@ -227,7 +230,32 @@ function buildNav() {
 function markActiveNav() {
   $$(".nav-item").forEach((b) => b.classList.remove("active"));
   if (App.view === "gallery") $("#nav-home") && $("#nav-home").classList.add("active");
-  else if (App.typeId) { const b = $(`.nav-item[data-type="${App.typeId}"]`); b && b.classList.add("active"); }
+  else if (App.typeId) {
+    const cur = typeById(App.typeId);
+    const b = cur && cur.family ? $(`.nav-item[data-family="${cur.family}"]`) : $(`.nav-item[data-type="${App.typeId}"]`);
+    b && b.classList.add("active");
+  }
+}
+
+/* Narrow windows (under 1400px): while a sign is open, the sign-type list
+   folds away so the preview gets its width, and comes back as a drawer
+   from the "☰ Sign types" button. Picking a type closes the drawer. */
+function navCompact() {
+  return App.view === "editor" && window.innerWidth < 1400;
+}
+function applyNavMode() {
+  document.body.classList.toggle("nav-compact", navCompact());
+  if (!navCompact()) document.body.classList.remove("nav-open");
+}
+function initNavDrawer() {
+  $("#navToggleBtn").onclick = (e) => { e.stopPropagation(); document.body.classList.toggle("nav-open"); };
+  $("#nav").addEventListener("click", (e) => {
+    if (e.target.closest(".nav-item")) document.body.classList.remove("nav-open");
+  });
+  document.addEventListener("click", (e) => {
+    if (document.body.classList.contains("nav-open") && !e.target.closest("#nav")) document.body.classList.remove("nav-open");
+  });
+  window.addEventListener("resize", applyNavMode);
 }
 
 /* Small sample SVG thumbnails in nav + gallery. */
@@ -304,6 +332,7 @@ function showGallery() {
   App.view = "gallery";
   if (App.editingUid) { App.editingUid = null; renderQueue(); }
   markActiveNav();
+  applyNavMode();
   const work = $("#work");
   work.innerHTML = `
     <div class="work-inner">
@@ -314,9 +343,9 @@ function showGallery() {
       <div class="gallery" id="gallery"></div>
     </div>`;
   const g = $("#gallery");
-  for (const t of SIGN_TYPES) {
+  for (const t of menuTypes()) {
     const card = el("button", "g-card");
-    card.innerHTML = `<div class="g-prev" id="g-prev-${t.id}"></div><div class="g-label">${esc(t.label)}</div><div class="g-note">${esc(t.note || "")}</div>`;
+    card.innerHTML = `<div class="g-prev" id="g-prev-${t.id}"></div><div class="g-label">${esc(menuLabel(t))}</div><div class="g-note">${esc(menuNote(t) || "")}</div>`;
     card.onclick = () => showEditor(t.id);
     g.appendChild(card);
   }
@@ -372,16 +401,18 @@ function showEditor(typeId) {
       delete App.spec.products;
     }
   }
+  if (t.family) (App._familyLast || (App._familyLast = {}))[t.family] = t.id;
   markActiveNav();
+  applyNavMode();
 
   const work = $("#work");
   work.innerHTML = `
-    <div class="work-inner">
+    <div class="work-inner work-editor">
       <div class="edit-banner" id="editBanner" style="display:none">✏️ Editing a queued sign — <b>&nbsp;Update Sign&nbsp;</b> saves your changes to it.<span class="link" id="cancelEditBtn">Cancel</span></div>
       <div class="editor-grid">
         <div class="card">
           <div class="card-head editor-head">
-            <div class="editor-title"><h2>${esc(t.label)}</h2><span class="hint">${esc(t.note || "")}</span></div>
+            <div class="editor-title"><h2>${esc(menuLabel(t))}</h2><span class="hint">${esc(menuNote(t) || "")}</span></div>
             <div class="editor-tools">
               <button class="btn btn-ghost btn-sm tool-btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
               <button class="btn btn-ghost btn-sm tool-btn" id="redoBtn" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
@@ -497,8 +528,6 @@ function flagProblems(t, firstErr) {
   paintAllFieldMessages();
   const bad = $("#editorFields .f-field.has-error");
   if (bad) {
-    const card = bad.closest(".mp-card");
-    if (card && card.classList.contains("folded")) card.classList.remove("folded");
     bad.scrollIntoView({ block: "center", behavior: "smooth" });
     const inp = bad.querySelector("input, textarea");
     if (inp) setTimeout(() => inp.focus({ preventScroll: true }), 250);
@@ -518,6 +547,10 @@ function paintAllFieldMessages() {
       const p = App.spec.products && App.spec.products[+card.dataset.product];
       const st = p && typeById(p.typeId);
       if (st) paintFieldMessages(card, st, p.spec, App._showErrors);
+      const sum = card.querySelector(".mp-summary");
+      if (sum && p) sum.textContent = productSummary(p);
+      // a product with a problem never hides it behind a fold
+      if (p && card.querySelector(".f-field.has-error") && card.classList.contains("folded")) setCardFolded(card, p, false);
     }
   } else {
     paintFieldMessages(host, t, App.spec, App._showErrors);
@@ -678,6 +711,23 @@ function buildEditorFields(t) {
     }
     schedulePreview();
   };
+  if (t.family) {
+    // One sign, several types underneath (the arrows): a picker that
+    // switches type and keeps everything typed so far.
+    const fam = SIGN_FAMILIES[t.family];
+    const box = el("div", "f-field");
+    box.dataset.key = "_family";
+    box.appendChild(labelEl(fam.pick));
+    const row = el("div", "seg");
+    for (const [id, label] of fam.members) {
+      const b = el("button", "seg-btn" + (id === t.id ? " active" : ""), label);
+      b.dataset.member = id;
+      b.onclick = () => { if (id !== t.id) switchTypeKeepingSpec(id); };
+      row.appendChild(b);
+    }
+    box.appendChild(row);
+    host.appendChild(box);
+  }
   for (const f of t.fields) {
     // Fields tagged with `modes` only appear in the matching style (see the
     // Big Text sign's "mode" selector).
@@ -1085,6 +1135,8 @@ function switchTypeKeepingSpec(newType) {
   const keep = App.spec;
   showEditor(newType);
   App.spec = Object.assign(App.spec, keep);
+  buildEditorFields(typeById(newType));
+  schedulePreview();
   EditorHistory.reset();
 }
 
@@ -1143,6 +1195,30 @@ function buildProductsEditor(t, host) {
   host.appendChild(el("div", "mp-help", "2 or 3 products stand side by side; 4 to 8 fill two rows under one Ace logo. Each product is its own sign — style, price, photo and all. Drag a product onto another in the preview to swap them, or use ▲▼."));
 }
 
+/* Fold state per product object (not saved with the sign): a filled-in
+   product starts folded to one summary line so a 6-product sign stays
+   scannable; an empty one starts open. Click the card's head to toggle. */
+const _mpFold = new WeakMap();
+function productFilled(p) {
+  return !!String(p.spec.name || "").trim();
+}
+function productSummary(p) {
+  const st = typeById(p.typeId);
+  const bits = [st ? st.label : p.typeId];
+  bits.push(String(p.spec.name || "").trim() || (p.spec.sku ? "SKU " + p.spec.sku : "Not filled in yet"));
+  if (String(p.spec.price || "").trim()) bits.push(fmtMoney(p.spec.price));
+  else if (String(p.spec.percent || "").trim()) bits.push(p.spec.percent + "% off");
+  return bits.join(" · ");
+}
+function setCardFolded(card, p, folded) {
+  _mpFold.set(p, folded);
+  card.classList.toggle("folded", folded);
+  const sum = card.querySelector(".mp-summary");
+  if (sum) sum.textContent = productSummary(p);
+  const tg = card.querySelector(".mp-fold");
+  if (tg) { tg.textContent = folded ? "Edit ▾" : "Done ▴"; tg.title = folded ? "Show this product's fields" : "Fold this product to one line"; }
+}
+
 function buildProductCard(t, p, i) {
   const products = App.spec.products;
   if (!typeById(p.typeId) || p.typeId === "multi") p.typeId = "regular";
@@ -1152,6 +1228,8 @@ function buildProductCard(t, p, i) {
   card.dataset.product = String(i);
   const head = el("div", "mp-head");
   head.appendChild(el("span", "mp-title", `Product ${i + 1}`));
+  const summary = el("div", "mp-summary", "");
+  summary.onclick = () => setCardFolded(card, p, false);
   const sel = el("select", "f-select mp-type");
   sel.title = "Sign style for this product";
   const groups = {};
@@ -1185,7 +1263,11 @@ function buildProductCard(t, p, i) {
     rm.onclick = () => { products.splice(i, 1); buildEditorFields(t); schedulePreview(); };
     head.appendChild(rm);
   }
+  const fold = el("button", "btn btn-ghost btn-sm mp-fold", "");
+  fold.onclick = () => setCardFolded(card, p, !card.classList.contains("folded"));
+  head.appendChild(fold);
   card.appendChild(head);
+  card.appendChild(summary);
   const body = el("div", "mp-body");
   // the single form's fine-tune extras (unit, barcode, QR) fold into a
   // small per-card disclosure so four cards stay scannable
@@ -1200,6 +1282,7 @@ function buildProductCard(t, p, i) {
   }
   card.appendChild(body);
   if (extrasBody.childNodes.length) card.appendChild(extras);
+  setCardFolded(card, p, _mpFold.has(p) ? _mpFold.get(p) : productFilled(p));
   return card;
 }
 
@@ -1519,7 +1602,13 @@ function setPreviewSVG(svg, size) {
   if (!holder) return;
   const stage = holder.parentElement;
   const availW = stage.clientWidth - 44;
-  const availH = Math.max(300, window.innerHeight - 420);
+  // The preview card sticks to the top of the work area while the form
+  // scrolls, so it may use the window's full height minus the card's own
+  // header, notes and buttons (measured, not guessed).
+  const card = stage.closest(".preview-card");
+  const chrome = card ? card.offsetHeight - stage.offsetHeight : 240;
+  const stacked = window.matchMedia("(max-width: 1250px)").matches;
+  const availH = Math.max(260, (stacked ? window.innerHeight * 0.55 : window.innerHeight - 56 - 36) - chrome - 28);
   const scale = Math.min(availW / (size.w * PPI), availH / (size.h * PPI), 1.6);
   holder.innerHTML = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
   attachPreviewDrag(holder);

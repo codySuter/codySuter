@@ -569,3 +569,28 @@ label.f-label:first-child{margin-top:0}
 }
 .sale-hint .btn{padding:4px 9px}
 .fine-body>#toggleWrap:first-child,.fine-body>#scaleWrap:first-child{border-top:0;padding-top:0;margin-top:0}
+
+/* sticky preview: stays in view while the form scrolls */
+.work-inner.work-editor{max-width:1500px}
+.editor-grid{grid-template-columns:minmax(330px,400px) minmax(0,1fr)}
+.preview-card{position:sticky;top:0}
+@media (max-width:1250px){
+  .editor-grid{grid-template-columns:1fr}
+  .preview-card{position:static;order:-1}
+}
+/* Multi Product cards: fold to a one-line summary */
+.mp-summary{display:none;font-size:12.5px;font-weight:600;color:var(--text-2);padding:2px 0 2px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-card.folded .mp-summary{display:block}
+.mp-card.folded .mp-body,.mp-card.folded .mp-extras{display:none}
+.mp-fold{flex:none;padding:4px 8px;margin-left:2px}
+
+/* nav drawer on narrow windows (see applyNavMode) */
+#navToggleBtn{display:none}
+body.nav-compact #navToggleBtn{display:inline-flex}
+body.nav-compact .nav{
+  position:fixed;left:0;top:var(--topbar-h);bottom:0;z-index:45;width:220px;min-width:220px;
+  transform:translateX(-100%);transition:transform .18s ease;box-shadow:none;
+}
+body.nav-compact.nav-open .nav{transform:none;box-shadow:6px 0 24px rgba(0,0,0,.18)}
+.mp-head .mp-type{min-width:90px}

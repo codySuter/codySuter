@@ -119,8 +119,8 @@ async function run() {
     console.log("→ Boot & gallery");
     await page.goto(appUrl);
     await page.waitForSelector(".g-card", { timeout: 20000 });
-    ok("gallery renders all 19 sign types", (await page.$$(".g-card")).length === 19);
-    ok("nav lists sign types", (await page.$$(".nav-item[data-type]")).length === 19);
+    ok("gallery shows 16 cards (the four arrows are one Arrow Sign)", (await page.$$(".g-card")).length === 16);
+    ok("nav lists sign types (the four arrows are one entry)", (await page.$$(".nav-item[data-type]")).length === 16);
     await page.waitForSelector("#g-prev-regular svg", { timeout: 20000 });
     await shot("01-gallery");
 

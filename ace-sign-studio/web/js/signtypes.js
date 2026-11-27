@@ -203,28 +203,28 @@ const SIGN_TYPES = [
     sample: { name: "STIHL MS 271 Farm Boss", price: "399.00", regPrice: "479.00", mode: "wasnow" },
   },
   {
-    id: "arrow_up", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Up",
+    id: "arrow_up", family: "arrow", dir: "up", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Up",
     note: "Regular price + big arrow up to the product",
     fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
     render: (spec, w, h) => AceRenderers.arrow_up(spec, w, h),
     sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
   },
   {
-    id: "arrow_down", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Down",
+    id: "arrow_down", family: "arrow", dir: "down", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Down",
     note: "Regular price + big arrow down to the product",
     fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
     render: (spec, w, h) => AceRenderers.arrow_down(spec, w, h),
     sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
   },
   {
-    id: "arrow_left", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Left",
+    id: "arrow_left", family: "arrow", dir: "left", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Left",
     note: "Regular price + big arrow left to the product",
     fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
     render: (spec, w, h) => AceRenderers.arrow_left(spec, w, h),
     sample: { name: "DeWalt 20V MAX Drill/Driver Kit", price: "129.00", sku: "2837301" },
   },
   {
-    id: "arrow_right", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Right",
+    id: "arrow_right", family: "arrow", dir: "right", hideable: ["logo", "image", "name", "detail", "price", "sku"], group: "Product Pointers", label: "Arrow Right",
     note: "Regular price + big arrow right to the product",
     fields: [F.sku, F.name, F.detail, F.price, F.unit, F.image],
     render: (spec, w, h) => AceRenderers.arrow_right(spec, w, h),
@@ -247,6 +247,28 @@ const SIGN_TYPES = [
 ];
 
 const typeById = (id) => SIGN_TYPES.find((t) => t.id === id) || null;
+
+/* Sign families: types that are one sign to the user but stay separate
+   ids in saved data (so queues, batches, history and store sync from
+   older versions keep working). The four pointer arrows are one "Arrow"
+   sign with a direction picker. The nav and gallery show one entry per
+   family — its first member — and the editor switches members in place. */
+const SIGN_FAMILIES = {
+  arrow: { label: "Arrow Sign", note: "Price + a big arrow pointing at the product", pick: "Arrow points",
+    members: [["arrow_up", "↑ Up"], ["arrow_down", "↓ Down"], ["arrow_left", "← Left"], ["arrow_right", "→ Right"]] },
+};
+/* The types to list in the nav/gallery: one per family. */
+function menuTypes() {
+  const seen = new Set();
+  return SIGN_TYPES.filter((t) => {
+    if (!t.family) return true;
+    if (seen.has(t.family)) return false;
+    seen.add(t.family);
+    return true;
+  });
+}
+const menuLabel = (t) => (t.family ? SIGN_FAMILIES[t.family].label : t.label);
+const menuNote = (t) => (t.family ? SIGN_FAMILIES[t.family].note : t.note);
 
 /* ---------- Multi Product helpers ----------
    Shared by the editor (cards), the validator, and the renderer so the
