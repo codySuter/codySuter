@@ -2,15 +2,21 @@
    sale auto-detection, and a diagnostics trail (viewable in a modal). */
 "use strict";
 
-let _lookupSeq = 0;
 let lastDiagnostics = [];
 
+/* While any SKU lookup runs, <body> carries .sku-busy (a thin red bar
+   sweeps along the top of the preview). Counted, so several Multi Product
+   cards looking up at once keep it on until the last one lands. */
+let _lookupsBusy = 0;
+function lookupBusy(d) {
+  _lookupsBusy = Math.max(0, _lookupsBusy + d);
+  document.body.classList.toggle("sku-busy", _lookupsBusy > 0);
+}
+
 async function lookupProductAPI(query, refresh) {
-  const seq = ++_lookupSeq;
   const url = `/api/lookup?q=${encodeURIComponent(query)}${refresh ? "&refresh=1" : ""}&store=${encodeURIComponent(Settings.get().storeCode || "12180")}`;
   const resp = await fetch(url);
   const data = await resp.json();
-  data._stale = seq !== _lookupSeq;
   lastDiagnostics = data.diagnostics || [];
   return data;
 }
@@ -34,43 +40,66 @@ function attachAutoLookup(inputEl, statusEl, onResult) {
   let debTimer = null;
   let inFlight = null; // query currently being looked up
   let lastDone = null; // query whose lookup last succeeded
+  // Stale-response guard, per input: a newer lookup in this same box makes
+  // an older answer stale, but a lookup in another box (a second Multi
+  // Product card) does not, so each card's answer still lands and its
+  // spinner always ends.
+  let seq = 0;
+  // The lookup's state lives on the input too (data-lookup = pending /
+  // busy / ok / err) so the SKU box itself can show it: an armed underline
+  // while typing, a spinner while looking up, a check when it lands.
+  const setState = (st) => {
+    if (st) inputEl.dataset.lookup = st; else delete inputEl.dataset.lookup;
+  };
   const run = async (force) => {
     clearTimeout(debTimer);
     debTimer = null;
     const q = inputEl.value.trim();
-    if (!q) { statusEl.className = "lookup-status"; statusEl.textContent = ""; return; }
+    if (!q) { statusEl.className = "lookup-status"; statusEl.textContent = ""; setState(""); return; }
     if (inFlight === q && force !== true) return; // same query already running
     inFlight = q;
+    const mine = ++seq;
+    setState("busy");
+    lookupBusy(1);
     statusEl.className = "lookup-status busy";
-    statusEl.innerHTML = `<span class="spin"></span> Looking up ${esc(q)}…`;
+    // the SKU box shows the spinner and the preview shows the bar, so the
+    // line under the box only says what is being looked up
+    statusEl.textContent = `Looking up ${q}…`;
     try {
       const res = await lookupProductAPI(q, force === true);
       // Stale by sequence, or stale by editor rebuild: clicking a queued row
       // blurs this input (starting a lookup for the *old* product) and then
       // rebuilds the editor — if this input is no longer in the document,
       // onResult would write the old product onto whatever spec is now open.
-      if (res._stale || !inputEl.isConnected) return;
+      // A newer lookup in this box owns its busy state and status line.
+      if (mine !== seq || !inputEl.isConnected) return;
       if (res.ok) {
         lastDone = q;
         const si = saleInfo(res);
+        setState("ok");
         statusEl.className = "lookup-status ok";
-        statusEl.innerHTML = `✓ ${esc(res.name || res.sku)}` +
+        statusEl.innerHTML = `<span class="lk-ico">✓</span> ${esc(res.name || res.sku)}` +
           (si.onSale ? ` <span class="sale-flag">On Sale</span>` : "") +
-          ` <span class="diag-link" onclick="showDiagnostics()">details</span>`;
+          ` <button type="button" class="diag-link" onclick="showDiagnostics()">details</button>`;
         onResult(res, si);
       } else {
+        setState("err");
         statusEl.className = "lookup-status err";
-        statusEl.innerHTML = `✗ ${esc(res.error || "Lookup failed")} <span class="diag-link" onclick="showDiagnostics()">details</span>`;
+        statusEl.innerHTML = `<span class="lk-ico">✗</span> ${esc(res.error || "Lookup failed")} <button type="button" class="diag-link" onclick="showDiagnostics()">details</button>`;
       }
     } catch (e) {
+      if (mine !== seq || !inputEl.isConnected) return;
+      setState("err");
       statusEl.className = "lookup-status err";
-      statusEl.textContent = `✗ ${e.message || "No connection"} — enter details manually`;
+      statusEl.innerHTML = `<span class="lk-ico">✗</span> ${esc(e.message || "No connection")} — enter details manually`;
     } finally {
       if (inFlight === q) inFlight = null;
+      lookupBusy(-1);
     }
   };
   inputEl.addEventListener("input", () => {
     clearTimeout(debTimer);
+    setState(inputEl.value.trim() ? "pending" : "");
     debTimer = setTimeout(run, 600);
   });
   inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });

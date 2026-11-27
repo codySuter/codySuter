@@ -431,9 +431,8 @@ label.f-label:first-child{margin-top:0}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
 .g-card{
   background:#fff;border:1px solid var(--border);border-radius:10px;cursor:pointer;overflow:hidden;
-  transition:box-shadow .15s,transform .15s;text-align:left;padding:0;
+  text-align:left;padding:0;
 }
-.g-card:hover{box-shadow:var(--shadow);transform:translateY(-1px);border-color:var(--gray-11)}
 .g-card .g-prev{
   height:118px;display:flex;align-items:center;justify-content:center;background:var(--surface-alt);
   border-bottom:1px solid var(--border);overflow:hidden;padding:10px;
@@ -514,8 +513,8 @@ label.f-label:first-child{margin-top:0}
 .inline-edit-label{font-size:11px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:var(--text-2);margin-bottom:6px}
 .inline-edit .f-input,.inline-edit .f-textarea{width:100%;box-sizing:border-box}
 .inline-edit-hint{font-size:11px;color:var(--text-3);margin-top:6px}
-.field-flash{animation:fieldflash 1.4s ease-out}
-@keyframes fieldflash{0%{box-shadow:0 0 0 3px rgba(212,0,41,.5)}100%{box-shadow:0 0 0 0 rgba(212,0,41,0)}}
+.field-flash{animation:fieldflash 300ms cubic-bezier(.22,.8,.24,1)}
+@keyframes fieldflash{0%,30%{background-color:var(--surface-alt);border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,18,20,.10)}}
 .sign-holder svg{user-select:none}
 .sign-holder svg text[data-field]:hover{fill-opacity:.65}
 
@@ -530,7 +529,7 @@ label.f-label:first-child{margin-top:0}
 .mp-paste-body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
 .mp-paste-body .btn{align-self:flex-start}
 
-/* ============ Editor polish (3.13) ============ */
+/* ============ Editor polish (4.0) ============ */
 /* one wrapper per field: label, input, quick picks, help, message */
 .f-field{margin-top:14px}
 .f-field:first-child{margin-top:0}
@@ -595,7 +594,7 @@ body.nav-compact .nav{
 body.nav-compact.nav-open .nav{transform:none;box-shadow:6px 0 24px rgba(0,0,0,.18)}
 .mp-head .mp-type{min-width:90px}
 
-/* ============ Layout & color / Extra text & pictures (3.13) ============ */
+/* ============ Layout & color / Extra text & pictures (4.0) ============ */
 .ed-section{border:1px solid var(--border);border-radius:8px;margin-top:14px;background:#fff}
 .ed-section>summary{cursor:pointer;font-size:12.5px;font-weight:900;color:var(--text);padding:10px 12px;list-style:none;user-select:none}
 .ed-section>summary::-webkit-details-marker{display:none}
@@ -644,7 +643,7 @@ body.nav-compact.nav-open .nav{transform:none;box-shadow:6px 0 24px rgba(0,0,0,.
 .editor-head .editor-title{flex:1 1 100%}
 .editor-head .editor-tools{flex:1 1 100%;flex-wrap:wrap}
 
-/* ============ Motion (3.13) ============
+/* ============ Motion (4.0) ============
    One shared timing so everything in the app moves the same way: quick
    (120–220ms), easing out (fast start, soft landing). Nothing here waits
    on an animation — every control works the instant it appears. The
@@ -670,26 +669,33 @@ body.nav-compact.nav-open .nav{transform:none;box-shadow:6px 0 24px rgba(0,0,0,.
     transform var(--t-fast) var(--ease-out),opacity var(--t-fast) var(--ease-out),outline-color var(--t-fast);
 }
 .btn:active:not([disabled]),.size-chip:active,.seg-btn:active,.quick-chip:active,.q-step:active:not([disabled]),
-.mini-btn:active,.fav-chip:active,.swatch:active{transform:scale(.96)}
+.mini-btn:active:not([disabled]),.fav-chip:active,.swatch:active,.topbar .icon-btn:active,.nudge-btn:active:not([disabled]){transform:scale(.96)}
 .f-input,.f-select,.f-textarea{transition:border-color var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out)}
 .f-input:focus,.f-select:focus,.f-textarea:focus{box-shadow:0 0 0 3px rgba(109,110,113,.14)}
-.nav .nav-item.active::before{animation:fade-in var(--t-med) var(--ease-out)}
 
-/* page changes (gallery <-> editor, switching sign types) */
-.work-inner{animation:rise-in var(--t-med) var(--ease-out)}
-.gallery .g-card{animation:rise-in 220ms var(--ease-out) both;animation-delay:calc(var(--i,0) * 18ms)}
+/* page changes (gallery <-> editor): the new screen is already partly
+   visible on its first frame and settles in, so it never blinks. A change
+   of sign type inside the editor doesn't re-enter the page (see .stay). */
+@keyframes page-in{from{opacity:.35;transform:translateY(5px)}to{opacity:1;transform:none}}
+.work-inner{animation:page-in var(--t-med) var(--ease-out)}
+/* cards keep the hold-before-start of the stagger ("backwards", not
+   "both"), so their hover lift and press work once they've landed */
+.gallery .g-card{animation:rise-in 220ms var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 14ms)}
 .g-card .g-prev svg,.fav-chip{animation:fade-in var(--t-med) var(--ease-out)}
 
-/* preview: a different sign type or size fades in (same sign: parts glide, see app.js) */
-.sign-holder.swap-in{animation:fade-in 160ms var(--ease-out)}
+/* preview: a different sign type or size cross-fades (app.js); the same
+   sign redrawn: parts glide */
 
-/* messages, hints and field notes appear softly */
-.msg.show,.sale-hint,.edit-banner,.f-msg:not(:empty),.update-bar.show{animation:rise-in var(--t-med) var(--ease-out)}
+/* messages, hints and field notes appear softly (a field note only when
+   its words are new — editor-assist.js) */
+.msg.show,.sale-hint,.edit-banner,.f-msg.msg-in{animation:rise-in var(--t-med) var(--ease-out)}
 .f-field.has-error .f-input,.f-field.has-error .f-textarea{transition:border-color var(--t-med),box-shadow var(--t-med)}
 
 /* menus and the click-to-edit box pop open from where they were clicked */
 .pick-menu,.inline-edit{animation:pop-in 150ms var(--ease-out);transform-origin:top left}
-.drag-badge{animation:fade-in var(--t-fast) var(--ease-out)}
+@keyframes badge-in{from{opacity:0;transform:translateY(4px) scale(.94)}to{opacity:1;transform:none}}
+.drag-badge{animation:badge-in var(--t-fast) var(--ease-out);font-variant-numeric:tabular-nums;transition:background-color var(--t-fast) var(--ease-out)}
+.drag-badge.at-limit{background:var(--ace-dark-red)}
 
 /* dialogs: backdrop fades, the box rises in; closing fades out too where
    the browser supports it (Edge/Chrome 117+). Pointer events stop at once
@@ -727,7 +733,542 @@ body.nav-compact.nav-open .nav{transform:none;box-shadow:6px 0 24px rgba(0,0,0,.
 /* drawer menu on small screens: a bit softer */
 body.nav-compact .nav{transition:transform 220ms var(--ease-out),box-shadow 220ms var(--ease-out)}
 
-/* Windows "Show animations" off / reduce motion: no movement at all */
+/* ============ Interactivity (4.0) ============
+   One motion language on top of the timings above, used everywhere:
+   - Hover: things you pick from lift a little (cards 3px, chips 2px) with
+     a soft shadow and an Ace Red accent; small controls (chips, segments,
+     steppers) tint instead of lifting, so they can never jitter.
+   - Press: a short sink (scale .96-.985) for as long as the button is held.
+   - Keyboard: a 2px Ace Red ring on :focus-visible (white on the red bar
+     and dark banners). Mouse clicks never show it.
+   - "It worked": one green flash, ring or pop on whatever just changed.
+   - Screen changes cross-fade and glide; nothing blanks.
+   Every control works the instant it appears — nothing waits on an
+   animation, and nothing loops except loading spinners/bars. All of it
+   turns off with Windows "Show animations" off (block at the very end;
+   motion started from app.js checks previewMotionOK() first). */
+:root{
+  --lift-shadow:0 2px 4px rgba(17,18,20,.05),0 14px 28px -10px rgba(17,18,20,.30);
+  --lift-shadow-sm:0 2px 4px rgba(17,18,20,.05),0 10px 20px -10px rgba(17,18,20,.30);
+  --press-shadow:0 1px 3px rgba(17,18,20,.14);
+  --t-slow:240ms;
+}
+@keyframes filled-in{0%,30%{background-color:var(--success-bg);border-color:var(--success);box-shadow:0 0 0 3px rgba(46,133,64,.18)}}
+@keyframes changed-in{0%,30%{background-color:var(--surface-alt);border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,18,20,.10)}}
+@keyframes pick-in{from{transform:scale(.92)}to{transform:none}}
+@keyframes did-ok{from{box-shadow:0 0 0 0 rgba(212,0,41,.45)}to{box-shadow:0 0 0 10px rgba(212,0,41,0)}}
+@keyframes done-ring{from{box-shadow:0 0 0 0 rgba(46,133,64,.5)}to{box-shadow:0 0 0 8px rgba(46,133,64,0)}}
+@keyframes ico-pop{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:none}}
+@keyframes check-in{from{opacity:0;transform:scale(.4) rotate(-15deg)}to{opacity:1;transform:none}}
+@keyframes lk-sweep{from{background-position:-67% 0}to{background-position:167% 0}}
+
+/* ---- keyboard focus: one ring for every control ---- */
+.btn:focus-visible,.size-chip:focus-visible,.quick-chip:focus-visible,.nudge-btn:focus-visible,
+.mini-btn:focus-visible,.q-step:focus-visible,.q-item .q-btn:focus-visible,.q-item .q-sel:focus-visible,
+.mp-head .q-btn:focus-visible,.img-clear:focus-visible,.img-drop:focus-visible,.batch-row .q-btn:focus-visible,
+.modal .modal-close:focus-visible,.sel-bar .link:focus-visible,.diag-link:focus-visible,
+.f-check input:focus-visible,.q-item .q-main:focus-visible{
+  outline:2px solid var(--ace-red);outline-offset:2px;
+}
+.pick-item:focus-visible{outline:2px solid var(--ace-red);outline-offset:-2px;background:var(--surface-alt)}
+.seg-btn:focus-visible{outline:2px solid var(--ace-red);outline-offset:-3px;border-radius:6px}
+.swatch:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--ace-red)}
+.swatch-custom:focus-within{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--ace-red)}
+.scale-slider:focus-visible{outline:2px solid var(--ace-red);outline-offset:3px;border-radius:4px}
+.ed-section>summary:focus-visible,.fine-tune>summary:focus-visible,.mp-extras>summary:focus-visible,
+.mp-paste>summary:focus-visible,.bulk-box>summary:focus-visible,.sheet-box summary:focus-visible{
+  outline:2px solid var(--ace-red);outline-offset:-2px;border-radius:7px;
+}
+.modal:focus{outline:none}
+
+/* ---- buttons ---- */
+.btn-primary:hover:not([disabled]){box-shadow:0 3px 10px rgba(212,0,41,.28)}
+.btn-primary[disabled]:hover{background:var(--ace-red)}
+.btn-secondary:hover:not([disabled]){box-shadow:0 2px 6px rgba(17,18,20,.08);border-color:var(--gray-5)}
+.btn-secondary[disabled]:hover{background:var(--surface-alt)}
+.btn-ghost:hover:not([disabled]),.btn-ghost.menu-open{background:var(--surface-alt);border-color:var(--gray-11);color:var(--text)}
+.btn-ghost:active:not([disabled]){background:var(--gray-1)}
+.tool-btn[disabled]:hover{background:none;border-color:var(--border);color:var(--text-2)}
+.sale-hint .btn-ghost{background:#fff}
+.sale-hint .btn-ghost:hover{background:var(--surface);border-color:var(--warning);color:var(--warning)}
+.btn[aria-busy="true"]{cursor:progress}
+/* busy: the button keeps its color (with a spinner or a fill that grows
+   as the work finishes) instead of fading to "dead" gray */
+@property --p{syntax:'<percentage>';inherits:false;initial-value:0%}
+.btn.busy,.mini-btn.busy{
+  background-image:linear-gradient(90deg,var(--busy-fill,transparent) var(--p),transparent var(--p));
+  transition:--p var(--t-med) var(--ease-out),background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out);
+  cursor:progress;
+}
+.btn.busy[disabled],.mini-btn.busy[disabled]{opacity:1;cursor:progress}
+.btn-primary.busy{--busy-fill:rgba(255,255,255,.22)}
+.btn-secondary.busy{--busy-fill:rgba(17,18,20,.07)}
+.mini-btn.busy{--busy-fill:rgba(212,0,41,.13);border-color:var(--ace-red);color:var(--ace-dark-red)}
+.spin-light{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+/* "it worked": a ring spreads out from the button once */
+.btn-primary.did-ok{animation:did-ok 300ms var(--ease-out)}
+.btn.did-it{animation:done-ring 300ms var(--ease-out)}
+
+/* ---- top bar ---- */
+.topbar .icon-btn:hover{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.6);box-shadow:0 2px 8px rgba(0,0,0,.16);transform:translateY(-1px)}
+.topbar .icon-btn:active{background:rgba(255,255,255,.32);box-shadow:none;transform:scale(.96)}
+.topbar .icon-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+body.nav-open #navToggleBtn{background:#fff;border-color:#fff;color:var(--ace-red)}
+#settingsBtn .ib-gear{display:inline-block;transition:transform 300ms var(--ease-out)}
+#settingsBtn:hover .ib-gear{transform:rotate(60deg)}
+
+/* ---- banners (update / sync offer / batch prices / lost connection):
+   fold open and shut, so the app below slides instead of jumping ---- */
+.update-bar{
+  interpolate-size:allow-keywords;overflow:hidden;
+  transition:height var(--t-med) var(--ease-out),padding-block var(--t-med) var(--ease-out),
+    opacity var(--t-med) var(--ease-out),display var(--t-med) allow-discrete;
+}
+.update-bar:not(.show){height:0;padding-block:0;opacity:0;pointer-events:none}
+.update-bar.show{height:auto}
+@starting-style{.update-bar.show{height:0;padding-block:0;opacity:0}}
+@keyframes dot-on{from{transform:scale(.4);box-shadow:0 0 0 0 rgba(250,162,39,.6)}to{transform:none;box-shadow:0 0 0 3px rgba(250,162,39,.28)}}
+.update-bar.show .upd-dot{animation:dot-on 300ms var(--ease-pop) 120ms both}
+.update-bar .upd-btn,.update-bar .upd-dismiss{transition:background-color var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out)}
+.update-bar .upd-btn:hover:not([disabled]){box-shadow:0 2px 10px rgba(0,0,0,.25);transform:translateY(-1px)}
+.update-bar .upd-btn:active:not([disabled]){transform:scale(.96);box-shadow:none}
+.update-bar .upd-btn.busy[disabled]{opacity:1;cursor:progress;display:inline-flex;align-items:center;gap:7px}
+.update-bar .upd-dismiss{border-radius:6px}
+.update-bar .upd-dismiss:hover{background:rgba(255,255,255,.14)}
+.update-bar .upd-dismiss:active{transform:scale(.88)}
+.update-bar .upd-btn:focus-visible,.update-bar .upd-dismiss:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+/* ---- screen changes ---- */
+/* editor -> editor (new type, favorite, queued sign): the page doesn't
+   re-enter; only the title, the preview and new fields move */
+.work-inner.stay{animation:none}
+.work-inner.retype .editor-title{animation:fade-in var(--t-med) var(--ease-out)}
+/* Home: the heading and favorites rise; the cards keep their own stagger
+   (no double fade) */
+.work-inner.work-gallery{animation:none}
+.work-gallery .gallery-head,.work-gallery #favStrip{animation:page-in var(--t-med) var(--ease-out)}
+/* a trip back Home: thumbnails are ready, so one quick calm fade */
+.gallery.again .g-card{animation:fade-in 150ms var(--ease-out) backwards;animation-delay:0s}
+/* fields that weren't on screen a moment ago (e.g. Reg. price after the
+   switch to a Sale sign) ease in; the rest stay perfectly still */
+.f-field.f-new{animation:rise-in var(--t-med) var(--ease-out)}
+#editorFields.form-in{animation:fade-in 160ms var(--ease-out)}
+/* the old sign fading out over the new one (app.js crossfadePreview) */
+.preview-stage{position:relative}
+.preview-ghost{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
+.preview-ghost *{pointer-events:none !important}
+.preview-ghost-sign{position:absolute;background:#fff;box-shadow:0 3px 16px rgba(0,0,0,.16)}
+.preview-ghost-sign svg{display:block}
+/* the picked gallery sample flying onto the preview (overlay only) */
+.thumb-flyer{position:fixed;z-index:30;pointer-events:none;transform-origin:0 0;background:#fff;
+  box-shadow:0 8px 28px rgba(0,0,0,.18);border-radius:4px;overflow:hidden;will-change:transform,opacity}
+.thumb-flyer *{pointer-events:none !important}
+.thumb-flyer svg{display:block;width:100% !important;height:100% !important}
+
+/* ---- left nav rail ---- */
+.nav{position:relative} /* body.nav-compact .nav's position:fixed still wins */
+.nav .nav-item::before{
+  content:'';position:absolute;left:0;top:5px;bottom:5px;width:3px;border-radius:2px;
+  background:var(--gray-5);opacity:0;transform:scaleY(.3);
+  transition:opacity var(--t-fast) var(--ease-out),transform var(--t-med) var(--ease-out),background-color var(--t-fast) var(--ease-out);
+}
+.nav .nav-item:hover{background:#F2F2F3}
+.nav .nav-item:hover::before{opacity:1;transform:scaleY(.55)} /* shows where the marker will land */
+.nav .nav-item:active{background:var(--gray-1);transform:scale(.98)}
+.nav .nav-item.active{background:#FBE9EC}
+.nav .nav-item.active:hover{background:#F8DFE4}
+.nav .nav-item.active::before{background:var(--ace-red);opacity:1;transform:none}
+.nav .nav-item:focus-visible{outline:2px solid var(--ace-red);outline-offset:1px}
+/* one red bar glides between sign types (app.js moveNavIndicator) */
+.nav-indicator{position:absolute;left:8px;top:0;width:3px;height:0;border-radius:2px;background:var(--ace-red);
+  pointer-events:none;opacity:0;z-index:1;
+  transition:transform 200ms var(--ease-out),height 200ms var(--ease-out),opacity var(--t-fast) var(--ease-out)}
+.nav.has-indicator .nav-item.active::before{opacity:0}
+/* narrow windows: a light scrim behind the drawer; the rail slides back
+   in when leaving the editor */
+body.nav-compact .shell::after{
+  content:'';position:fixed;left:0;right:0;top:var(--topbar-h);bottom:0;z-index:44;
+  background:rgba(17,18,20,.16);opacity:0;pointer-events:none;transition:opacity 220ms var(--ease-out);
+}
+body.nav-compact.nav-open .shell::after{opacity:1}
+@keyframes nav-return{from{transform:translateX(-100%)}to{transform:none}}
+.nav.nav-return{animation:nav-return 220ms var(--ease-out)}
+
+/* ---- Home gallery: sign choices lift, the sample leans in, the name
+   turns Ace Red and an "Open →" cue slides in ---- */
+.gallery .g-card{
+  position:relative;z-index:0;container-type:inline-size;
+  transition:transform var(--t-med) var(--ease-out),box-shadow var(--t-med) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out);
+}
+.gallery .g-card::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:3px;z-index:1;pointer-events:none;
+  background:var(--ace-red);transform:scaleX(0);transition:transform 220ms var(--ease-out);
+}
+.gallery .g-card:is(:hover,:focus-visible){
+  z-index:1;transform:translateY(-3px);border-color:rgba(212,0,41,.45);box-shadow:var(--lift-shadow);
+}
+.gallery .g-card:is(:hover,:focus-visible)::before{transform:scaleX(1)}
+.gallery .g-card:focus-visible{outline:2px solid var(--ace-red);outline-offset:3px}
+.g-card .g-prev svg{
+  box-shadow:0 1px 2px rgba(17,18,20,.08);
+  transition:transform var(--t-slow) var(--ease-out),box-shadow var(--t-slow) var(--ease-out);
+}
+.gallery .g-card:is(:hover,:focus-visible) .g-prev svg{transform:scale(1.05);box-shadow:0 6px 16px -4px rgba(17,18,20,.30)}
+.g-card .g-label,.g-card .g-note{transition:color var(--t-fast) var(--ease-out)}
+.g-card .g-label{display:flex;align-items:baseline;gap:8px}
+.g-card .g-label::after{
+  content:"Open \2192";content:"Open \2192" / "";
+  margin-left:auto;flex:none;font-size:11px;font-weight:900;letter-spacing:.2px;color:var(--ace-red);
+  opacity:0;transform:translateX(-6px);
+  transition:opacity var(--t-fast) var(--ease-out),transform var(--t-med) var(--ease-out);
+}
+@container (max-width:224px){.g-card .g-label::after{content:"\2192";content:"\2192" / ""}}
+.gallery .g-card:is(:hover,:focus-visible) .g-label{color:var(--ace-red)}
+.gallery .g-card:is(:hover,:focus-visible) .g-note{color:var(--text-2)}
+.gallery .g-card:is(:hover,:focus-visible) .g-label::after{opacity:1;transform:none}
+.gallery .g-card:active{transform:translateY(-1px) scale(.985);box-shadow:var(--press-shadow);transition-duration:100ms}
+
+/* favorites strip: the same language, smaller */
+.fav-strip .fav-chip{
+  animation:rise-in 200ms var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 24ms);
+  transition:transform var(--t-med) var(--ease-out),box-shadow var(--t-med) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out);
+}
+.fav-chip b{transition:color var(--t-fast) var(--ease-out)}
+.fav-chip b::after{
+  content:"\2192";content:"\2192" / "";display:inline-block;margin-left:5px;color:var(--ace-red);
+  opacity:0;transform:translateX(-4px);
+  transition:opacity var(--t-fast) var(--ease-out),transform var(--t-med) var(--ease-out);
+}
+.fav-strip .fav-chip:is(:hover,:focus-visible){border-color:var(--ace-red);transform:translateY(-2px);box-shadow:var(--lift-shadow-sm)}
+.fav-strip .fav-chip:is(:hover,:focus-visible) b{color:var(--ace-red)}
+.fav-strip .fav-chip:is(:hover,:focus-visible) b::after{opacity:1;transform:none}
+.fav-strip .fav-chip:focus-visible{outline:2px solid var(--ace-red);outline-offset:2px}
+.fav-strip .fav-chip:active{transform:translateY(-1px) scale(.97);box-shadow:var(--press-shadow);transition-duration:100ms}
+.fav-strip .fav-chip.fav-new{animation:pop-in 220ms var(--ease-out);animation-delay:0s}
+
+/* ---- editor form: calm hovers (no lift on small controls) ---- */
+.size-chip:hover:not(.active),.quick-chip:hover{background:var(--surface-alt);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.size-chip.active:hover{background:#2A2C30;border-color:#2A2C30}
+.seg-btn:hover:not(.active){background:var(--surface-alt);color:var(--text)}
+.seg-btn.active:hover{background:var(--ace-dark-red)}
+.swatch:hover{transform:scale(1.12);box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.swatch:active{transform:scale(.96)}
+.nudge-btn{transition:background-color var(--t-fast) var(--ease-out),border-color var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out)}
+.nudge-btn:hover:not([disabled]){background:var(--surface-alt)}
+/* a hidden part reads as off at a glance */
+#toggleWrap .size-chip:not(.active){color:var(--text-2);text-decoration:line-through;text-decoration-color:rgba(0,0,0,.35)}
+#toggleWrap .size-chip:not(.active):hover{color:var(--ink)}
+.f-check{transition:color var(--t-fast) var(--ease-out)}
+.f-check:hover{color:var(--ink)}
+.f-check input{transition:transform var(--t-fast) var(--ease-out)}
+.f-check:active input{transform:scale(.86)}
+.f-input:hover:not(:focus),.f-select:hover:not(:focus),.f-textarea:hover:not(:focus){border-color:var(--gray-5)}
+.f-field.has-error .f-input,.f-field.has-error .f-textarea{border-color:var(--error)}
+.f-field.has-warn .f-input{border-color:#E0A458}
+.size-select:hover:not(:focus){border-color:var(--gray-11)}
+/* the pick that just took settles in (the form rebuilt under it) */
+.just-picked{animation:pick-in 200ms var(--ease-out)}
+.swatch.just-picked{animation:pick-in 220ms var(--ease-pop)}
+/* fields a lookup filled glow green one after another; Undo/Redo and
+   quick picks get the same flash in ink */
+.just-filled{animation:filled-in 300ms var(--ease-out);animation-delay:calc(var(--fill-i,0) * 70ms)}
+.just-changed{animation:changed-in 300ms var(--ease-out);animation-delay:calc(var(--fill-i,0) * 50ms)}
+#scaleWrap.just-changed,#toggleWrap.just-changed{border-radius:8px}
+/* after Add/Print: one red pulse on the first unfinished field */
+@keyframes flag-in{0%,30%{box-shadow:0 0 0 4px rgba(153,27,27,.25)}}
+.f-field.just-flagged .f-input,.f-field.just-flagged .f-textarea{animation:flag-in 300ms var(--ease-out)}
+
+/* fold-out sections: headers answer the pointer, and the section grows
+   open / glides shut (Edge 131+; older Edge just snaps as before) */
+.ed-section>summary,.fine-tune>summary,.mp-paste>summary{border-radius:7px;transition:background-color var(--t-fast) var(--ease-out),color var(--t-fast)}
+.ed-section[open]>summary,.fine-tune[open]>summary{border-radius:7px 7px 0 0}
+.ed-section>summary:hover,.fine-tune>summary:hover,.mp-paste>summary:hover{background:var(--surface-alt);color:var(--ink)}
+.mp-extras>summary{transition:color var(--t-fast)}
+.mp-extras>summary:hover{color:var(--text)}
+.ed-section>summary::before,.fine-tune>summary::before,.mp-extras>summary::before,.mp-paste>summary::before{transition:transform var(--t-med) var(--ease-out),color var(--t-fast)}
+.ed-section>summary:hover::before,.fine-tune>summary:hover::before,.mp-extras>summary:hover::before,.mp-paste>summary:hover::before{color:var(--ace-red)}
+/* Settings fold-outs get the app's turning arrow too */
+.bulk-box>summary{list-style:none;border-radius:7px;transition:color var(--t-fast) var(--ease-out),background-color var(--t-fast) var(--ease-out)}
+.bulk-box>summary::-webkit-details-marker{display:none}
+.bulk-box>summary::before{content:'▸';display:inline-block;margin-right:6px;color:var(--text-3);transition:transform var(--t-med) var(--ease-out)}
+.bulk-box[open]>summary::before{transform:rotate(90deg)}
+.bulk-box[open]>summary{border-radius:7px 7px 0 0}
+.bulk-box>summary:hover{color:var(--ink);background:rgba(17,18,20,.035)}
+.modal .bulk-box .bulk-inner{padding:0 10px 10px} /* Advanced / What's new sat flush to the box edge */
+@supports selector(::details-content){
+  .ed-section,.fine-tune,.mp-extras,.mp-paste,.bulk-box{interpolate-size:allow-keywords}
+  .ed-section::details-content,.fine-tune::details-content,.mp-extras::details-content,
+  .mp-paste::details-content,.bulk-box::details-content{
+    height:0;overflow:clip;
+    transition:height var(--t-med) var(--ease-out),content-visibility var(--t-med) allow-discrete;
+  }
+  .ed-section[open]::details-content,.fine-tune[open]::details-content,.mp-extras[open]::details-content,
+  .mp-paste[open]::details-content,.bulk-box[open]::details-content{height:auto}
+}
+
+/* element sizes: the row answers the pointer; a changed size reads red */
+.scale-name,.scale-val{transition:color var(--t-fast) var(--ease-out)}
+.scale-row:not(.off):hover .scale-name{color:var(--text)}
+.scale-slider:hover:not([disabled]),.scale-slider:focus-visible{accent-color:var(--ink)}
+.scale-slider:active:not([disabled]){accent-color:var(--ace-red)}
+.scale-val.tuned{color:var(--ace-red);font-weight:800}
+
+/* photo boxes: hover, drag-over, and the photo fading in once loaded */
+.img-drop{transition:border-color var(--t-fast) var(--ease-out),background-color var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out)}
+.img-drop:hover{background:#fff}
+.img-drop.drag-over{border-style:solid;border-color:var(--ace-red);background:rgba(212,0,41,.05);box-shadow:0 0 0 3px rgba(212,0,41,.12)}
+.img-drop.drag-over .img-note{font-size:0}
+.img-drop.drag-over .img-note::after{content:'Drop to use this photo';font-size:11.5px;font-weight:700;color:var(--ace-red)}
+.img-drop .img-clear{border-radius:6px;transition:color var(--t-fast),transform var(--t-fast) var(--ease-out)}
+.img-drop .img-clear:hover{color:var(--error);transform:scale(1.15)}
+@keyframes img-in{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+.img-drop img.img-wait{opacity:0}
+.img-drop img.img-in{animation:img-in var(--t-slow) var(--ease-out)}
+
+/* Multi Product cards */
+.mp-card:hover{border-color:var(--gray-5)}
+.mp-card:focus-within{border-color:var(--gray-11);box-shadow:0 0 0 3px rgba(109,110,113,.10)}
+.mp-summary{transition:color var(--t-fast)}
+.mp-summary:hover{color:var(--ink)}
+.mp-card.unfolding:not(.folded) .mp-body{animation:rise-in var(--t-med) var(--ease-out)}
+.mp-card.unfolding.folded .mp-summary{animation:fade-in var(--t-fast) var(--ease-out)}
+@keyframes card-moved{0%,30%{box-shadow:0 0 0 3px rgba(212,0,41,.28)}}
+.mp-card.just-moved{animation:card-moved 300ms var(--ease-out)}
+.mp-head .q-btn{background:#fff;border:1.5px solid var(--border);border-radius:7px;color:var(--text-2);cursor:pointer;line-height:1;
+  transition:background-color var(--t-fast),border-color var(--t-fast),color var(--t-fast),transform var(--t-fast) var(--ease-out)}
+.mp-head .q-btn:hover:not([disabled]){border-color:var(--gray-11);color:var(--text);background:var(--surface-alt)}
+.mp-head .q-btn:active:not([disabled]){transform:scale(.92)}
+.mp-head .mp-remove:hover{color:var(--error);border-color:var(--error)}
+/* a card looking up its SKU wears a soft red outline; filled, it glows green */
+.mp-card{transition:border-color 300ms var(--ease-out),box-shadow 300ms var(--ease-out)}
+.mp-card:has([data-field="sku"][data-lookup="busy"]){border-color:rgba(212,0,41,.45);box-shadow:0 0 0 3px rgba(212,0,41,.08)}
+.mp-card.mp-filled{border-color:var(--success);box-shadow:0 0 0 3px rgba(46,133,64,.16);transition-duration:100ms}
+
+/* ---- SKU lookup: the box shows it's working, the answer settles in,
+   and the sign fills itself in ---- */
+.sku-wrap{position:relative}
+.sku-wrap>.f-input{padding-right:32px}
+.sku-wrap::after{
+  content:"";position:absolute;right:11px;top:50%;width:14px;height:14px;margin-top:-7px;box-sizing:border-box;
+  border:2px solid transparent;border-radius:50%;pointer-events:none;opacity:0;transform:scale(.6);
+  transition:opacity var(--t-fast) var(--ease-out),transform var(--t-med) var(--ease-out),
+    width var(--t-med) var(--ease-out),height var(--t-med) var(--ease-out),margin var(--t-med) var(--ease-out),
+    border-radius var(--t-med) var(--ease-out),border-color var(--t-fast) var(--ease-out);
+}
+/* looking up: a small spinning ring at the right edge of the box */
+.sku-wrap:has(>[data-lookup="busy"])::after{
+  opacity:1;transform:none;border-color:var(--gray-1);border-top-color:var(--ace-red);animation:spin .8s linear infinite;
+}
+/* found: the ring turns into a green check that stays until the SKU is edited */
+.sku-wrap:has(>[data-lookup="ok"])::after{
+  opacity:1;width:7px;height:12px;margin-top:-8px;border-radius:0;
+  border-color:transparent var(--success) var(--success) transparent;transform:rotate(45deg);
+}
+/* typed, waiting out the short pause before the lookup starts */
+.sku-wrap>.f-input[data-lookup="pending"]{box-shadow:inset 0 -2px 0 rgba(212,0,41,.32)}
+.sku-wrap>.f-input[data-lookup="pending"]:focus{box-shadow:0 0 0 3px rgba(109,110,113,.14),inset 0 -2px 0 rgba(212,0,41,.32)}
+.sku-wrap>.f-input[data-lookup="ok"]{border-color:rgba(46,133,64,.55)}
+/* not found / no connection: one small shake, a red edge until it's edited */
+@keyframes sku-shake{0%,100%{transform:none}20%{transform:translateX(-3px)}45%{transform:translateX(3px)}70%{transform:translateX(-2px)}}
+.sku-wrap>.f-input[data-lookup="err"]{border-color:var(--error);animation:sku-shake 260ms var(--ease-out) 1}
+.sku-wrap>.f-input[data-lookup="err"]:focus{box-shadow:0 0 0 3px rgba(153,27,27,.14)}
+/* the status line under the box: a different animation per state, so the
+   entrance replays on every Looking up -> found / not found change */
+@keyframes lk-busy{from{opacity:0}to{opacity:1}}
+@keyframes lk-ok{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@keyframes lk-err{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.lookup-status.busy{animation:lk-busy var(--t-fast) var(--ease-out)}
+.lookup-status.ok{animation:lk-ok var(--t-med) var(--ease-out)}
+.lookup-status.err{animation:lk-err var(--t-med) var(--ease-out)}
+.lookup-status .lk-ico{display:inline-block;font-weight:900;animation:check-in 220ms var(--ease-pop)}
+.lookup-status .sale-flag{display:inline-block;animation:pop-in 200ms var(--ease-out) 80ms backwards}
+button.diag-link{background:none;border:0;padding:0;font:inherit;font-size:11px;border-radius:3px}
+.lookup-status .diag-link{transition:color var(--t-fast) var(--ease-out)}
+.lookup-status .diag-link:hover{color:var(--text-2)}
+/* the preview: a thin red bar sweeps along its top while any lookup runs
+   (loading state), and one soft ring spreads from the sign when it lands */
+.preview-stage::before{
+  content:'';position:absolute;left:0;right:0;top:0;height:3px;pointer-events:none;opacity:0;z-index:2;
+  background:linear-gradient(90deg,transparent,var(--ace-red) 50%,transparent) 0 0/40% 100% no-repeat;
+  transition:opacity var(--t-med) var(--ease-out);
+}
+body.sku-busy .preview-stage::before{opacity:1;animation:lk-sweep 1.1s linear infinite}
+@keyframes lk-ring{from{box-shadow:0 3px 16px rgba(0,0,0,.16),0 0 0 0 rgba(212,0,41,.35)}to{box-shadow:0 3px 16px rgba(0,0,0,.16),0 0 0 10px rgba(212,0,41,0)}}
+.preview-stage .sign-holder.lk-landed{animation:lk-ring 300ms var(--ease-out)}
+
+/* ---- preview handles (preview only, never printed) ---- */
+.sign-holder .drag-hint{transform-box:fill-box;transform-origin:center}
+@keyframes hint-in{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:none}}
+.sign-holder .drag-hint.enter{animation:hint-in var(--t-fast) var(--ease-out)}
+.sign-holder .drag-hint.live{stroke-dasharray:none;fill:rgba(212,0,41,.05)}
+body.elem-dragging,body.elem-dragging *{cursor:ns-resize !important;user-select:none}
+.sign-holder svg text[data-field]{transition:fill-opacity var(--t-fast) var(--ease-out)}
+.extra-handle{transition:transform var(--t-fast) var(--ease-out);transform-box:fill-box;transform-origin:center}
+.extra-handle:hover{transform:scale(1.25)}
+.sign-holder .extra-outline{stroke-opacity:.55;transition:stroke-opacity var(--t-fast) var(--ease-out),fill var(--t-fast) var(--ease-out)}
+.sign-holder .extra-outline.hot{stroke-opacity:1;fill:rgba(212,0,41,.04)}
+
+/* ---- editor message + Add to Queue ---- */
+.msg.busy{background:var(--surface-alt);color:var(--text-2)}
+.msg .spin{vertical-align:-1px;margin-right:7px}
+.msg.ok::before{content:'✓ ';font-weight:900}
+/* a small copy of the sign glides into the queue count (decoration only) */
+.fly-ghost{position:fixed;z-index:30;pointer-events:none;background:#fff;box-shadow:0 6px 20px rgba(0,0,0,.22);transform-origin:center;will-change:transform,opacity}
+.fly-ghost>svg{display:block;width:100% !important;height:100% !important}
+
+/* ---- queue rail ---- */
+.q-item:hover{box-shadow:0 2px 8px rgba(17,18,20,.08)}
+.q-item .q-title{transition:color var(--t-fast) var(--ease-out)}
+.q-item .q-thumb{position:relative;transition:border-color var(--t-fast) var(--ease-out),opacity var(--t-fast) var(--ease-out)}
+.q-item .q-thumb svg{transition:transform var(--t-med) var(--ease-out)}
+/* only the edit area counts as "hovering to edit", not the tick box or ⋯ */
+.q-item .q-main:is(:hover,:focus-visible):not(:has(.q-actions:hover,.q-sel:hover)) .q-title{color:var(--ace-dark-red)}
+.q-item .q-main:hover:not(:has(.q-actions:hover,.q-sel:hover)) .q-thumb{border-color:var(--gray-5)}
+.q-item .q-main:hover:not(:has(.q-actions:hover,.q-sel:hover)) .q-thumb svg{transform:scale(1.06)}
+.q-item .q-main:active:not(:has(.q-actions:active,.q-sel:active)) .q-thumb svg{transform:scale(.98)}
+.q-item .q-thumb::after{
+  content:'\270E';position:absolute;top:2px;right:2px;width:15px;height:15px;border-radius:50%;
+  background:var(--ink);color:#fff;font-size:9px;line-height:15px;text-align:center;pointer-events:none;
+  opacity:0;transform:scale(.6);transition:opacity var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
+}
+.q-item .q-main:is(:hover,:focus-visible):not(:has(.q-actions:hover,.q-sel:hover)) .q-thumb::after{opacity:1;transform:none}
+.q-item.editing .q-thumb::after{display:none}
+.q-item .q-main:focus-visible{outline-offset:3px;border-radius:6px}
+.q-item:has(:focus-visible){border-color:var(--gray-11);box-shadow:0 2px 8px rgba(17,18,20,.08)}
+/* ticked rows look selected */
+.q-item:has(.q-sel:checked){border-color:var(--ink);background:#FAFAFB}
+.sel-bar{animation:rise-in var(--t-med) var(--ease-out)}
+.sel-bar .link{background:none;border:none;padding:0;font:inherit;color:var(--ace-red);transition:color var(--t-fast) var(--ease-out)}
+.sel-bar .link:hover{color:var(--ace-dark-red)}
+/* the row being edited: a red accent bar; the ring tightens onto it as
+   editing starts */
+.q-item.editing{box-shadow:inset 3px 0 0 var(--ace-red),0 0 0 2px rgba(212,0,41,.14)}
+.q-item.editing:hover{box-shadow:inset 3px 0 0 var(--ace-red),0 0 0 2px rgba(212,0,41,.14),0 2px 8px rgba(17,18,20,.08)}
+.q-item.editing:has(.q-sel:checked){border-color:var(--ace-red)}
+@keyframes edit-in{
+  from{box-shadow:inset 0 0 0 var(--ace-red),0 0 0 7px rgba(212,0,41,0)}
+  to{box-shadow:inset 3px 0 0 var(--ace-red),0 0 0 2px rgba(212,0,41,.14)}
+}
+.q-item.q-edit-in{animation:edit-in 220ms var(--ease-out)}
+/* "it worked": a row that changed (Update Sign, ↻ Prices, a drop) flashes green */
+@keyframes row-flash{0%,35%{background-color:var(--success-bg);border-color:var(--success)}}
+.q-item.q-flash{animation:row-flash 300ms var(--ease-out)}
+/* copies: the count pops when it changes; a new warning badge pops in */
+.q-copy-row .q-copies{display:inline-block}
+.q-stale,.q-warn{display:inline-block}
+.q-sub .badge-in{animation:pop-in 180ms var(--ease-out)}
+.q-step:hover:not([disabled]){background:var(--surface-alt)}
+.q-item .q-btn:active:not([disabled]){transform:scale(.88)}
+.q-item .q-more.menu-open{background:var(--gray-1);color:var(--ink)}
+.q-item .q-btn:focus-visible{background:var(--surface-alt);color:var(--ink)}
+/* ↻ Prices: each row dims while its price is being checked */
+.q-item.q-checking .q-thumb{opacity:.5}
+.q-item.q-checking{border-color:var(--gray-5)}
+/* drag to reorder: the row left behind is a dashed outline, and the red
+   line shows exactly where the sign will land */
+.q-item.dragging{opacity:.4;border-style:dashed;box-shadow:none}
+.q-item.drag-over.drag-below{box-shadow:0 2px 0 0 var(--ace-red)}
+/* dropping upward: the line above the row, even on the row being edited,
+   hovered or focused (those rules above set their own shadow) */
+.q-item.drag-over:not(.drag-below){border-color:var(--ace-red);box-shadow:0 -2px 0 0 var(--ace-red)}
+/* header mini buttons: richer hover, Clear warns in red, disabled looks it */
+.mini-btn:hover:not([disabled]){border-color:var(--gray-11);color:var(--ink);background:var(--surface-alt)}
+#clearQueueBtn:hover:not([disabled]){border-color:var(--ace-red);color:var(--ace-red);background:#FFF5F7}
+.mini-btn[disabled]{opacity:.45;cursor:default}
+.mini-btn[disabled]:hover{border-color:var(--border)}
+.queue-empty{animation:rise-in var(--t-med) var(--ease-out)}
+.sheet-box summary .queue-section-label{transition:color var(--t-fast) var(--ease-out)}
+.sheet-box summary:hover .queue-section-label,.sheet-box summary:focus-visible .queue-section-label{color:var(--ink)}
+
+/* ---- toasts ---- */
+.toast-undo{padding:4px 8px;margin:-4px -2px;border-radius:6px;transition:background-color var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out)}
+.toast-undo:hover{color:#fff;background:rgba(255,255,255,.14);text-decoration:none}
+.toast-undo:active{transform:scale(.94);background:rgba(255,255,255,.22)}
+.toast-close{width:22px;height:22px;margin:-3px -4px -3px -2px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:background-color var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out)}
+.toast-close:hover{background:rgba(255,255,255,.12)}
+.toast-close:active{transform:scale(.88)}
+.toast-undo:focus-visible,.toast-close:focus-visible{outline:2px solid #FFB3C1;outline-offset:1px}
+.toast.undone .toast-text{animation:fade-in var(--t-fast) var(--ease-out)}
+/* success / warning toasts lead with a small green ✓ / amber ! that pops in */
+.toast.ok::before,.toast.warn::before{
+  flex:none;width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:900;color:#fff;margin-right:-4px;animation:ico-pop 240ms var(--ease-pop) 60ms both;
+}
+.toast.ok::before{content:'✓';background:var(--success)}
+.toast.warn::before{content:'!';background:var(--warning)}
+
+/* ---- dialogs ---- */
+.modal .modal-close{
+  width:32px;height:32px;margin-block:-4px;margin-right:-6px;padding:0;border-radius:8px;
+  display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;
+  transition:background-color var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out);
+}
+.modal .modal-close:hover{background:var(--surface-alt);color:var(--ink)}
+.modal .modal-close:active{background:var(--gray-1);transform:scale(.9)}
+.batch-row{transition:border-color var(--t-fast) var(--ease-out),box-shadow var(--t-fast) var(--ease-out),background-color var(--t-med) var(--ease-out)}
+.batch-row:hover{border-color:var(--gray-5);box-shadow:0 1px 6px rgba(17,18,20,.07)}
+.batch-row .q-btn{border-radius:6px;transition:color var(--t-fast) var(--ease-out),background-color var(--t-fast) var(--ease-out),transform var(--t-fast) var(--ease-out)}
+.batch-row .q-btn:hover{color:var(--error);background:var(--error-bg)}
+.batch-row .q-btn:active{transform:scale(.88)}
+.batch-list.stagger>.batch-row{animation:rise-in 200ms var(--ease-out) backwards;animation-delay:calc(var(--i,0) * 22ms)}
+.batch-row.just-saved{border-color:var(--success);background:var(--success-bg);box-shadow:0 0 0 1px var(--success);animation:pop-in 220ms var(--ease-out)}
+/* Check prices opens from inside Saved batches: keep it on top, and let
+   the dialog under it step back */
+#priceCheckModal{z-index:82;background:rgba(17,18,20,.2)}
+.modal-back .modal{transition:transform var(--t-med) var(--ease-out),opacity var(--t-med) var(--ease-out)}
+#priceCheckModal.show ~ #batchModal.show .modal{transform:translateY(-8px) scale(.97)}
+#priceCheckBody>*{animation:rise-in var(--t-med) var(--ease-out)}
+/* Settings: checkbox rows answer the pointer */
+.modal .f-check{padding:4px 6px;margin:6px -6px 0;border-radius:7px;transition:background-color var(--t-fast) var(--ease-out),color var(--t-fast) var(--ease-out)}
+.modal .f-check:hover{background:var(--surface-alt)}
+.f-help.ok{color:var(--success);font-weight:600;animation:fade-in var(--t-med) var(--ease-out)}
+/* Bulk add: a live count and a red progress bar that ends green or amber */
+.bulk-progress{opacity:0;transition:opacity var(--t-med) var(--ease-out),display var(--t-med) allow-discrete}
+.bulk-progress.show{opacity:1}
+@starting-style{.bulk-progress.show{opacity:0}}
+.bulk-progress i{background:var(--ace-red);transition:width 220ms var(--ease-out),background-color var(--t-med) var(--ease-out)}
+.bulk-progress.done i{background:var(--success)}
+.bulk-progress.done.has-fails i{background:var(--warning)}
+.bulk-count{transition:color var(--t-med) var(--ease-out);font-variant-numeric:tabular-nums}
+.bulk-count.ok{color:var(--success);animation:pop-in var(--t-med) var(--ease-out)}
+.bulk-report>*{animation:rise-in var(--t-med) var(--ease-out)}
+
+
+/* Touchscreen PCs: Edge keeps :hover on the last thing tapped, so lifts,
+   zooms and hover shadows would stick on until the next tap elsewhere.
+   With a touch-only screen they are dropped; colour and border tints,
+   presses (:active) and keyboard focus rings all stay. */
+@media (hover:none){
+  .topbar .icon-btn:hover:not(:active),.update-bar .upd-btn:hover:not(:active),
+  .swatch:hover:not(:active){transform:none;box-shadow:none}
+  #settingsBtn:hover .ib-gear,.img-drop .img-clear:hover,.extra-handle:hover{transform:none}
+  .gallery .g-card:hover:not(:focus-visible):not(:active),
+  .fav-strip .fav-chip:hover:not(:focus-visible):not(:active){transform:none;box-shadow:none}
+  .gallery .g-card:hover:not(:focus-visible):not(:active) .g-prev svg{transform:none;box-shadow:none}
+  .nav .nav-item:hover:not(.active)::before{opacity:0}
+  .q-item:hover:not(:has(:focus-visible)):not(.editing):not(.drag-over){box-shadow:none}
+  .q-item .q-main:hover:not(:active):not(:focus-visible):not(:has(.q-actions:hover,.q-sel:hover)) .q-thumb svg{transform:none}
+  .q-item .q-main:hover:not(:focus-visible):not(:has(.q-actions:hover,.q-sel:hover)) .q-thumb::after{opacity:0;transform:scale(.6)}
+}
+
+/* Windows "Show animations" off / reduce motion: no movement at all.
+   (One iteration, so loading spinners sit still instead of flickering.)
+   Kept last so it wins over everything above. */
 @media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{animation-duration:1ms !important;animation-delay:0s !important;transition-duration:1ms !important}
+  *,*::before,*::after{animation-duration:1ms !important;animation-delay:0s !important;animation-iteration-count:1 !important;transition-duration:1ms !important}
+  /* colour, border, shadow and ring cues stay; lifts, zooms and presses don't */
+  .gallery .g-card:is(:hover,:focus-visible,:active),
+  .gallery .g-card:is(:hover,:focus-visible) .g-prev svg,
+  .fav-strip .fav-chip:is(:hover,:focus-visible,:active),
+  .topbar .icon-btn:is(:hover,:active),.update-bar .upd-btn:is(:hover,:active),
+  .swatch:is(:hover,:active),.q-item .q-main .q-thumb svg{transform:none !important}
+  .preview-ghost,.thumb-flyer,.fly-ghost{display:none}
+  .bulk-box::details-content,.ed-section::details-content,.fine-tune::details-content,
+  .mp-extras::details-content,.mp-paste::details-content{transition:none}
+  .sku-wrap::after{animation:none !important}
+  .sku-wrap:has(>[data-lookup="busy"])::after{border-color:var(--gray-5)}
+  body.sku-busy .preview-stage::before{animation:none;background:var(--ace-red);opacity:.45}
 }

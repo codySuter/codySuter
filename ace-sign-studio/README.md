@@ -24,12 +24,13 @@ Replaces and unifies the three older tools:
   field following along; drag any element to resize it. Multi Product signs
   add numbered slots, drag-a-product-onto-another to swap positions, ▲▼
   reorder buttons, and a paste-SKUs-to-fill box (one per line, up to 8).
-- **A forgiving editor** (3.13): problems marked on the field itself,
+- **A forgiving editor** (4.0): problems marked on the field itself,
   soft price checks, automatic Instant Savings, percent/date quick picks,
   undo/redo (Ctrl+Z/Ctrl+Y), Ctrl+Enter to queue, typed line breaks, and
   the four arrows shown as one Arrow Sign with a direction picker (saved
   data keeps the four type ids, so older queues/batches/sync still work).
-- **Layout & color, extra boxes, favorites** (3.13): photo-left/right
+- **Motion** (4.0): sign parts glide when resized, screens change with a soft cross-fade, the SKU lookup shows a busy state and fills the sign in with a staggered highlight, and every button, card and row reacts to hover and press. Honors Windows "show fewer animations" (`prefers-reduced-motion`).
+- **Layout & color, extra boxes, favorites** (4.0): photo-left/right
   arrangements, a sign color (Ace Red by default), per-part nudges, extra
   text boxes and pictures that float or "make room" along an edge
   (`web/js/render-custom.js` wraps every renderer), and named favorites

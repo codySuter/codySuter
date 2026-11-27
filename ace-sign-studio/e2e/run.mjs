@@ -583,7 +583,7 @@ async function run() {
     ok("batches persist server-side", !!(stateResp.batches && stateResp.batches["Test Batch"]));
     ok("copies persist server-side", (stateResp.queue || []).every((q) => q.copies >= 1));
 
-    // ================= editor polish (3.13) =================
+    // ================= editor polish (4.0) =================
     console.log("→ Editor: problems marked per field");
     await page.click('.nav-item[data-type="sale"]');
     await page.waitForSelector("#editorFields");

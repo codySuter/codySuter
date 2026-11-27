@@ -164,7 +164,7 @@ function mergeSyncDoc(remote) {
   if (mergedH.some((h) => !remoteUids.has(h.uid))) changedRemote = true;
   History.data = mergedH;
 
-  // favorites (3.13+): same newest-wins + tombstone rules as batches
+  // favorites (4.0+): same newest-wins + tombstone rules as batches
   const fav = typeof mergeFavorites === "function" ? mergeFavorites(remote && remote.favorites) : null;
   if (fav && fav.changedLocal) changedLocal = true;
   if (fav && fav.changedRemote) changedRemote = true;
@@ -242,6 +242,7 @@ async function shrinkSyncDoc(doc) {
 
 /* Refresh whatever synced data is currently on screen. */
 function syncRefreshUI() {
+  if (typeof refreshFavStrip === "function") refreshFavStrip(); // a favorite saved on another computer pops into the strip
   if (typeof renderBatchList === "function" && $("#batchModal") && $("#batchModal").classList.contains("show")) renderBatchList();
   if (typeof renderHistoryList === "function" && $("#historyModal") && $("#historyModal").classList.contains("show")) renderHistoryList();
 }

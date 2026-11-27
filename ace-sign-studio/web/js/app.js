@@ -25,6 +25,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   showGallery();
   await restoreState();
   renderQueue();
+  refreshFavStrip(); // favorites arrive with the saved state, after first paint
   ensureFontsLoaded().then(() => {
     buildGalleryThumbs();
   });
@@ -75,7 +76,82 @@ window.addEventListener("DOMContentLoaded", async () => {
     mb.addEventListener("click", (e) => { if (e.target === mb) mb.classList.remove("show"); });
   });
   $$(".modal-close").forEach((b) => (b.onclick = () => b.closest(".modal-back").classList.remove("show")));
+  initModalKeys();
+  initPickFeedback();
 });
+
+/* Dialogs: Esc closes the one on top; focus moves into a dialog when it
+   opens ([data-autofocus] field, else the dialog box) and back to whatever
+   opened it when it closes. One observer per dialog covers every place
+   that opens or closes one, without touching them. */
+function initModalKeys() {
+  const openers = new Map();
+  for (const mb of $$(".modal-back")) {
+    const box = mb.querySelector(".modal");
+    if (box && !box.hasAttribute("tabindex")) box.tabIndex = -1;
+    new MutationObserver(() => {
+      const open = mb.classList.contains("show");
+      if (open && !openers.has(mb)) {
+        openers.set(mb, document.activeElement);
+        if (mb.contains(document.activeElement)) return; // the dialog focused its own field
+        const f = mb.querySelector("[data-autofocus]") || box;
+        if (f) f.focus({ preventScroll: true });
+      } else if (!open && openers.has(mb)) {
+        const back = openers.get(mb);
+        openers.delete(mb);
+        const ae = document.activeElement;
+        const lost = !ae || ae === document.body || mb.contains(ae);
+        if (back && back !== document.body && back.isConnected && lost) back.focus({ preventScroll: true });
+      }
+    }).observe(mb, { attributes: true, attributeFilter: ["class"] });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    const open = $$(".modal-back.show");
+    if (open.length) {
+      // the topmost dialog closes (Price check sits over Saved batches)
+      const z = (m) => parseInt(getComputedStyle(m).zIndex, 10) || 0;
+      open.reduce((a, b) => (z(b) >= z(a) ? b : a)).classList.remove("show");
+      e.preventDefault();
+    } else if (document.body.classList.contains("nav-open")) {
+      setNavOpen(false);
+      $("#navToggleBtn").focus({ preventScroll: true });
+    }
+  });
+}
+
+/* "It took": most picks in the form (style buttons, show-on-sign chips,
+   color swatches) rebuild the form, so the clicked button is replaced
+   and CSS can't ease it. After the click, find the button that took its
+   place, keep keyboard focus on it and give it a short settle. */
+function initPickFeedback() {
+  const PICK_SEL = ".seg-btn, .size-chip, .swatch:not(.swatch-custom), .quick-chip";
+  const scoped = PICK_SEL.split(", ").map((x) => "#editorFields " + x).join(", ");
+  const pickLabel = (b) => (b.title || b.textContent).replace(/^[✓✕] /, "");
+  let pick = null;
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest(PICK_SEL);
+    const host = b && b.closest("#editorFields");
+    pick = host ? { b, i: $$(scoped).indexOf(b), label: pickLabel(b), wasFocused: document.activeElement === b } : null;
+  }, true);
+  document.addEventListener("click", () => { // after the button's own handler (and its rebuild)
+    const p = pick;
+    pick = null;
+    if (!p) return;
+    let nb = p.b.isConnected ? p.b : null;
+    if (!nb) {
+      const c = $$(scoped)[p.i];
+      if (c && pickLabel(c) === p.label) nb = c;
+    }
+    if (!nb) return;
+    if (p.wasFocused && nb !== document.activeElement) nb.focus({ preventScroll: true });
+    if (!previewMotionOK()) return;
+    nb.classList.remove("just-picked");
+    void nb.offsetWidth;
+    nb.classList.add("just-picked");
+    nb.addEventListener("animationend", () => nb.classList.remove("just-picked"), { once: true });
+  });
+}
 
 /* Editor keyboard shortcuts: Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) undo and
    redo, Ctrl+Enter adds the sign to the queue. Off while a dialog or
@@ -177,7 +253,8 @@ function renderUpdateBar(st) {
 
 async function applyUpdate(btn, bar) {
   btn.disabled = true;
-  btn.textContent = "Downloading…";
+  btn.classList.add("busy");
+  btn.innerHTML = '<span class="spin"></span> Downloading…';
   bar.querySelector("#updateDismiss").style.display = "none";
   try {
     const res = await fetch("/api/update/apply", { method: "POST" }).then((r) => r.json());
@@ -196,6 +273,7 @@ async function applyUpdate(btn, bar) {
     }, 1000);
   } catch (e) {
     btn.disabled = false;
+    btn.classList.remove("busy");
     btn.textContent = "Retry";
     bar.querySelector("#updateText").innerHTML = `<b>Update failed:</b> ${esc(e.message)}. You can download it manually instead.`;
   }
@@ -244,6 +322,31 @@ function markActiveNav() {
     const b = cur && cur.family ? $(`.nav-item[data-family="${cur.family}"]`) : $(`.nav-item[data-type="${App.typeId}"]`);
     b && b.classList.add("active");
   }
+  moveNavIndicator();
+}
+
+/* One red "you are here" bar for the whole list that glides to the picked
+   sign type instead of blinking from row to row. Purely visual: it never
+   takes clicks. Jumps (no glide) on first draw and with motion turned off. */
+function moveNavIndicator() {
+  const nav = $("#nav");
+  if (!nav) return;
+  let ind = nav.querySelector(":scope > .nav-indicator");
+  const fresh = !ind;
+  if (fresh) {
+    ind = el("div", "nav-indicator");
+    ind.setAttribute("aria-hidden", "true");
+    nav.prepend(ind);
+    nav.classList.add("has-indicator");
+  }
+  const a = nav.querySelector(".nav-item.active");
+  if (!a || !a.offsetHeight) { ind.style.opacity = "0"; return; }
+  const jump = fresh || ind.style.opacity !== "1" || !previewMotionOK();
+  if (jump) ind.style.transition = "none";
+  ind.style.transform = `translateY(${a.offsetTop + 5}px)`;
+  ind.style.height = Math.max(8, a.offsetHeight - 10) + "px";
+  ind.style.opacity = "1";
+  if (jump) { void ind.offsetWidth; ind.style.transition = ""; }
 }
 
 /* Narrow windows (under 1400px): while a sign is open, the sign-type list
@@ -253,16 +356,47 @@ function navCompact() {
   return App.view === "editor" && window.innerWidth < 1400;
 }
 function applyNavMode() {
-  document.body.classList.toggle("nav-compact", navCompact());
-  if (!navCompact()) document.body.classList.remove("nav-open");
+  const was = document.body.classList.contains("nav-compact");
+  const now = navCompact();
+  document.body.classList.toggle("nav-compact", now);
+  if (!now) setNavOpen(false);
+  // leaving drawer mode (editor -> gallery on a narrow screen): the rail
+  // slides back in instead of popping
+  if (was && !now && previewMotionOK()) {
+    const nav = $("#nav");
+    nav.classList.remove("nav-return");
+    void nav.offsetWidth;
+    nav.classList.add("nav-return");
+    setTimeout(() => nav.classList.remove("nav-return"), 260);
+  }
+  if (was !== now) moveNavIndicator(); // the rail changed width
+}
+/* The drawer's open state lives on <body>; the toggle mirrors it for
+   screen readers (and looks pressed while the drawer is out). */
+function setNavOpen(open) {
+  document.body.classList.toggle("nav-open", open);
+  const b = $("#navToggleBtn");
+  if (b) b.setAttribute("aria-expanded", String(open));
 }
 function initNavDrawer() {
-  $("#navToggleBtn").onclick = (e) => { e.stopPropagation(); document.body.classList.toggle("nav-open"); };
+  $("#navToggleBtn").onclick = (e) => {
+    e.stopPropagation();
+    const open = !document.body.classList.contains("nav-open");
+    setNavOpen(open);
+    if (!open) return;
+    // the current sign type is in view when the drawer opens
+    const nav = $("#nav");
+    const a = $("#nav .nav-item.active") || $("#nav .nav-item[data-type]");
+    if (!a) return;
+    if (a.offsetTop < nav.scrollTop || a.offsetTop + a.offsetHeight > nav.scrollTop + nav.clientHeight)
+      nav.scrollTop = Math.max(0, a.offsetTop - nav.clientHeight / 3);
+    if (e.detail === 0) a.focus({ preventScroll: true }); // opened from the keyboard
+  };
   $("#nav").addEventListener("click", (e) => {
-    if (e.target.closest(".nav-item")) document.body.classList.remove("nav-open");
+    if (e.target.closest(".nav-item")) setNavOpen(false);
   });
   document.addEventListener("click", (e) => {
-    if (document.body.classList.contains("nav-open") && !e.target.closest("#nav")) document.body.classList.remove("nav-open");
+    if (document.body.classList.contains("nav-open") && !e.target.closest("#nav")) setNavOpen(false);
   });
   window.addEventListener("resize", applyNavMode);
 }
@@ -327,40 +461,67 @@ async function loadTemplateProduct() {
   } catch (e) { /* offline — fallback/cached template stays */ }
 }
 
+/* Gallery thumbnails, kept so a trip back Home shows every sample at once
+   instead of redrawing them one by one (gallery only, never printed). */
+const _thumbCache = new Map(); // typeId -> thumbnail SVG markup
 function refreshTypeThumbs() {
+  _thumbCache.clear();
   ensureFontsLoaded().then(async () => {
     for (const t of SIGN_TYPES) {
       const g = $(`#g-prev-${t.id}`);
-      if (g) g.innerHTML = await typeThumbSVG(t, 190, 100);
+      if (!g) continue;
+      const s = await typeThumbSVG(t, 190, 100);
+      if (s) _thumbCache.set(t.id, s);
+      if (g.isConnected) g.innerHTML = s;
     }
   });
 }
 
 /* ---------------- gallery ---------------- */
 function showGallery() {
+  const work = $("#work");
+  // keyboard users land back on the sign type they just left; the gallery
+  // comes back scrolled to where it was
+  const cameFrom = App.view === "editor" ? typeById(App.typeId) : null;
+  const keepScroll = App.view === "gallery" ? work.scrollTop : (App._galleryScroll || 0);
+  const again = !!App._galleryShown;
+  App._galleryShown = true;
   App.view = "gallery";
+  App._fieldBaseline = null;
   if (App.editingUid) { App.editingUid = null; renderQueue(); }
   markActiveNav();
   applyNavMode();
-  const work = $("#work");
   work.innerHTML = `
-    <div class="work-inner">
+    <div class="work-inner work-gallery">
       <div class="gallery-head">
         <h2>What are we making today?</h2>
         <p>Pick a sign type — live pricing fills in automatically from acehardware.com for store #${esc(Settings.get().storeCode)}. Every sign can go to the print queue.</p>
       </div>
       <div id="favStrip"></div>
-      <div class="gallery" id="gallery"></div>
+      <div class="gallery${again ? " again" : ""}" id="gallery"></div>
     </div>`;
   buildFavoritesStrip($("#favStrip"));
+  $("#favStrip").dataset.sig = favStripSig();
   const g = $("#gallery");
   menuTypes().forEach((t, i) => {
     const card = el("button", "g-card");
-    card.style.setProperty("--i", String(Math.min(i, 16)));
+    card.style.setProperty("--i", String(Math.min(i, 10)));
     card.innerHTML = `<div class="g-prev" id="g-prev-${t.id}"></div><div class="g-label">${esc(menuLabel(t))}</div><div class="g-note">${esc(menuNote(t) || "")}</div>`;
-    card.onclick = () => showEditor(t.id);
+    const cached = _thumbCache.get(t.id);
+    if (cached) card.querySelector(".g-prev").innerHTML = cached;
+    card.onclick = (e) => {
+      // the picked sample flies onto the editor's preview spot (overlay only)
+      const th = card.querySelector(".g-prev svg");
+      const r = th && th.getBoundingClientRect();
+      App._flyer = r && r.width && previewMotionOK() ? { html: th.outerHTML, from: r, at: performance.now() } : null;
+      showEditor(t.id);
+      // Enter/Space on the card: carry on typing in the first box (the SKU)
+      if (e.detail === 0) { const f = $("#editorFields input.f-input"); if (f) f.focus({ preventScroll: true }); }
+    };
     g.appendChild(card);
+    if (cameFrom && (t.id === cameFrom.id || (cameFrom.family && t.family === cameFrom.family))) card.focus({ preventScroll: true });
   });
+  work.scrollTop = keepScroll; // card heights are fixed, so this lands exactly
   buildGalleryThumbs();
 }
 
@@ -369,15 +530,24 @@ async function buildGalleryThumbs() {
   await ensureFontsLoaded();
   for (const t of SIGN_TYPES) {
     const holder = $(`#g-prev-${t.id}`);
-    if (holder && !holder.firstChild) holder.innerHTML = await typeThumbSVG(t, 190, 100);
+    if (!holder || holder.firstChild) continue;
+    const s = _thumbCache.get(t.id) || await typeThumbSVG(t, 190, 100);
+    if (s) _thumbCache.set(t.id, s);
+    if (holder.isConnected && !holder.firstChild) holder.innerHTML = s;
   }
 }
 
 /* ---------------- Ace editor ---------------- */
-function showEditor(typeId) {
+function showEditor(typeId, opts) {
+  const o = opts || {};
   const t = typeById(typeId);
   if (!t) return;
   const prevTypeId = App.typeId;
+  const wasEditor = App.view === "editor"; // editor -> editor: same screen, new sign
+  if (!wasEditor) {
+    App._galleryScroll = $("#work").scrollTop;
+    App._msgMemo = {}; // a fresh sign's first notes still ease in
+  }
   App.view = "editor";
   App.typeId = typeId;
   App.userPickedType = true;
@@ -418,8 +588,14 @@ function showEditor(typeId) {
   applyNavMode();
 
   const work = $("#work");
+  // Editor -> editor keeps the old drawing on screen until the new one
+  // lands (it cross-fades, see setPreviewSVG), so the preview never blanks.
+  const oldHolder = wasEditor ? $("#signHolder") : null;
+  const carrySvg = oldHolder && oldHolder.querySelector("svg");
+  const carryKey = oldHolder && oldHolder._signKey;
+  const stay = wasEditor ? (typeId !== prevTypeId ? " stay retype" : " stay") : "";
   work.innerHTML = `
-    <div class="work-inner work-editor">
+    <div class="work-inner work-editor${stay}">
       <div class="edit-banner" id="editBanner" style="display:none">✏️ Editing a queued sign — <b>&nbsp;Update Sign&nbsp;</b> saves your changes to it.<span class="link" id="cancelEditBtn">Cancel</span></div>
       <div class="editor-grid">
         <div class="card">
@@ -451,6 +627,14 @@ function showEditor(typeId) {
         </div>
       </div>
     </div>`;
+  if (carrySvg) {
+    const h = $("#signHolder");
+    carrySvg.style.pointerEvents = "none"; // its click handlers belong to the old sign
+    h.appendChild(carrySvg);
+    h._signKey = carryKey; // _markup stays unset, so the next render always swaps
+  }
+  // a new sign opens at its first field (a type switch mid-form keeps its place)
+  if (!o.keepPlace) work.scrollTop = 0;
   buildSizeChips(t);
   buildEditorFields(t);
   // Add / Print are never blocked: the sign goes out exactly as the
@@ -459,20 +643,28 @@ function showEditor(typeId) {
   $("#addQueueBtn").onclick = () => {
     const note = markProblems(t);
     if (App.editingUid) {
-      const updated = Queue.update(App.editingUid, t.id, App.sizeId, App.spec);
+      const uid = App.editingUid;
+      // the updated row flashes once on the final redraw (after edit mode ends)
+      _qFlash.add(uid);
+      const updated = Queue.update(uid, t.id, App.sizeId, App.spec);
       App.editingUid = null;
       updateEditMode();
+      _qFlash.clear();
+      pulseDone($("#addQueueBtn"));
       if (updated) {
         showMsg("editorMsg", note ? "warn" : "ok", "Sign updated in the queue." + note);
-        showToast("Sign updated.");
+        showToast("Sign updated.", { kind: "ok" });
       } else {
         // the row was deleted while editing — keep the work, add as new
+        flyToQueue();
         Queue.add(t.id, App.sizeId, App.spec);
         showMsg("editorMsg", note ? "warn" : "ok", "That sign was no longer in the queue — added it as a new one." + note);
       }
       return;
     }
+    flyToQueue(); // decoration only: the sign is queued right here, at once
     Queue.add(t.id, App.sizeId, App.spec);
+    pulseDone($("#addQueueBtn"));
     const n = Queue.totalSigns();
     showMsg("editorMsg", note ? "warn" : "ok", `Added to queue — ${n} sign${n === 1 ? "" : "s"} queued.` + note);
   };
@@ -484,29 +676,43 @@ function showEditor(typeId) {
   // Printing lives in the queue — one pathway, one primary action per
   // panel. The single-sign shortcuts stay reachable behind ⋯ for the
   // "just this one, right now" case.
+  // while a print or PDF is being built: a neutral busy line with a
+  // spinner, and a progress cursor on ⋯ (it stays clickable)
+  const busyMore = (on) => {
+    const more = $("#editorMoreBtn");
+    if (!more) return;
+    if (on) more.setAttribute("aria-busy", "true");
+    else more.removeAttribute("aria-busy");
+  };
   const printOne = async () => {
     markProblems(t);
-    showMsg("editorMsg", "ok", "Preparing print…");
+    showMsg("editorMsg", "busy", "Preparing print…");
+    busyMore(true);
     try {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
       printPdfDoc(doc);
       History.record("print", [editorHistoryItem(t)]);
       showMsg("editorMsg", "ok", "Sent to the print dialog.");
     } catch (e) { showMsg("editorMsg", "err", "Print failed: " + friendlyError(e) + "."); }
+    finally { busyMore(false); }
   };
   const pdfOne = async () => {
     markProblems(t);
-    showMsg("editorMsg", "ok", "Building PDF…");
+    showMsg("editorMsg", "busy", "Building PDF…");
+    busyMore(true);
     try {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
       downloadPdfDoc(doc, sanitizeFilename(queueItemTitle({ typeId: t.id, spec: App.spec })) + ".pdf");
       History.record("pdf", [editorHistoryItem(t)]);
       showMsg("editorMsg", "ok", "PDF saved.");
     } catch (e) { showMsg("editorMsg", "err", "PDF failed: " + friendlyError(e) + "."); }
+    finally { busyMore(false); }
   };
   $("#editorMoreBtn").onclick = (e) => {
     e.stopPropagation();
     const anchor = $("#editorMoreBtn");
+    // a second click on ⋯ closes its menu instead of rebuilding it
+    if (_pickMenuEl && _pickMenuEl.isConnected && _pickMenuEl._anchor === anchor) { closeBatchPickMenu(); return; }
     closeBatchPickMenu();
     const menu = el("div", "pick-menu");
     const entry = (label, fn) => {
@@ -518,9 +724,12 @@ function showEditor(typeId) {
     entry("Save this sign as a PDF", pdfOne);
     document.body.appendChild(menu);
     _pickMenuEl = menu;
+    markMenuAnchor(menu, anchor);
     const r = anchor.getBoundingClientRect();
     menu.style.top = Math.max(8, Math.min(window.innerHeight - menu.offsetHeight - 8, r.bottom + 4)) + "px";
     menu.style.left = Math.max(8, r.right - menu.offsetWidth) + "px";
+    // opened from the keyboard: land on the first choice
+    if (e.detail === 0) { const first = menu.querySelector(".pick-item"); if (first) first.focus(); }
     setTimeout(() => document.addEventListener("click", closeBatchPickMenu, { once: true }), 0);
   };
   $("#undoBtn").onclick = () => editorUndo(-1);
@@ -541,6 +750,16 @@ function markProblems(t) {
   App._showErrors = !!err;
   paintAllFieldMessages();
   if (!err) return "";
+  // draw the eye to the first unfinished field (brought into view if it
+  // is off-screen) with one short red pulse
+  const firstBad = $("#editorFields .f-field.has-error");
+  if (firstBad && previewMotionOK()) {
+    firstBad.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    firstBad.classList.remove("just-flagged");
+    void firstBad.offsetWidth;
+    firstBad.classList.add("just-flagged");
+    setTimeout(() => firstBad.classList.remove("just-flagged"), 340);
+  }
   const n = $$("#editorFields .f-field.has-error").length;
   return n > 1
     ? ` Heads-up: ${n} fields look unfinished (marked in red) — it was added just as the preview shows.`
@@ -581,6 +800,7 @@ function editorUndo(delta) {
   closeInlineEdit();
   const ae = document.activeElement;
   const focusKey = ae && ae.dataset ? ae.dataset.field : null;
+  const prev = JSON.parse(JSON.stringify(App.spec));
   if (!EditorHistory.go(delta)) return;
   buildSizeChips(t);
   buildEditorFields(t);
@@ -589,6 +809,23 @@ function editorUndo(delta) {
     const inp = $(`#editorFields [data-field="${focusKey}"]`);
     if (inp) inp.focus({ preventScroll: true });
   }
+  flashUndone(prev);
+}
+
+/* After Undo/Redo: the fields that came back get a short neutral flash,
+   so staff can see what changed. Things that aren't a text box flash
+   their section instead. */
+function flashUndone(prev) {
+  const host = $("#editorFields");
+  if (!host || !previewMotionOK() || App.typeId === "multi") return;
+  const SECTION = { scale: "#scaleWrap", hide: "#toggleWrap", arrange: "#secLayout > summary", style: "#secLayout > summary", nudge: "#secLayout > summary", extras: "#secExtras > summary", image: ".img-drop" };
+  const hits = [];
+  for (const k of new Set([...Object.keys(prev), ...Object.keys(App.spec)])) {
+    if (k.startsWith("_") || JSON.stringify(prev[k]) === JSON.stringify(App.spec[k])) continue;
+    const x = host.querySelector(SECTION[k] || `[data-field="${k}"]`);
+    if (x && !hits.includes(x)) hits.push(x);
+  }
+  flashEls(hits.slice(0, 6), "neutral");
 }
 
 /* New sign: wipe the form (the sale dates stay, they're usually the same
@@ -597,13 +834,16 @@ function startOverSign(t) {
   const before = JSON.parse(JSON.stringify(App.spec));
   App.spec = t.id === "multi" ? { products: [] } : { startDate: App.batchStart, endDate: App.batchEnd };
   App._showErrors = false;
+  App._crossfadeNext = true; // the filled sign fades to the empty one
   buildEditorFields(t);
   schedulePreview();
+  const f = $("#editorFields");
+  if (f && previewMotionOK()) { f.classList.remove("form-in"); void f.offsetWidth; f.classList.add("form-in"); }
   const m = $("#editorMsg");
   if (m) m.className = "msg";
   const first = $("#editorFields input.f-input");
   if (first) first.focus();
-  showToast("Started a new sign.", { undo: () => { App.spec = before; buildEditorFields(t); schedulePreview(); } });
+  showToast("Started a new sign.", { undo: () => { App.spec = before; App._crossfadeNext = true; buildEditorFields(t); schedulePreview(); } });
 }
 
 /* A history row for a sign printed straight from the editor: the raw spec
@@ -637,6 +877,7 @@ function startEditQueueItem(uid) {
   App.editingUid = uid;
   App.sizeId = item.sizeId;
   App.spec = JSON.parse(JSON.stringify(item.spec));
+  App._crossfadeNext = true; // a different product cross-fades instead of gliding
   showEditor(item.typeId);
 }
 
@@ -688,8 +929,61 @@ function buildSizeChips(t) {
   wrap.appendChild(sel);
 }
 
+/* Which fields were on screen before this click. Several rebuilds in one
+   action (a type switch runs two) all compare to the same baseline, which
+   only moves on the next frame. Fields that weren't there ease in; the
+   ones the user was looking at stay perfectly still. */
+function fieldKeys(host) {
+  return new Set($$(".f-field[data-key]", host).map((b) => b.dataset.key));
+}
+function markNewFields(host, baseline) {
+  if (baseline && baseline.size && previewMotionOK()) {
+    for (const b of $$(".f-field[data-key]", host)) if (!baseline.has(b.dataset.key)) b.classList.add("f-new");
+  }
+  if (!App._baselineArmed) {
+    App._baselineArmed = true;
+    requestAnimationFrame(() => {
+      App._baselineArmed = false;
+      const h = $("#editorFields");
+      App._fieldBaseline = h && App.view === "editor" ? fieldKeys(h) : null;
+    });
+  }
+}
+
+/* What had focus in the editor, described so it can be found again after
+   the form (or the whole editor) is rebuilt. */
+function captureEditorFocus() {
+  const ae = document.activeElement;
+  if (!ae || !ae.closest || !ae.closest("#work")) return null;
+  const box = ae.closest(".f-field");
+  const card = ae.closest(".mp-card");
+  return {
+    id: ae.id || null,
+    field: (ae.dataset && ae.dataset.field) || null,
+    key: box ? box.dataset.key : null,
+    product: card ? card.dataset.product : null,
+    idx: ae.classList.contains("seg-btn") ? [...ae.parentElement.children].indexOf(ae) : -1,
+    sel: typeof ae.selectionStart === "number" ? [ae.selectionStart, ae.selectionEnd] : null,
+  };
+}
+function restoreEditorFocus(f) {
+  if (!f) return;
+  // never back into a rebuilt SKU box: its fresh lookup would re-run on
+  // blur and put the looked-up name/price back over later edits
+  if (f.field === "sku") return;
+  const scope = f.product != null ? $(`#multiProducts .mp-card[data-product="${f.product}"]`) : $("#editorFields");
+  let n = null;
+  if (f.field && scope) n = scope.querySelector(`[data-field="${f.field}"]`);
+  else if (f.key && f.idx >= 0 && scope) { const row = scope.querySelector(`.f-field[data-key="${f.key}"] .seg`); n = row && row.children[f.idx]; }
+  else if (f.id) n = document.getElementById(f.id);
+  if (!n || n === document.activeElement) return;
+  n.focus({ preventScroll: true });
+  if (f.sel && n.setSelectionRange) { try { n.setSelectionRange(f.sel[0], f.sel[1]); } catch (e) {} }
+}
+
 function buildEditorFields(t) {
   const host = $("#editorFields");
+  const baseline = App._fieldBaseline;
   host.innerHTML = "";
   // Progressive disclosure: the daily flow is SKU → price fills in → Add to
   // Queue. Power controls (unit, barcode/QR, show-on-sign toggles, element
@@ -757,7 +1051,9 @@ function buildEditorFields(t) {
         b.onclick = () => {
           if (App.spec[f.key] === opt.value) return;
           App.spec[f.key] = opt.value;
+          const rf = captureEditorFocus();
           buildEditorFields(t);
+          restoreEditorFocus(rf);
           schedulePreview();
         };
         row.appendChild(b);
@@ -773,6 +1069,7 @@ function buildEditorFields(t) {
       const status = el("div", "lookup-status");
       inp.addEventListener("input", () => { App.spec.sku = inp.value.trim(); });
       attachAutoLookup(inp, status, (res, si) => {
+        const before = snapFields($("#editorFields"));
         App.spec.sku = res.sku || inp.value.trim();
         maybeResetScaleForNewSku(App.spec.sku, t, host);
         if (res.productUrl) App.spec.productUrl = res.productUrl; // QR target
@@ -784,11 +1081,13 @@ function buildEditorFields(t) {
           setField("price", si.sale);
           setField("regPrice", si.reg);
           if (t.id === "regular") {
-            switchTypeKeepingSpec("sale");
+            switchTypeKeepingSpec("sale", { fromLookup: true });
             const st = $("#editorFields .lookup-status");
             if (st) {
               st.className = "lookup-status ok";
-              st.innerHTML = `✓ ${esc(res.name || res.sku)} <span class="sale-flag">On Sale</span> — switched to a Sale sign <span class="diag-link" onclick="showDiagnostics()">details</span>`;
+              st.innerHTML = `<span class="lk-ico">✓</span> ${esc(res.name || res.sku)} <span class="sale-flag">On Sale</span> — switched to a Sale sign <button type="button" class="diag-link" onclick="showDiagnostics()">details</button>`;
+              const si2 = $("#editorFields [data-field=\"sku\"]");
+              if (si2) si2.dataset.lookup = "ok";
             }
           } else if (!t.fields.some((x) => x.key === "regPrice")) {
             // a sign with no regular-price spot: say so, offer the Sale sign
@@ -808,9 +1107,12 @@ function buildEditorFields(t) {
         if (res.imageUrl) { App.spec.image = res.imageUrl; refreshImageDrop(); }
         const cur = typeById(App.typeId) || t;
         for (const k of applyDerived(cur, App.spec, "*")) setField(k, App.spec[k]);
+        App._lookupGlide = performance.now(); // the next redraw glides the sign into its filled-in state
         schedulePreview();
+        // re-queried: a switch to a Sale sign rebuilt the form
+        flashFilled($("#editorFields"), before);
       });
-      box.appendChild(inp);
+      box.appendChild(skuWrap(inp));
       box.appendChild(status);
       continue;
     }
@@ -839,6 +1141,7 @@ function buildEditorFields(t) {
         if (!fl || !/^image\//.test(fl.type)) return;
         acceptCustomPhoto(fl);
       });
+      wireDropZone(drop, file);
       box.appendChild(drop);
       setTimeout(refreshImageDrop, 0);
       $("#imgDrop").querySelector("#imgClear").onclick = () => { App.spec.image = null; App.spec._customImage = false; refreshImageDrop(); schedulePreview(); };
@@ -920,6 +1223,7 @@ function buildEditorFields(t) {
   // Only offer the section when it has something in it (e.g. Text Only has
   // no toggles, sliders, or extras).
   if (fineBody.childNodes.length) host.appendChild(fine);
+  markNewFields(host, baseline);
   paintAllFieldMessages();
 }
 
@@ -1000,12 +1304,14 @@ function buildScaleSliders(t, host) {
     slider.disabled = hidden;
     slider.title = "Double-click to reset to 100%";
     const val = el("span", "scale-val", hidden ? "hidden" : slider.value + "%");
+    val.classList.toggle("tuned", !hidden && slider.value !== "100"); // a changed size reads red
     slider.addEventListener("input", () => {
       sc[d.key] = parseInt(slider.value, 10) / 100;
       // remember which product these sizes were tuned for, so a new
       // SKU's lookup knows whether to keep or reset them
       App.spec._scaleSku = String(App.spec.sku || "");
       val.textContent = slider.value + "%";
+      val.classList.toggle("tuned", slider.value !== "100");
       updateReset();
       schedulePreview();
     });
@@ -1066,7 +1372,7 @@ function showPresetMenu(anchor, t, host) {
       closeBatchPickMenu();
       buildScaleSliders(t, host);
       schedulePreview();
-      showToast(`Applied layout “${n}”.`);
+      showToast(`Applied layout “${n}”.`, { kind: "ok" });
     };
     const del = el("button", "q-btn", "✕");
     del.title = "Delete this preset";
@@ -1091,7 +1397,7 @@ function showPresetMenu(anchor, t, host) {
     presets[n] = Object.assign({}, App.spec.scale || {});
     Settings.set({ sizePresets: presets });
     closeBatchPickMenu();
-    showToast(`Layout “${n}” saved — apply it to any sign from Presets.`);
+    showToast(`Layout “${n}” saved — apply it to any sign from Presets.`, { kind: "ok" });
   };
   inp.addEventListener("keydown", (e) => { if (e.key === "Enter") save.onclick(); });
   saveRow.appendChild(inp);
@@ -1143,6 +1449,90 @@ function setField(key, value) {
   const inp = $(`#editorFields [data-field="${key}"]`);
   if (inp) inp.value = value;
 }
+
+/* The SKU box sits in a small wrapper that draws the lookup's spinner,
+   then its check mark, at the right edge (CSS, from data-lookup). */
+function skuWrap(inp) {
+  const w = el("div", "sku-wrap");
+  w.appendChild(inp);
+  return w;
+}
+
+/* "It filled in": after a SKU lookup, each box it changed lights up pale
+   green one after another (name, then price, then reg. price…) so the eye
+   follows the sign filling in. Cosmetic only — values are already set. */
+function snapFields(root) {
+  const m = {};
+  if (!root) return m;
+  for (const x of root.querySelectorAll("[data-field]")) m[x.dataset.field] = x.value;
+  const img = root.querySelector(".img-drop img");
+  m._img = img ? img.getAttribute("src") || "" : "";
+  return m;
+}
+function flashFilled(root, before) {
+  if (!root || !before || !previewMotionOK()) return;
+  const hits = [];
+  for (const x of root.querySelectorAll("[data-field]")) {
+    const k = x.dataset.field;
+    if (k === "sku" || !x.value || x.value === before[k]) continue;
+    if (x.closest(".mp-card") !== root.closest(".mp-card") && !root.matches(".mp-card")) continue;
+    hits.push(x);
+  }
+  const drop = root.querySelector(".img-drop");
+  const img = drop && drop.querySelector("img");
+  if (img && img.getAttribute("src") && img.getAttribute("src") !== before._img) hits.push(drop);
+  flashEls(hits);
+}
+function flashEls(els, tone) {
+  if (!previewMotionOK()) return;
+  let i = 0;
+  for (const x of els) {
+    if (!x || !x.isConnected) continue;
+    x.classList.remove("just-filled", "just-changed");
+    x.style.setProperty("--fill-i", String(Math.min(i++, 5)));
+    void x.offsetWidth; // restart if it was mid-flash
+    x.classList.add(tone === "neutral" ? "just-changed" : "just-filled");
+    const done = (e) => {
+      if (e.target !== x) return; // a child's own animation bubbling up
+      x.removeEventListener("animationend", done);
+      x.classList.remove("just-filled", "just-changed");
+    };
+    x.addEventListener("animationend", done);
+  }
+}
+
+/* Photo boxes: keyboard-reachable (Enter/Space picks a file) and light up
+   while a photo is dragged over them. */
+function wireDropZone(drop, file) {
+  drop.tabIndex = 0;
+  drop.setAttribute("role", "button");
+  drop.setAttribute("aria-label", "Choose a photo");
+  drop.addEventListener("keydown", (e) => {
+    if (e.target !== drop || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault();
+    file.click();
+  });
+  const on = () => drop.classList.add("drag-over");
+  const off = () => drop.classList.remove("drag-over");
+  drop.addEventListener("dragenter", (e) => { e.preventDefault(); on(); });
+  drop.addEventListener("dragover", on);
+  drop.addEventListener("dragleave", (e) => { if (!drop.contains(e.relatedTarget)) off(); });
+  drop.addEventListener("drop", off);
+}
+
+/* A photo thumbnail fades in once it has actually loaded (a repeat of
+   the same photo doesn't replay). */
+function showThumb(prev, src) {
+  if (prev.getAttribute("src") === src) return;
+  prev.classList.remove("img-in");
+  if (previewMotionOK()) prev.classList.add("img-wait");
+  prev.onload = () => {
+    prev.classList.remove("img-wait");
+    if (previewMotionOK()) { void prev.offsetWidth; prev.classList.add("img-in"); }
+  };
+  prev.onerror = () => prev.classList.remove("img-wait");
+  prev.src = src;
+}
 /* Take a user-supplied photo into the editor spec. A phone photo is often
    3-5 MB, and spec.image is persisted verbatim into state.json AND into
    every saved batch snapshot — so it is bounded here, at the one point it
@@ -1165,7 +1555,7 @@ function refreshImageDrop() {
   if (!prev) return;
   if (App.spec.image) {
     const src = /^https?:\/\//.test(App.spec.image) ? `/api/img?u=${encodeURIComponent(App.spec.image)}` : App.spec.image;
-    prev.src = src;
+    showThumb(prev, src);
     prev.style.display = "";
     clear.style.display = "";
     note.innerHTML = App.spec._customImage ? "Using your custom photo." : "Photo from acehardware.com.<br>Click to replace, or drag a new one here.";
@@ -1175,11 +1565,18 @@ function refreshImageDrop() {
     note.innerHTML = "Auto-fetched on SKU lookup.<br>Click to use your own photo, or drag one here.";
   }
 }
-function switchTypeKeepingSpec(newType) {
+/* Same screen, different sign style (arrow direction, the lookup's switch
+   to a Sale sign): the page stays put and keeps its place and focus; only
+   the title, the preview and any new fields move. */
+function switchTypeKeepingSpec(newType, opts) {
+  const o = opts || {};
   const keep = App.spec;
-  showEditor(newType);
+  const refocus = captureEditorFocus();
+  showEditor(newType, { keepPlace: true });
   App.spec = Object.assign(App.spec, keep);
   buildEditorFields(typeById(newType));
+  restoreEditorFocus(refocus);
+  if (o.fromLookup) App._lookupGlide = performance.now();
   schedulePreview();
   EditorHistory.reset();
 }
@@ -1308,7 +1705,8 @@ function buildProductCard(t, p, i) {
     head.appendChild(rm);
   }
   const fold = el("button", "btn btn-ghost btn-sm mp-fold", "");
-  fold.onclick = () => setCardFolded(card, p, !card.classList.contains("folded"));
+  fold.onclick = () => { markUnfolding(card); setCardFolded(card, p, !card.classList.contains("folded")); };
+  summary.onclick = () => { markUnfolding(card); setCardFolded(card, p, false); };
   head.appendChild(fold);
   card.appendChild(head);
   card.appendChild(summary);
@@ -1328,6 +1726,42 @@ function buildProductCard(t, p, i) {
   if (extrasBody.childNodes.length) card.appendChild(extras);
   setCardFolded(card, p, _mpFold.has(p) ? _mpFold.get(p) : productFilled(p));
   return card;
+}
+
+/* Folding or unfolding a product card by a click eases its fields (or its
+   one-line summary) in; a rebuild that arrives already open or already
+   folded never animates, since it carries no .unfolding class. */
+function markUnfolding(card) {
+  if (!previewMotionOK()) return;
+  card.classList.add("unfolding");
+  setTimeout(() => card.classList.remove("unfolding"), 260);
+}
+
+/* ▲▼ and drag-to-swap: the cards glide to their new places instead of
+   jumping, and the moved one gets a brief ring. Keyed on the product
+   objects, which keep their identity through the reorder. */
+function rebuildProductsFlip(t, mutate, focusSel) {
+  const products = App.spec.products;
+  const old = new Map();
+  if (previewMotionOK()) {
+    for (const c of $$("#multiProducts .mp-card")) {
+      const p = products[+c.dataset.product];
+      if (p) old.set(p, c.getBoundingClientRect().top);
+    }
+  }
+  mutate();
+  buildEditorFields(t);
+  for (const c of $$("#multiProducts .mp-card")) {
+    const top0 = old.get(products[+c.dataset.product]);
+    if (top0 == null) continue;
+    const dy = top0 - c.getBoundingClientRect().top;
+    if (Math.abs(dy) < 1) continue;
+    c.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(.22,.8,.24,1)" });
+    c.classList.add("just-moved");
+    c.addEventListener("animationend", (e) => { if (e.target === c) c.classList.remove("just-moved"); });
+  }
+  // keyboard users can press the same arrow again
+  if (focusSel) { const f = $(focusSel); if (f && !f.disabled) f.focus({ preventScroll: true }); }
 }
 
 function rebuildProductCard(t, p, i) {
@@ -1366,19 +1800,22 @@ function applyLookupToProduct(p, res, si) {
 function moveProduct(t, from, to) {
   const products = App.spec.products;
   if (to < 0 || to >= products.length || from === to) return;
-  const [p] = products.splice(from, 1);
-  products.splice(to, 0, p);
-  buildEditorFields(t);
+  const ae = document.activeElement;
+  const wasFocused = ae && ae.classList && ae.classList.contains("mp-move");
+  const dir = to < from ? ".mp-up" : ".mp-down";
+  rebuildProductsFlip(t, () => {
+    const [p] = products.splice(from, 1);
+    products.splice(to, 0, p);
+  }, wasFocused ? `#multiProducts .mp-card[data-product="${to}"] ${dir}` : null);
   schedulePreview();
 }
 
 function swapProducts(t, i, j) {
   const products = App.spec.products;
   if (i === j || !products[i] || !products[j]) return;
-  [products[i], products[j]] = [products[j], products[i]];
-  buildEditorFields(t);
+  rebuildProductsFlip(t, () => { [products[i], products[j]] = [products[j], products[i]]; });
   schedulePreview();
-  showToast(`Swapped products ${i + 1} and ${j + 1}.`);
+  showToast(`Swapped products ${i + 1} and ${j + 1}.`, { kind: "ok" });
 }
 
 /* Paste-to-fill: SKUs from the box (one per line; the same detection as
@@ -1407,6 +1844,7 @@ async function fillProductsFromSkus(t, text, status, btn) {
   btn.disabled = true;
   status.className = "lookup-status busy";
   status.innerHTML = `<span class="spin"></span> Looking up ${work.length} SKU${work.length === 1 ? "" : "s"}…`;
+  lookupBusy(1);
   const failed = [];
   let done = 0;
   const queue = work.slice();
@@ -1422,10 +1860,20 @@ async function fillProductsFromSkus(t, text, status, btn) {
     status.innerHTML = `<span class="spin"></span> Looking up ${++done}/${work.length}…`;
     await runOne();
   };
-  await Promise.all(Array.from({ length: Math.min(3, work.length) }, runOne));
+  try { await Promise.all(Array.from({ length: Math.min(3, work.length) }, runOne)); }
+  finally { lookupBusy(-1); }
   _mpPasteOpen = failed.length > 0 || extra > 0; // keep the box open when there's something to read
   buildEditorFields(t);
+  App._lookupGlide = performance.now();
   schedulePreview();
+  // each filled card glows green, one after another
+  if (previewMotionOK()) {
+    work.forEach((w, k) => {
+      if (failed.includes(w.sku)) return;
+      const c = $(`#multiProducts .mp-card[data-product="${slots[k]}"]`);
+      if (c) setTimeout(() => flashCard(c), Math.min(k, 7) * 60);
+    });
+  }
   const st = $("#mpPasteStatus");
   const filled = work.length - failed.length;
   if (st) {
@@ -1437,7 +1885,16 @@ async function fillProductsFromSkus(t, text, status, btn) {
     const ta = $("#mpPasteSkus");
     if (ta) ta.value = failed.join("\n");
   }
-  showToast(`Filled ${filled} product${filled === 1 ? "" : "s"} from SKUs${failed.length ? ` — ${failed.length} not found` : ""}.`);
+  showToast(`Filled ${filled} product${filled === 1 ? "" : "s"} from SKUs${failed.length ? ` — ${failed.length} not found` : ""}.`, { kind: failed.length ? "warn" : "ok" });
+}
+
+/* A product card that a lookup just filled glows green for a moment. */
+function flashCard(c) {
+  if (!c || !c.isConnected || !previewMotionOK()) return;
+  c.classList.remove("mp-filled");
+  void c.offsetWidth;
+  c.classList.add("mp-filled");
+  setTimeout(() => c.classList.remove("mp-filled"), 420);
 }
 
 function refreshProductImage(host, spec) {
@@ -1445,7 +1902,7 @@ function refreshProductImage(host, spec) {
   if (!drop) return;
   const prev = drop.querySelector("img"), note = drop.querySelector(".img-note"), clear = drop.querySelector(".img-clear");
   if (spec.image) {
-    prev.src = /^https?:\/\//.test(spec.image) ? `/api/img?u=${encodeURIComponent(spec.image)}` : spec.image;
+    showThumb(prev, /^https?:\/\//.test(spec.image) ? `/api/img?u=${encodeURIComponent(spec.image)}` : spec.image);
     prev.style.display = "";
     clear.style.display = "";
     note.innerHTML = spec._customImage ? "Using your custom photo." : "Photo from acehardware.com.<br>Click to replace, or drag a new one here.";
@@ -1487,6 +1944,7 @@ function buildProductField(t, p, i, st, f, destOuter, card) {
     const status = el("div", "lookup-status");
     inp.addEventListener("input", () => { spec.sku = inp.value.trim(); });
     attachAutoLookup(inp, status, (res, si) => {
+      const before = snapFields(card);
       const switched = applyLookupToProduct(p, res, si);
       // reflect what the lookup filled in without rebuilding the card
       for (const k of ["name", "price", "regPrice"]) {
@@ -1498,17 +1956,24 @@ function buildProductField(t, p, i, st, f, destOuter, card) {
         const x = card.querySelector(`[data-field="${k}"]`);
         if (x) x.value = spec[k];
       }
+      let fresh = null;
       if (switched) {
-        const fresh = rebuildProductCard(t, p, i);
+        fresh = rebuildProductCard(t, p, i);
         const s2 = fresh.querySelector(".lookup-status");
         if (s2) {
           s2.className = "lookup-status ok";
-          s2.innerHTML = `✓ ${esc(res.name || res.sku)} <span class="sale-flag">On Sale</span> — switched to a Sale style <span class="diag-link" onclick="showDiagnostics()">details</span>`;
+          s2.innerHTML = `<span class="lk-ico">✓</span> ${esc(res.name || res.sku)} <span class="sale-flag">On Sale</span> — switched to a Sale style <button type="button" class="diag-link" onclick="showDiagnostics()">details</button>`;
         }
+        const s3 = fresh.querySelector('[data-field="sku"]');
+        if (s3) s3.dataset.lookup = "ok";
       }
+      App._lookupGlide = performance.now();
       schedulePreview();
+      const c = fresh || card;
+      flashFilled(c, before);
+      flashCard(c);
     });
-    dest.appendChild(inp);
+    dest.appendChild(skuWrap(inp));
     dest.appendChild(status);
     return;
   }
@@ -1543,6 +2008,7 @@ function buildProductField(t, p, i, st, f, destOuter, card) {
       const fl = e.dataTransfer.files && e.dataTransfer.files[0];
       if (fl && /^image\//.test(fl.type)) accept(fl);
     });
+    wireDropZone(drop, file);
     drop.querySelector(".img-clear").onclick = () => { spec.image = null; spec._customImage = false; refreshProductImage(drop, spec); schedulePreview(); };
     dest.appendChild(drop);
     refreshProductImage(drop, spec);
@@ -1619,8 +2085,60 @@ function buildProductField(t, p, i, st, f, destOuter, card) {
 function showMsg(id, cls, text) {
   const m = $("#" + id);
   if (!m) return;
+  m.className = "msg";
+  void m.offsetWidth; // replay the rise-in, so a second "Added…" is noticed too
   m.className = `msg show ${cls}`;
   m.textContent = text;
+  if (cls === "busy") m.insertBefore(el("span", "spin"), m.firstChild);
+}
+
+/* "It worked" on a button: one ring spreads out from it. */
+function pulseDone(btn, cls) {
+  const c = cls || "did-ok";
+  if (!btn || !previewMotionOK()) return;
+  btn.classList.remove(c);
+  void btn.offsetWidth;
+  btn.classList.add(c);
+  setTimeout(() => btn.classList.remove(c), 320);
+}
+
+/* Add to Queue: a small copy of the sign glides into the queue count,
+   which bumps as it lands. Decoration only — the sign is already queued,
+   and the copy never takes clicks. */
+let _bumpAt = 0; // while a sign is flying in, the badge bumps when it lands
+function flyToQueue() {
+  if (!previewMotionOK()) return; // WAAPI ignores the CSS reduce-motion rule
+  const src = $("#signHolder svg"), dst = $("#queueCount");
+  if (!src || !dst) return;
+  const a = src.getBoundingClientRect(), b = dst.getBoundingClientRect();
+  if (!a.width || !b.width || a.bottom < 0 || a.top > innerHeight) return;
+  const c = src.cloneNode(true);
+  c.removeAttribute("id");
+  for (const n of c.querySelectorAll("*")) {
+    n.removeAttribute("id");
+    for (const at of [...n.attributes]) if (at.name.startsWith("data-")) n.removeAttribute(at.name);
+  }
+  const ghost = el("div", "fly-ghost");
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.appendChild(c);
+  Object.assign(ghost.style, { left: a.left + "px", top: a.top + "px", width: a.width + "px", height: a.height + "px" });
+  document.body.appendChild(ghost);
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  const s = Math.max(0.04, 26 / Math.max(a.width, a.height));
+  _bumpAt = performance.now() + 300;
+  const land = () => {
+    if (!ghost.isConnected) return;
+    ghost.remove();
+    const q = $("#queueCount");
+    if (q) { q.classList.remove("bump"); void q.offsetWidth; q.classList.add("bump"); }
+  };
+  const anim = ghost.animate([
+    { transform: "none", opacity: 0.95 },
+    { transform: `translate(${dx}px,${dy}px) scale(${s})`, opacity: 0.3 },
+  ], { duration: 300, easing: "cubic-bezier(.22,.8,.24,1)" });
+  anim.onfinish = land;
+  anim.oncancel = () => ghost.remove();
+  setTimeout(land, 450); // safety net: never leave a copy behind
 }
 
 /* live preview
@@ -1710,12 +2228,14 @@ function glideParts(svg, before) {
     const was = before.get(key);
     const now = g.getBoundingClientRect();
     if (!now.width || !now.height) continue;
-    // a brand-new part (just switched on) fades in instead
+    // a brand-new part (just switched on, or a photo a lookup brought)
+    // fades in instead; the photo also grows in slightly
     if (!was) {
       if (before.size) {
-        g.style.opacity = "0";
-        g.style.transition = `opacity ${PREVIEW_GLIDE_MS}ms ease-out`;
-        requestAnimationFrame(() => { g.style.opacity = ""; });
+        const photo = /^(p\d+:)?eimage$/.test(key);
+        if (photo) { g.style.transformBox = "fill-box"; g.style.transformOrigin = "50% 50%"; }
+        g.animate(photo ? [{ opacity: 0, transform: "scale(.94)" }, { opacity: 1, transform: "none" }] : [{ opacity: 0 }, { opacity: 1 }],
+          { duration: photo ? 260 : PREVIEW_GLIDE_MS, easing: "cubic-bezier(.22,.8,.24,1)" });
       }
       continue;
     }
@@ -1766,16 +2286,25 @@ function setPreviewSVG(svg, size) {
   const availH = Math.max(260, (stacked ? window.innerHeight * 0.55 : window.innerHeight - 56 - 36) - chrome - 28);
   const scale = Math.min(availW / (size.w * PPI), availH / (size.h * PPI), 1.6);
   const markup = svg.replace(/^<svg /, `<svg style="width:${size.w * PPI * scale}px;height:${size.h * PPI * scale}px" `);
+  // one-shot flags: a fresh start / queued sign cross-fades; a SKU lookup
+  // that just landed glides even though the SKU box still has focus. Read
+  // and cleared before the "nothing changed" check, so a flag whose redraw
+  // turned out identical never leaks onto a later, unrelated redraw.
+  const fade = !!App._crossfadeNext;
+  App._crossfadeNext = false;
+  const lookupFill = !!App._lookupGlide && performance.now() - App._lookupGlide < 4000;
+  App._lookupGlide = 0;
   if (markup === holder._markup && holder.firstElementChild) return; // nothing changed
   // Glide parts to their new size when the same sign is redrawn at the
   // same size — but not while typing (text reflows on every key) or while
   // a picture/text box is being dragged (it already follows the pointer).
   const oldSvg = holder.querySelector("svg");
+  const oldRect = oldSvg ? oldSvg.getBoundingClientRect() : null;
   const sameSign = oldSvg && holder._signKey === App.typeId + "|" + App.sizeId &&
-    Math.abs(oldSvg.getBoundingClientRect().width - size.w * PPI * scale) < 1;
+    Math.abs(oldRect.width - size.w * PPI * scale) < 1;
   const act = document.activeElement;
   const typing = act && (act.tagName === "TEXTAREA" || (act.tagName === "INPUT" && !/^(range|checkbox|radio|button|color|file)$/.test(act.type)));
-  const glide = sameSign && !typing && !App._extraDragging && previewMotionOK();
+  const glide = sameSign && !fade && (!typing || lookupFill) && !App._extraDragging && previewMotionOK();
   const before = glide ? measureParts(oldSvg) : null;
   stopGlides();
   holder.innerHTML = markup;
@@ -1783,11 +2312,14 @@ function setPreviewSVG(svg, size) {
   const newSign = holder._signKey !== App.typeId + "|" + App.sizeId;
   holder._signKey = App.typeId + "|" + App.sizeId;
   if (before && before.size) glideParts(holder.querySelector("svg"), before);
-  else if (newSign && oldSvg && previewMotionOK()) {
-    // a different sign type or size: a quick fade instead of a hard cut
-    holder.classList.remove("swap-in");
+  else if ((newSign || fade) && oldSvg && oldRect.width && previewMotionOK()) crossfadePreview(holder, oldSvg, oldRect);
+  else if (!oldSvg) flyThumbIntoPreview(holder);
+  if (lookupFill && oldSvg && previewMotionOK()) {
+    // the sign just filled itself in: one soft ring spreads from it
+    holder.classList.remove("lk-landed");
     void holder.offsetWidth;
-    holder.classList.add("swap-in");
+    holder.classList.add("lk-landed");
+    setTimeout(() => holder.classList.remove("lk-landed"), 340);
   }
   attachPreviewDrag(holder);
   const meta = $("#previewMeta");
@@ -1801,6 +2333,61 @@ function setPreviewSVG(svg, size) {
     }
     meta.textContent = txt;
   }
+}
+
+/* Different sign, size or a fresh start: the old drawing stays where it
+   was and fades out over the new one, so the preview never blanks or
+   jumps in height. Preview only: never printed. */
+function crossfadePreview(holder, oldSvg, oldRect) {
+  const stage = holder.parentElement;
+  stage.querySelectorAll(".preview-ghost").forEach((g) => g.remove());
+  const sr = stage.getBoundingClientRect();
+  const layer = el("div", "preview-ghost");
+  layer.setAttribute("aria-hidden", "true");
+  const sheet = el("div", "preview-ghost-sign");
+  sheet.style.left = (oldRect.left - sr.left + stage.scrollLeft) + "px";
+  sheet.style.top = (oldRect.top - sr.top + stage.scrollTop) + "px";
+  sheet.appendChild(oldSvg);
+  layer.appendChild(sheet);
+  stage.appendChild(layer); // after #signHolder: its clip-path ids never shadow the new sign's
+  // The old sign leaves first (quick, easing in, shrinking a touch) and the
+  // new one comes in just behind it, so two readable layouts barely
+  // overlap: the eye reads "old out, new in", not one double exposure.
+  const out = sheet.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.985)" }], { duration: 100, easing: "ease-in", fill: "forwards" });
+  out.onfinish = out.oncancel = () => layer.remove();
+  setTimeout(() => layer.remove(), 400);
+  holder.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3, easing: "cubic-bezier(.22,.8,.24,1)" }, { opacity: 1 }], { duration: 200 });
+}
+
+/* Gallery -> editor: the picked card's sample flies onto the preview spot
+   and hands over to the real sign. An overlay only (no pointer events). */
+function flyThumbIntoPreview(holder) {
+  const f = App._flyer;
+  App._flyer = null;
+  if (!f || performance.now() - f.at > 800 || !previewMotionOK()) return;
+  const to = holder.getBoundingClientRect();
+  if (!to.width || !to.height) return;
+  const fly = el("div", "thumb-flyer");
+  fly.setAttribute("aria-hidden", "true");
+  fly.innerHTML = f.html;
+  Object.assign(fly.style, { left: f.from.left + "px", top: f.from.top + "px", width: f.from.width + "px", height: f.from.height + "px" });
+  document.body.appendChild(fly);
+  // The sample shows the template product, which the new sign does not
+  // have: its drawing fades out early in the flight, so what lands on the
+  // preview is a plain sheet that dissolves into the real (empty) sign.
+  const ink = fly.firstElementChild;
+  if (ink) ink.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 70, easing: "cubic-bezier(.22,.8,.24,1)", fill: "forwards" });
+  const s = Math.min(to.width / f.from.width, to.height / f.from.height);
+  const dx = to.left + (to.width - f.from.width * s) / 2 - f.from.left;
+  const dy = to.top + (to.height - f.from.height * s) / 2 - f.from.top;
+  const a = fly.animate([
+    { transform: "none", opacity: 1 },
+    { opacity: 1, offset: 0.55 },
+    { transform: `translate(${dx}px,${dy}px) scale(${s})`, opacity: 0 },
+  ], { duration: 240, easing: "cubic-bezier(.22,.8,.24,1)", fill: "forwards" });
+  a.onfinish = a.oncancel = () => fly.remove();
+  setTimeout(() => fly.remove(), 600);
+  holder.animate([{ opacity: 0 }, { opacity: 0, offset: 0.35 }, { opacity: 1 }], { duration: 240, easing: "ease-out" });
 }
 
 /* ---------------- drag-to-resize in the preview ----------------
@@ -1886,9 +2473,16 @@ function openInlineEdit(textEl) {
   inp.focus();
   inp.select();
   if (tgt.input) {
+    // point to the form field: a short neutral flash, timed to land once
+    // the smooth scroll has brought it into view
+    const r = tgt.input.getBoundingClientRect();
+    const onScreen = r.top >= 0 && r.bottom <= window.innerHeight;
     tgt.input.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    tgt.input.classList.add("field-flash");
-    setTimeout(() => tgt.input.classList.remove("field-flash"), 1400);
+    const input = tgt.input;
+    let fired = false;
+    const go = () => { if (!fired) { fired = true; flashEls([input], "neutral"); } };
+    if (onScreen) go();
+    else setTimeout(go, 320);
   }
 }
 
@@ -2032,7 +2626,7 @@ function attachPreviewDrag(holder) {
       g.insertBefore(tip, g.firstChild);
     }
     g.addEventListener("pointerenter", () => { if (!_elemDrag) showDragHint(svg, g, d.label); });
-    g.addEventListener("pointerleave", () => hideDragHint());
+    g.addEventListener("pointerleave", () => { if (!_elemDrag) hideDragHint(); });
     g.addEventListener("pointerdown", (e) => startElemDrag(e, d));
   }
   // mid-drag re-render: keep the hint on the (new) group being dragged
@@ -2059,6 +2653,9 @@ function showDragHint(svg, g, label) {
     r.setAttribute("stroke-width", "1.6");
     r.setAttribute("stroke-dasharray", "6 4");
     r.setAttribute("pointer-events", "none");
+    // eases in on hover; solid with a faint tint while dragging (no replay
+    // on the redraws a drag causes)
+    r.setAttribute("class", "drag-hint " + (_elemDrag ? "live" : "enter"));
     svg.appendChild(r);
     _dragHintEl = r;
   } catch (e) { /* getBBox on a detached/empty group — no hint */ }
@@ -2072,9 +2669,15 @@ function startElemDrag(e, d) {
   e.preventDefault();
   if (!App.spec.scale) App.spec.scale = {};
   _elemDrag = { key: d.key, label: d.label, startY: e.clientY, start: App.spec.scale[d.key] || 1 };
+  document.body.classList.add("elem-dragging");
+  if (_dragHintEl) _dragHintEl.setAttribute("class", "drag-hint live");
   const badge = el("div", "drag-badge");
   const place = (ev) => {
-    badge.textContent = `${d.label} ${Math.round((App.spec.scale[d.key] || 1) * 100)}%`;
+    const v = App.spec.scale[d.key] || 1;
+    // at the limit the badge says why the part stopped growing
+    const lim = v >= SCALE_MAX ? " (max)" : v <= SCALE_MIN ? " (min)" : "";
+    badge.textContent = `${d.label} ${Math.round(v * 100)}%${lim}`;
+    badge.classList.toggle("at-limit", !!lim);
     badge.style.left = ev.clientX + 14 + "px";
     badge.style.top = ev.clientY - 10 + "px";
   };
@@ -2101,6 +2704,7 @@ function startElemDrag(e, d) {
     _swallowClick = !!_elemDrag.moved;
     setTimeout(() => { _swallowClick = false; }, 0);
     _elemDrag = null;
+    document.body.classList.remove("elem-dragging");
     badge.remove();
     hideDragHint();
   };
@@ -2234,6 +2838,10 @@ function selectedQueueItems() {
    rebuild, then let each kept row glide from its old spot. Rows that
    weren't there before slide in. */
 let _queueKnown = null; // uids drawn last time (null = first draw: no slide-ins)
+const _qFlash = new Set(); // uids to flash green once on the next rail draw ("it worked")
+let _qPrev = new Map();    // uid -> {copies, badge} as last drawn (pops only what changed)
+let _lastEditUid = null;   // the ring tightens onto a row only when editing starts
+let _dragFrom = -1;        // row index being dragged, for the drop line's side
 function queueRowRects(host) {
   const m = new Map();
   for (const r of host.querySelectorAll(".q-item[data-uid]")) m.set(r.dataset.uid, r.getBoundingClientRect().top);
@@ -2242,7 +2850,14 @@ function queueRowRects(host) {
 function animateQueueRows(host, before) {
   const known = _queueKnown;
   _queueKnown = new Set(Queue.items.map((q) => q.uid));
-  if (!previewMotionOK()) return;
+  const motion = previewMotionOK();
+  // a sign added below the fold of the rail scrolls into view, so staff
+  // see it arrive (smoothly; instantly with motion off)
+  if (known) {
+    const firstNew = [...host.querySelectorAll(".q-item[data-uid]")].find((r) => !known.has(r.dataset.uid));
+    if (firstNew) firstNew.scrollIntoView({ block: "nearest", behavior: motion ? "smooth" : "auto" });
+  }
+  if (!motion) return;
   for (const r of host.querySelectorAll(".q-item[data-uid]")) {
     const uid = r.dataset.uid;
     if (known && !known.has(uid)) { r.classList.add("q-new"); continue; }
@@ -2265,7 +2880,8 @@ function renderQueue() {
   const count = $("#queueCount");
   const before = queueRowRects(host);
   const total = String(Queue.totalSigns());
-  if (count.textContent !== total && _queueKnown && previewMotionOK()) {
+  // (a sign flying in from Add to Queue bumps the badge when it lands)
+  if (count.textContent !== total && _queueKnown && previewMotionOK() && performance.now() > _bumpAt) {
     count.classList.remove("bump");
     void count.offsetWidth;
     count.classList.add("bump");
@@ -2276,6 +2892,9 @@ function renderQueue() {
   if (!Queue.items.length) {
     _queueSeq++; // cancel any in-flight thumbnail pass for the old contents
     _queueKnown = new Set();
+    _qFlash.clear();
+    _qPrev = new Map();
+    _lastEditUid = null;
     host.innerHTML = `<div class="queue-empty">Queue is empty.<br>Build a sign and hit <b>＋ Add to Queue</b> — mix any types and sizes, then print them all at once.</div>`;
     $("#sheetPreviews").innerHTML = "";
     $("#queueStats").textContent = "";
@@ -2291,9 +2910,16 @@ function renderQueue() {
   for (const q of Queue.items) {
     for (const sku of itemSkus(q)) dupCounts[`${sku}|${q.sizeId}`] = (dupCounts[`${sku}|${q.sizeId}`] || 0) + 1;
   }
+  const motion = previewMotionOK();
+  const next = new Map();
+  const editStart = !!App.editingUid && App.editingUid !== _lastEditUid && motion;
+  _lastEditUid = App.editingUid;
   Queue.items.forEach((q, idx) => {
     const item = el("div", "q-item" + (q.uid === App.editingUid ? " editing" : ""));
     item.dataset.uid = q.uid;
+    if (_qFlash.has(q.uid) && _queueKnown && motion) item.classList.add("q-flash");
+    if (editStart && q.uid === App.editingUid) item.classList.add("q-edit-in");
+    const prev = _qPrev.get(q.uid);
     item.title = "Click to edit this sign";
     const main = el("div", "q-main");
     const thumb = el("div", "q-thumb");
@@ -2317,9 +2943,22 @@ function renderQueue() {
       // than silently skipping the badge on the stalest signs of all
       badge = ["q-stale", "price unchecked"];
     }
-    if (badge) sub.appendChild(el("span", badge[0], badge[1]));
+    if (badge) {
+      const bEl = el("span", badge[0], badge[1]);
+      if (motion && prev && prev.badge !== badge[1]) bEl.classList.add("badge-in"); // a new warning pops in once
+      sub.appendChild(bEl);
+    }
+    next.set(q.uid, { copies: q.copies || 1, badge: badge ? badge[1] : "" });
     info.appendChild(sub);
     main.onclick = () => startEditQueueItem(q.uid);
+    // keyboard: Tab reaches each row's edit area, Enter/Space opens it
+    main.tabIndex = 0;
+    main.setAttribute("aria-label", "Edit " + queueItemTitle(q));
+    main.onkeydown = (e) => {
+      if (e.target !== main || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
+      startEditQueueItem(q.uid);
+    };
 
     // One ⋯ menu instead of five icon buttons per row — eight interactive
     // targets per sign read as noise and the glyphs needed tooltips to
@@ -2348,22 +2987,36 @@ function renderQueue() {
     item.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/x-queue-uid", q.uid);
       e.dataTransfer.effectAllowed = "move";
-      item.classList.add("dragging");
+      _dragFrom = idx;
+      // after the browser takes its drag picture, so the picture stays solid
+      requestAnimationFrame(() => item.classList.add("dragging"));
     });
-    item.addEventListener("dragend", () => item.classList.remove("dragging"));
+    item.addEventListener("dragend", () => {
+      _dragFrom = -1;
+      item.classList.remove("dragging");
+      host.querySelectorAll(".drag-over").forEach((r) => r.classList.remove("drag-over", "drag-below"));
+    });
     item.addEventListener("dragover", (e) => {
       if (![...e.dataTransfer.types].includes("text/x-queue-uid")) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
+      if (_dragFrom === idx) return; // over itself: no line
       item.classList.add("drag-over");
+      // a downward drag lands AFTER the target row, an upward one BEFORE it
+      item.classList.toggle("drag-below", _dragFrom > -1 && _dragFrom < idx);
     });
-    item.addEventListener("dragleave", () => item.classList.remove("drag-over"));
+    item.addEventListener("dragleave", (e) => {
+      if (item.contains(e.relatedTarget)) return; // onto a child, not leaving
+      item.classList.remove("drag-over", "drag-below");
+    });
     item.addEventListener("drop", (e) => {
       const uid = e.dataTransfer.getData("text/x-queue-uid");
-      item.classList.remove("drag-over");
+      item.classList.remove("drag-over", "drag-below");
       if (!uid || uid === q.uid) return;
       e.preventDefault();
+      _qFlash.add(uid);
       Queue.moveTo(uid, idx);
+      _qFlash.clear();
     });
 
     const copies = el("div", "q-copy-row");
@@ -2374,6 +3027,7 @@ function renderQueue() {
     minus.disabled = (q.copies || 1) <= 1;
     minus.onclick = () => Queue.setCopies(q.uid, (q.copies || 1) - 1);
     const n = el("b", "q-copies", `×${q.copies || 1}`);
+    if (motion && prev && prev.copies !== (q.copies || 1)) n.classList.add("bump"); // the click visibly took
     const plus = el("button", "q-step", "＋");
     plus.title = "One more copy";
     plus.onclick = () => Queue.setCopies(q.uid, (q.copies || 1) + 1);
@@ -2383,6 +3037,7 @@ function renderQueue() {
     item.appendChild(copies);
     host.appendChild(item);
   });
+  _qPrev = next;
   animateQueueRows(host, before);
   updateQueueButtons();
   scheduleQueueVisuals(); // thumbnails + sheet previews, batched to one pass
@@ -2419,7 +3074,10 @@ function clearQueueWithUndo() {
   showToast(`Queue cleared — ${n} sign${n === 1 ? "" : "s"}.`, { undo: () => Queue.replaceAll(snap.concat(Queue.items)) });
 }
 
-/* ---------------- toasts ---------------- */
+/* ---------------- toasts ----------------
+   opts: undo (adds an Undo button), ms (how long it stays), kind ("ok"
+   or "warn": a small green ✓ / amber ! badge). A pointer resting on a
+   toast keeps it up; Undo confirms with "↶ Undone". */
 let _toastTimer = null;
 function showToast(text, opts) {
   const o = opts || {};
@@ -2427,7 +3085,7 @@ function showToast(text, opts) {
   if (!host) return;
   clearTimeout(_toastTimer);
   host.innerHTML = "";
-  const t = el("div", "toast");
+  const t = el("div", "toast" + (o.kind && !o.undo ? " " + o.kind : ""));
   t.appendChild(el("span", "toast-text", text));
   // slide away, then remove (instantly when motion is turned off)
   const dismiss = () => {
@@ -2436,17 +3094,29 @@ function showToast(text, opts) {
     t.classList.add("leaving");
     setTimeout(() => t.remove(), previewMotionOK() ? 170 : 0);
   };
+  const arm = (ms) => { clearTimeout(_toastTimer); _toastTimer = setTimeout(dismiss, ms); };
   if (o.undo) {
     const u = el("button", "toast-undo", "Undo");
-    u.onclick = () => { clearTimeout(_toastTimer); t.remove(); o.undo(); };
+    u.onclick = () => {
+      u.remove(); // one undo per toast, even if undo() throws
+      arm(1500);
+      o.undo();
+      if (!t.isConnected) return; // undo() put up its own message
+      t.querySelector(".toast-text").textContent = "↶ Undone";
+      t.classList.add("undone");
+    };
     t.appendChild(u);
   }
   const x = el("button", "toast-close", "✕");
   x.title = "Dismiss";
   x.onclick = dismiss;
   t.appendChild(x);
+  // a pointer resting on the toast keeps it up; moving off gives a short grace period
+  const held = () => t.isConnected && !t.classList.contains("leaving") && !t.classList.contains("undone");
+  t.addEventListener("mouseenter", () => { if (held()) clearTimeout(_toastTimer); });
+  t.addEventListener("mouseleave", () => { if (held()) arm(2500); });
   host.appendChild(t);
-  _toastTimer = setTimeout(dismiss, o.ms || (o.undo ? 10000 : 5000));
+  arm(o.ms || (o.undo ? 10000 : 5000));
 }
 
 /* ---------------- price refresh ---------------- */
@@ -2503,12 +3173,18 @@ async function refreshQueuePrices() {
   const orig = btn.textContent;
   _refreshingPrices = true;
   btn.disabled = true;
+  // the button fills like a progress bar; each row dims while it's checked
+  btn.classList.add("busy");
+  btn.setAttribute("aria-busy", "true");
+  let fin = 0;
   let done = 0, changed = 0, failed = 0;
   const work = targets.slice();
   const runOne = async () => {
     const q = work.shift();
     if (!q) return;
     btn.textContent = `↻ ${++done}/${targets.length}`;
+    const row = document.querySelector(`.q-item[data-uid="${CSS.escape(q.uid)}"]`);
+    if (row) row.classList.add("q-checking");
     try {
       // one lookup per unit — a multi sign refreshes each of its products
       let gotData = false, moved = false;
@@ -2520,21 +3196,27 @@ async function refreshQueuePrices() {
       if (!gotData) failed++;
       else {
         Queue._bumpRev(q); // spec mutated in place — drop its cached SVG
-        if (moved) changed++;
+        if (moved) { changed++; _qFlash.add(q.uid); }
       }
     } catch (e) { failed++; }
+    if (row) row.classList.remove("q-checking");
+    btn.style.setProperty("--p", (++fin / targets.length * 100) + "%");
     await runOne();
   };
   await Promise.all(Array.from({ length: Math.min(4, targets.length) }, runOne));
   btn.textContent = orig;
+  btn.classList.remove("busy");
+  btn.removeAttribute("aria-busy");
+  btn.style.removeProperty("--p");
   _refreshingPrices = false;
   persistState();
-  renderQueue();
+  renderQueue(); // the rows whose price changed flash green once
+  _qFlash.clear();
   const okCount = targets.length - failed;
   let msg = `Refreshed ${okCount} sign${okCount === 1 ? "" : "s"} — ${changed} price change${changed === 1 ? "" : "s"}`;
   if (manual) msg += `, ${manual} sign${manual === 1 ? "" : "s"} left untouched`;
   if (failed) msg += `, ${failed} without price data (unchanged)`;
-  showToast(msg + ".");
+  showToast(msg + ".", { kind: failed ? "warn" : "ok" });
 }
 
 /* ---------------- batch pick menu ----------------
@@ -2545,6 +3227,7 @@ async function refreshQueuePrices() {
 function showQueueItemMenu(anchor, q, idx) {
   closeBatchPickMenu();
   const menu = el("div", "pick-menu");
+  markMenuAnchor(menu, anchor);
   const item = (label, fn, disabled) => {
     const b = el("button", "pick-item", label);
     b.disabled = !!disabled;
@@ -2557,7 +3240,7 @@ function showQueueItemMenu(anchor, q, idx) {
       const ok = Batches.addItems(name, [q]);
       showToast(ok
         ? `Added “${queueItemTitle(q)}” to batch “${name}”.`
-        : `Batch “${name}” no longer exists.`);
+        : `Batch “${name}” no longer exists.`, { kind: ok ? "ok" : "warn" });
     });
   });
   item("▲ Move up", () => Queue.move(q.uid, -1), idx === 0);
@@ -2575,13 +3258,26 @@ function showQueueItemMenu(anchor, q, idx) {
 }
 
 let _pickMenuEl = null;
+/* The button that opened a menu keeps a pressed look while it's open. */
+function markMenuAnchor(menu, anchor) {
+  if (!anchor || !anchor.classList) return;
+  menu._anchor = anchor;
+  anchor.classList.add("menu-open");
+  anchor.setAttribute("aria-expanded", "true");
+}
 function closeBatchPickMenu() {
-  if (_pickMenuEl) { try { _pickMenuEl.remove(); } catch (e) {} _pickMenuEl = null; }
+  if (_pickMenuEl) {
+    const a = _pickMenuEl._anchor;
+    if (a) { a.classList.remove("menu-open"); a.setAttribute("aria-expanded", "false"); }
+    try { _pickMenuEl.remove(); } catch (e) {}
+    _pickMenuEl = null;
+  }
 }
 function showBatchPickMenu(anchor, onPick) {
   closeBatchPickMenu();
   const names = Batches.names();
   const menu = el("div", "pick-menu");
+  markMenuAnchor(menu, anchor);
   menu.appendChild(el("div", "pick-head", "Add to batch"));
   if (!names.length) {
     menu.appendChild(el("div", "pick-empty", "No saved batches yet — use Batches → Save first."));
@@ -2600,6 +3296,25 @@ function showBatchPickMenu(anchor, onPick) {
   setTimeout(() => document.addEventListener("click", closeBatchPickMenu, { once: true }), 0);
 }
 
+/* Dialog lists: rows rise in one after another as the dialog opens (not on
+   every re-render). */
+function staggerRows(host) {
+  if (!host || !previewMotionOK()) return;
+  [...host.children].forEach((r, i) => r.style.setProperty("--i", String(Math.min(i, 8))));
+  host.classList.add("stagger");
+  setTimeout(() => host.classList.remove("stagger"), 420);
+}
+/* "It worked": the batch row that was just saved or added to glows green. */
+function flashBatchRow(name) {
+  const row = $$("#batchList .batch-row").find((r) => r.dataset.name === name);
+  if (!row) return;
+  $("#batchList").classList.remove("stagger"); // a save right after opening: the flash wins
+  row.scrollIntoView({ block: "nearest", behavior: previewMotionOK() ? "smooth" : "auto" });
+  if (!previewMotionOK()) return;
+  row.classList.add("just-saved");
+  setTimeout(() => row.classList.remove("just-saved"), 1200);
+}
+
 /* ---------------- named batches ---------------- */
 function openBatches() {
   const inp = $("#batchName");
@@ -2616,9 +3331,11 @@ function openBatches() {
     Batches.save(name);
     inp.value = "";
     renderBatchList();
-    showToast(existed ? `Batch “${name}” updated.` : `Batch “${name}” saved.`);
+    flashBatchRow(name);
+    showToast(existed ? `Batch “${name}” updated.` : `Batch “${name}” saved.`, { kind: "ok" });
   };
   renderBatchList();
+  staggerRows($("#batchList"));
   $("#batchModal").classList.add("show");
 }
 
@@ -2640,6 +3357,7 @@ function renderBatchList() {
   for (const name of names) {
     const b = Batches.data[name];
     const row = el("div", "batch-row");
+    row.dataset.name = name;
     const info = el("div", "batch-info");
     info.appendChild(el("div", "batch-name", name));
     const n = (b.items || []).reduce((a, q) => a + (q.copies || 1), 0);
@@ -2653,7 +3371,7 @@ function renderBatchList() {
       showToast(`Loaded batch “${name}” — replaced the queue.`, {
         undo: () => {
           // the snapshot is only safe while the queue hasn't diverged
-          if (Queue._gen !== gen) return showToast("The queue changed since the batch loaded — undo unavailable.");
+          if (Queue._gen !== gen) return showToast("The queue changed since the batch loaded — undo unavailable.", { kind: "warn" });
           Queue.replaceAll(prev);
         },
       });
@@ -2665,7 +3383,8 @@ function renderBatchList() {
       const count = Queue.totalSigns();
       if (!Batches.addItems(name, Queue.items)) return;
       renderBatchList();
-      showToast(`Added ${count} sign${count === 1 ? "" : "s"} from the queue to batch “${name}”.`);
+      flashBatchRow(name);
+      showToast(`Added ${count} sign${count === 1 ? "" : "s"} from the queue to batch “${name}”.`, { kind: "ok" });
     };
     const del = el("button", "q-btn", "✕");
     del.title = "Delete batch";
@@ -2701,7 +3420,7 @@ function maybeOfferSync() {
     Settings.set({ syncOn: true, syncName: String(s.syncName || window.__appHost || "").trim() });
     bar.classList.remove("show");
     Sync.start();
-    showToast("Sync is on — saved batches and print history are now shared with the store.");
+    showToast("Sync is on — saved batches and print history are now shared with the store.", { kind: "ok" });
   };
   $("#syncOfferDismiss").onclick = () => {
     Settings.set({ syncOfferDismissed: true });
@@ -2917,7 +3636,7 @@ function applyBatchPriceChanges(changed, ended) {
   const notes = [];
   if (changed.length) notes.push("the batches now carry the new prices");
   if (ended.length) notes.push("ended promos stay in their batches for next time");
-  showToast(`Queued ${added} replacement sign${added === 1 ? "" : "s"} — ${notes.join("; ")}.`);
+  showToast(`Queued ${added} replacement sign${added === 1 ? "" : "s"} — ${notes.join("; ")}.`, { kind: "ok" });
   return added;
 }
 
@@ -2984,6 +3703,7 @@ function fmtHistDate(iso) {
 
 function openHistory() {
   renderHistoryList();
+  staggerRows($("#historyList"));
   $("#historyModal").classList.add("show");
 }
 
@@ -3011,7 +3731,7 @@ function renderHistoryList() {
       showToast(`Restored ${h.signs} sign${h.signs === 1 ? "" : "s"} from ${fmtHistDate(h.at)} — replaced the queue.`, {
         undo: () => {
           // the snapshot is only safe while the queue hasn't diverged
-          if (Queue._gen !== gen) return showToast("The queue changed since the restore — undo unavailable.");
+          if (Queue._gen !== gen) return showToast("The queue changed since the restore — undo unavailable.", { kind: "warn" });
           Queue.replaceAll(prev);
         },
       });
@@ -3114,7 +3834,7 @@ async function exportQueue(print, opts) {
   // With a selection, everything below acts on just the ticked signs.
   const selItems = selectedQueueItems();
   const source = selItems.length ? selItems : Queue.items;
-  // Signs print exactly as their previews show, finished or not (3.13:
+  // Signs print exactly as their previews show, finished or not (4.0:
   // the store's call). Unfinished ones get a heads-up, never a block.
   const bad = source.filter((q) => {
     const t = typeById(q.typeId);
@@ -3122,7 +3842,7 @@ async function exportQueue(print, opts) {
   });
   if (bad.length) {
     const first = validateSpec(typeById(bad[0].typeId), bad[0].spec);
-    showToast(`Heads-up: ${bad.length} sign${bad.length === 1 ? " looks" : "s look"} unfinished — “${queueItemTitle(bad[0])}”: ${first} Printing ${bad.length === 1 ? "it" : "them"} as shown.`, { ms: 9000 });
+    showToast(`Heads-up: ${bad.length} sign${bad.length === 1 ? " looks" : "s look"} unfinished — “${queueItemTitle(bad[0])}”: ${first} Printing ${bad.length === 1 ? "it" : "them"} as shown.`, { ms: 9000, kind: "warn" });
   }
   if (!(opts && opts.skipStaleCheck)) {
     const stale = stalePricedItems(source);
@@ -3133,12 +3853,15 @@ async function exportQueue(print, opts) {
   }
   const btn = print ? $("#printAllBtn") : $("#exportAllBtn");
   const orig = btn.textContent;
+  let okDone = false;
   btn.disabled = true;
+  btn.classList.add("busy"); // stays in full color and fills as sheets render
   try {
     const packed = packQueue(Queue.packable(source), { margin: Settings.get().margin });
     btn.textContent = "Rendering…";
     const doc = await pagesToPdf(packed.pages, Settings.get().cutGuides, (i, n) => {
       btn.textContent = `Sheet ${i}/${n}…`;
+      btn.style.setProperty("--p", (i / n * 100) + "%");
     });
     if (print) printPdfDoc(doc);
     else {
@@ -3147,12 +3870,18 @@ async function exportQueue(print, opts) {
       downloadPdfDoc(doc, `ace-signs-${stamp}.pdf`);
     }
     History.record(print ? "print" : "pdf", source);
+    okDone = true;
   } catch (e) {
     alert("Export failed: " + friendlyError(e) + ".");
     console.error(e);
   } finally {
     btn.textContent = orig;
     btn.disabled = false;
+    btn.classList.remove("busy");
+    btn.style.removeProperty("--p");
+    // handed to the print dialog / download: a green ring, once (after the
+    // button is already usable again)
+    if (okDone) pulseDone(btn, "did-it");
   }
 }
 
@@ -3216,24 +3945,26 @@ function initDiagnostics() {
     const text = lines.join("\n");
     try {
       await navigator.clipboard.writeText(text);
-      showToast("Diagnostics copied — paste into a message to Cody.");
+      showToast("Diagnostics copied — paste into a message to Cody.", { kind: "ok" });
     } catch (e) {
       const ta = el("textarea");
       ta.value = text;
       document.body.appendChild(ta);
       ta.select();
-      try { document.execCommand("copy"); showToast("Diagnostics copied."); }
-      catch (_) { showToast("Couldn't copy automatically."); }
+      try { document.execCommand("copy"); showToast("Diagnostics copied.", { kind: "ok" }); }
+      catch (_) { showToast("Couldn't copy automatically.", { kind: "warn" }); }
       ta.remove();
     }
   };
 }
 
+let _bulkProgHide = 0;
 function initBulk() {
   $("#bulkOpenBtn").onclick = () => $("#bulkModal").classList.add("show");
   const ta = $("#bulkSkus");
   const badge = $("#bulkCount");
   ta.addEventListener("input", () => {
+    badge.classList.remove("ok");
     const n = parseBulkSkus(ta.value).length;
     badge.textContent = n ? `${n} SKU${n === 1 ? "" : "s"} detected` : "";
   });
@@ -3265,6 +3996,7 @@ function initBulk() {
     if (btn.disabled) return; // a run is in flight — a second click would add everything twice
     const skus = parseBulkSkus(ta.value);
     if (!skus.length) return;
+    const idle = btn.textContent;
     btn.disabled = true;
     try {
     const typeId = $("#bulkType").value;
@@ -3284,7 +4016,16 @@ function initBulk() {
     }
     const prog = $("#bulkProgress");
     const fill = prog.querySelector("i");
+    clearTimeout(_bulkProgHide);
+    prog.classList.remove("done", "has-fails");
+    fill.style.width = "0";
     prog.classList.add("show");
+    // the button keeps its color with a spinner, and a live count ticks
+    // as each SKU comes back
+    btn.classList.add("busy");
+    btn.innerHTML = `<span class="spin spin-light"></span> Looking up ${skus.length} SKU${skus.length === 1 ? "" : "s"}…`;
+    badge.classList.remove("ok");
+    badge.textContent = `0 of ${skus.length} looked up`;
     $("#bulkReport").innerHTML = "";
     const failed = [];   // {sku, reason}
     const needsNow = []; // Was/Now signs added without a Now price
@@ -3334,17 +4075,24 @@ function initBulk() {
       }
       done++;
       fill.style.width = `${(done / skus.length) * 100}%`;
+      badge.textContent = `${done} of ${skus.length} looked up`;
       await runOne();
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, skus.length) }, runOne));
     for (const r of results) if (r) Queue.add(r.addType, sizeId, r.spec, copies);
-    prog.classList.remove("show");
-    fill.style.width = "0";
+    // the bar reaches the end and shows how it went (green, or amber when
+    // some failed), then fades — it never holds anything up
+    prog.classList.add("done");
+    prog.classList.toggle("has-fails", failed.length > 0);
+    _bulkProgHide = setTimeout(() => { prog.classList.remove("show"); fill.style.width = "0"; }, previewMotionOK() ? 600 : 0);
     badge.textContent = `Added ${ok} of ${skus.length}`;
+    badge.classList.toggle("ok", ok > 0 && !failed.length);
     if (ok) ta.value = "";
     renderBulkReport(failed, needsNow);
     } finally {
       btn.disabled = false;
+      btn.classList.remove("busy");
+      btn.textContent = idle;
     }
   };
 }
@@ -3411,6 +4159,7 @@ function openSettings() {
     }
     Sync.start(); // pick up sync setting changes immediately
     renderQueue();
+    showToast("Settings saved.", { kind: "ok" });
   };
 }
 
@@ -3442,7 +4191,7 @@ function exportBackup() {
   a.download = `ace-sign-studio-backup-${stamp}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  showToast("Backup exported.");
+  showToast("Backup exported.", { kind: "ok" });
 }
 
 /* Returns an error string, or null on success (with an undo toast). */
@@ -3493,7 +4242,7 @@ function initBackup() {
       let err;
       try { err = applyBackup(JSON.parse(r.result)); }
       catch (e) { err = "couldn't read that file as JSON"; }
-      if (err) showToast(`Import failed — ${err}.`);
+      if (err) showToast(`Import failed — ${err}.`, { kind: "warn" });
       else $("#settingsModal").classList.remove("show");
     };
     r.readAsText(f);
@@ -3505,11 +4254,13 @@ function initSettingsUpdates() {
   const status = $("#settingsUpdateStatus");
   const btn = $("#settingsUpdateBtn");
   if (!status || !btn) return;
+  status.classList.remove("ok");
   status.textContent = window.__appVersion ? `You have v${window.__appVersion}.` : "";
   btn.disabled = false;
   btn.onclick = async () => {
     btn.disabled = true;
-    status.textContent = "Checking…";
+    status.classList.remove("ok");
+    status.innerHTML = '<span class="spin"></span> Checking…';
     try {
       const st = await fetch("/api/update/check", { cache: "no-store" }).then((r) => r.json());
       if (st.available) {
@@ -3517,7 +4268,8 @@ function initSettingsUpdates() {
       } else if (st.error) {
         status.textContent = `Couldn't check for updates: ${st.error}. Are you online?`;
       } else {
-        status.textContent = `You're up to date — v${st.current} is the latest.`;
+        status.textContent = `✓ You're up to date — v${st.current} is the latest.`;
+        status.classList.add("ok");
       }
       if (!st.error) renderUpdateBar(st); // also hides a stale banner on "up to date"
     } catch (e) {

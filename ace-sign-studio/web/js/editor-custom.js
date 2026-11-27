@@ -334,6 +334,11 @@ function attachExtrasDrag(svg) {
     outline.setAttribute("pointer-events", "none");
     outline.setAttribute("class", "extra-outline");
     svg.insertBefore(outline, h);
+    // the outline brightens while the box is hovered or dragged (the
+    // preview redraws every frame of a drag, so the drag state is kept)
+    if (App._extraDragging && App._extraDragIdx === i) outline.classList.add("hot");
+    g.addEventListener("pointerenter", () => outline.classList.add("hot"));
+    g.addEventListener("pointerleave", () => { if (!App._extraDragging) outline.classList.remove("hot"); });
     void bb;
     const startDrag = (e, mode) => {
       if (e.button !== 0) return;
@@ -349,6 +354,7 @@ function attachExtrasDrag(svg) {
         if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return;
         moved = true;
         App._extraDragging = true;
+        App._extraDragIdx = i;
         if (mode === "move") {
           x.x = Math.max(-0.1, Math.min(1 - x.w * 0.3, start.x + dx));
           x.y = Math.max(-0.1, Math.min(1 - x.h * 0.3, start.y + dy));
@@ -365,6 +371,7 @@ function attachExtrasDrag(svg) {
         window.removeEventListener("pointerup", up);
         window.removeEventListener("pointercancel", up);
         App._extraDragging = false;
+        App._extraDragIdx = -1;
         if (moved) { _swallowClick = true; setTimeout(() => { _swallowClick = false; }, 0); }
       };
       window.addEventListener("pointermove", move);
@@ -441,7 +448,7 @@ function applyFavorite(name) {
   updateEditMode();
   schedulePreview();
   EditorHistory.reset();
-  showToast(`Applied favorite “${name}”.`);
+  showToast(`Applied favorite “${name}”.`, { kind: "ok" });
 }
 
 function showFavoritesMenu(anchor) {
@@ -481,7 +488,7 @@ function showFavoritesMenu(anchor) {
     const existed = Favorites.names().includes(n);
     Favorites.save(n, App.typeId, App.sizeId, App.spec);
     closeBatchPickMenu();
-    showToast(existed ? `Updated favorite “${n}”.` : `Saved favorite “${n}” — every store computer will have it.`);
+    showToast(existed ? `Updated favorite “${n}”.` : `Saved favorite “${n}” — every store computer will have it.`, { kind: "ok" });
     if (App.view === "gallery") showGallery();
   };
   inp.addEventListener("keydown", (e) => { if (e.key === "Enter") save.onclick(); });
@@ -509,12 +516,57 @@ function buildFavoritesStrip(host) {
     const t = typeById(f.typeId);
     if (!t) continue;
     const b = el("button", "fav-chip");
+    b.style.setProperty("--i", String(Math.min(row.childElementCount, 8))); // chips rise in one after another
     b.innerHTML = `<b>${esc(n)}</b><span>${esc(menuLabel(t))} · ${esc(sizeById(f.sizeId).label)}</span>`;
     b.onclick = () => { App.spec = {}; applyFavorite(n); };
     row.appendChild(b);
   }
   wrap.appendChild(row);
   host.appendChild(wrap);
+}
+
+/* What the strip currently shows, so a refresh that changes nothing does
+   nothing. */
+function favStripSig() {
+  return Favorites.names().filter((n) => typeById(Favorites.data[n].typeId))
+    .map((n) => [n, Favorites.data[n].typeId, Favorites.data[n].sizeId].join("|")).join("\n");
+}
+
+/* Bring the gallery's favorites strip up to date without rebuilding the
+   gallery (at launch, once the saved state has loaded, and after a sync
+   brings new ones): the strip opens smoothly the first time, and a new
+   favorite pops in. Chips are clickable throughout. */
+function refreshFavStrip() {
+  if (App.view !== "gallery") return;
+  const host = $("#favStrip");
+  if (!host) return;
+  const sig = favStripSig();
+  if (host.dataset.sig === sig && host.firstChild) return; // nothing changed
+  if (!sig && !host.firstChild) { host.dataset.sig = sig; return; }
+  const before = new Set([...host.querySelectorAll(".fav-chip b")].map((b) => b.textContent));
+  const had = !!host.firstChild;
+  const ae = document.activeElement;
+  const f = host.contains(ae) && ae.querySelector && ae.querySelector("b");
+  const focusName = f ? f.textContent : null;
+  host.innerHTML = "";
+  buildFavoritesStrip(host);
+  host.dataset.sig = sig;
+  const strip = host.firstChild;
+  if (!strip) return;
+  for (const c of strip.querySelectorAll(".fav-chip")) {
+    const n = c.querySelector("b").textContent;
+    if (had && before.has(n)) c.style.animation = "none"; // already on screen: no replay
+    else if (had) c.classList.add("fav-new");
+    if (n === focusName) c.focus({ preventScroll: true });
+  }
+  if (!had && previewMotionOK()) {
+    // open the strip, so the cards below glide down instead of jumping
+    const h = strip.offsetHeight;
+    strip.animate(
+      [{ maxHeight: "0px", opacity: 0, marginBottom: "0px", overflow: "hidden" },
+       { maxHeight: h + "px", opacity: 1, marginBottom: "16px", overflow: "hidden" }],
+      { duration: 240, easing: "cubic-bezier(.22,.8,.24,1)" });
+  }
 }
 
 /* Sync merge for favorites: per name, newest savedAt/deletedAt wins;

@@ -9,7 +9,7 @@
 
 const CHANGELOG = [
   {
-    version: "3.13.0",
+    version: "4.0.0",
     date: "November 2026",
     notes: [
       "If something looks missing when you add or print a sign, every field that looks unfinished turns red with a note right under it (the note clears as soon as it's filled in). It never stops you: the sign is always added and printed exactly as the preview shows it.",
@@ -25,6 +25,9 @@ const CHANGELOG = [
       "New “Extra text & pictures” section: add your own words (like “Limit 2”) or a picture. Drag it on the preview to move it and drag its corner dot to resize it — or tick “Make room” so it gets its own strip along an edge and the rest of the sign moves over.",
       "Favorites: save how a sign looks (type, size, layout, color, extra boxes) under a name and reuse it with any product. Favorites are shared with every store computer and show at the top of the home screen.",
       "Smoother everywhere: when you resize a part of the sign (slider, − / + buttons, or dragging it on the preview) it glides to its new size instead of jumping, and the preview keeps up as you type. Pages, menus, dialogs, messages and the print queue now ease in and out too. If Windows is set to show fewer animations, the app follows that setting.",
+      "Buttons, sign choices and options now react when you point at or press them, so you can see what you're about to click. A green check or a short “Done” shows when something worked, like adding to the queue, saving a favorite or exporting. Pressing Tab shows a clear outline around where you are.",
+      "Smoother screen changes: going from the home screen to a sign and back now glides instead of flashing, you land back where you were in the list, and switching sign types fades the preview across.",
+      "SKU lookup: while it looks up a product the box shows a small spinner, then a check. The name, price and photo fill in with a short highlight so you can see what changed, and the preview slides the new words into place.",
       "Parts of a sign can now be made smaller or bigger than before, with − and + buttons beside each size slider.",
     ],
   },

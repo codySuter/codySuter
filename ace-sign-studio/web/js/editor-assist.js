@@ -95,19 +95,31 @@ function fieldMessages(t, spec, showErrors) {
 function paintFieldMessages(scope, t, spec, showErrors) {
   if (!scope) return;
   const msgs = fieldMessages(t, spec, showErrors);
+  // a note eases in only when it is new or its words changed — not every
+  // time the form rebuilds around it
+  const memo = (App._msgMemo = App._msgMemo || {});
+  const card = scope.closest(".mp-card");
+  const pre = card ? "p" + card.dataset.product + ":" : "";
   for (const box of scope.querySelectorAll(":scope .f-field[data-key]")) {
     // skip fields that belong to a nested Multi Product card
-    if (box.closest(".mp-card") !== scope.closest(".mp-card")) continue;
+    if (box.closest(".mp-card") !== card) continue;
     const m = msgs[box.dataset.key];
     let line = box.querySelector(":scope > .f-msg");
     if (!line) { line = el("div", "f-msg"); box.appendChild(line); }
     box.classList.remove("has-error", "has-warn", "has-info");
+    let txt = "";
     if (m) {
       box.classList.add("has-" + m.level);
-      line.textContent = (m.level === "error" ? "⚠ " : m.level === "warn" ? "Check: " : "") + m.msg;
-    } else {
-      line.textContent = "";
+      txt = (m.level === "error" ? "⚠ " : m.level === "warn" ? "Check: " : "") + m.msg;
     }
+    if (line.textContent !== txt) line.textContent = txt;
+    const key = pre + box.dataset.key;
+    if (txt && memo[key] !== txt && typeof previewMotionOK === "function" && previewMotionOK()) {
+      line.classList.remove("msg-in");
+      void line.offsetWidth;
+      line.classList.add("msg-in");
+    }
+    memo[key] = txt;
   }
 }
 
@@ -142,6 +154,7 @@ function addQuickChips(box, inp, values, suffix) {
     c.onclick = () => {
       inp.value = String(v);
       inp.dispatchEvent(new Event("input", { bubbles: true }));
+      if (typeof flashEls === "function") flashEls([inp], "neutral"); // the box it filled shows it took
     };
     row.appendChild(c);
   }
