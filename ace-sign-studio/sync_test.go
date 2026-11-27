@@ -155,3 +155,30 @@ func TestSyncGithubErrors(t *testing.T) {
 		t.Fatalf("expected repo-not-found error, got %v", out)
 	}
 }
+
+// An expired built-in token must not tell store staff to "paste it again" —
+// they never pasted one. A pasted token keeps the paste-it-again advice.
+func TestSyncGithubExpiredEmbeddedToken(t *testing.T) {
+	gh := &mockGithub{token: "fresh-token"}
+	srv := httptest.NewServer(gh.handler())
+	defer srv.Close()
+	oldBase, oldTok := githubAPIBase, embeddedSyncTokenB64
+	githubAPIBase = srv.URL
+	embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte("expired-token"))
+	defer func() { githubAPIBase, embeddedSyncTokenB64 = oldBase, oldTok }()
+
+	for _, op := range []string{
+		`{"op":"get","repo":"store/sync","token":""}`,
+		`{"op":"put","repo":"store/sync","token":"","doc":{}}`,
+	} {
+		out := syncCall(t, op)
+		msg, _ := out["error"].(string)
+		if out["ok"] != false || !strings.Contains(msg, "built-in sync connection has expired") {
+			t.Fatalf("expected built-in expiry error for %s, got %v", op, out)
+		}
+	}
+	out := syncCall(t, `{"op":"get","repo":"store/sync","token":"pasted-but-wrong"}`)
+	if msg, _ := out["error"].(string); !strings.Contains(msg, "paste it again") {
+		t.Fatalf("pasted token should keep the paste-again advice, got %v", out)
+	}
+}

@@ -32,7 +32,7 @@ import (
 var webFS embed.FS
 
 // appVersion is overridden at build time via -ldflags "-X main.appVersion=…".
-var appVersion = "3.12.1"
+var appVersion = "3.12.2"
 
 var (
 	heartbeatMu   sync.Mutex
@@ -320,8 +320,10 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"ok": false, "error": "sync repo must look like owner/repo (e.g. codysuter/ace-sign-sync)"})
 		return
 	}
+	builtin := false // true when this request runs on the token baked into the exe
 	if req.Token == "" {
 		req.Token = embeddedSyncToken() // release builds carry the store token
+		builtin = req.Token != ""
 	}
 	if req.Token == "" {
 		writeJSON(w, map[string]any{"ok": false, "error": "this build has no built-in store token — paste one under Settings → Sync → advanced"})
@@ -352,6 +354,18 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 	}
 
 	authError := func(code int) string {
+		// Nobody pasted the built-in token, so "paste it again" would be
+		// meaningless on the store floor. Fine-grained tokens expire; when the
+		// baked-in one does, every PC stops syncing at once and the cure is a
+		// release built with a fresh ACE_SYNC_TOKEN secret.
+		if builtin {
+			switch code {
+			case http.StatusUnauthorized:
+				return "the store's built-in sync connection has expired — check Settings → Updates for a newer version (or paste a new token under Sync → advanced)"
+			case http.StatusForbidden:
+				return "the store's built-in sync connection no longer has access to the sync repo — check Settings → Updates for a newer version"
+			}
+		}
 		switch code {
 		case http.StatusUnauthorized:
 			return "GitHub rejected the token — paste it again (it may have expired)"

@@ -9,6 +9,13 @@
 
 const CHANGELOG = [
   {
+    version: "3.12.2",
+    date: "November 2026",
+    notes: [
+      "Sync between store computers works again. The app's built-in connection to the store's sync storage had expired, so saved batches and print history stopped sharing between computers; it has been renewed. If it ever expires again, Settings → Sync now says so plainly instead of asking you to paste a token.",
+    ],
+  },
+  {
     version: "3.12.1",
     date: "October 2026",
     notes: [
