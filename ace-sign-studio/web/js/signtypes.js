@@ -39,10 +39,10 @@ const F = {
   regPrice: { key: "regPrice", kind: "money", label: "Regular price", optional: true },
   savings:  { key: "savings", kind: "money", label: "Savings amount" },
   percent:  { key: "percent", kind: "percent", label: "Percent off" },
-  qty2:   { key: "qty", kind: "int", label: "Quantity", def: 2 },
+  qty2:   { key: "qty", kind: "int", label: "How many", def: 2 },
   unit:   { key: "unit", kind: "text", label: "Unit (optional — each, /ft, /gal)", optional: true },
   image:  { key: "image", kind: "image", label: "Product photo" },
-  dates:  { key: "dates", kind: "dates", label: "Sale dates" },
+  dates:  { key: "dates", kind: "dates", label: "Sale dates", help: "Prints as a red pill in the corner. Leave blank for none." },
   upTo:   { key: "upTo", kind: "check", label: "Show “UP TO” above the percent" },
   category: { key: "category", kind: "text", label: "Category name (e.g. HAND TOOLS)" },
   message:  { key: "message", kind: "textarea", label: "Message" },
@@ -61,7 +61,8 @@ const SIGN_TYPES = [
   {
     id: "sale", hideable: ["logo", "image", "name", "detail", "price", "regPrice", "sku"], group: "Price & Promo", label: "Sale",
     note: "SALE chip + sale price + reg price",
-    fields: [F.sku, F.name, F.detail, F.price, F.regPrice, F.unit, F.image, F.dates],
+    fields: [F.sku, F.name, F.detail, Object.assign({}, F.price, { label: "Sale price" }), F.regPrice, F.unit, F.image, F.dates],
+    scaleLabels: { price: "Prices" },
     render: (spec, w, h) => AceRenderers.sale(spec, w, h),
     sample: { name: "Scotts Turf Builder 5M", price: "19.99", regPrice: "24.99", sku: "7135975" },
   },
@@ -69,6 +70,7 @@ const SIGN_TYPES = [
     id: "percent_off", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "Percent Off",
     note: "Big 00% OFF block",
     fields: [F.sku, F.name, F.detail, F.percent, F.upTo, F.image, F.dates],
+    scaleLabels: { price: "Percent block" },
     render: (spec, w, h) => AceRenderers.percent_off(spec, w, h),
     sample: { name: "All Weber Grill Accessories", percent: "25" },
   },
@@ -76,6 +78,7 @@ const SIGN_TYPES = [
     id: "bogo_free", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "BOGO Free",
     note: "Buy one get one FREE",
     fields: [F.sku, F.name, F.detail, F.image, F.dates],
+    scaleLabels: { price: "BOGO block" },
     render: (spec, w, h) => AceRenderers.bogo_free(spec, w, h),
     sample: { name: "Ace Wild Bird Food 20 lb." },
   },
@@ -83,27 +86,37 @@ const SIGN_TYPES = [
     id: "bogo_percent", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "BOGO % Off",
     note: "Buy one get one 00% off",
     fields: [F.sku, F.name, F.detail, F.percent, F.image, F.dates],
+    scaleLabels: { price: "BOGO block" },
     render: (spec, w, h) => AceRenderers.bogo_percent(spec, w, h),
     sample: { name: "Milwaukee Hand Tools", percent: "50" },
   },
   {
     id: "two_for", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "2 for $X",
     note: "Multi-buy price (2/$00)",
-    fields: [F.sku, F.name, F.detail, F.qty2, F.price, F.image, F.dates],
+    fields: [F.sku, F.name, F.detail, F.qty2, Object.assign({}, F.price, { label: "Price for the group", help: "The total for all of them, e.g. 2 for $9.00." }), F.image, F.dates],
+    scaleLabels: { price: "2-for price" },
     render: (spec, w, h) => AceRenderers.two_for(spec, w, h),
     sample: { name: "Rust-Oleum 2X Spray Paint", price: "9.00", qty: 2 },
   },
   {
     id: "instant_savings", hideable: ["logo", "image", "name", "detail", "price", "regPrice", "sku"], group: "Price & Promo", label: "Instant Savings",
     note: "Ace Rewards exclusive savings",
-    fields: [F.sku, F.name, F.detail, F.price, F.regPrice, F.savings, F.image, F.dates],
+    fields: [
+      F.sku, F.name, F.detail,
+      Object.assign({}, F.price, { label: "Sale price" }),
+      F.regPrice,
+      Object.assign({}, F.savings, { help: "Fills in by itself from the two prices. Type over it to use your own amount." }),
+      F.image, F.dates,
+    ],
+    scaleLabels: { price: "Savings block" },
     render: (spec, w, h) => AceRenderers.instant_savings(spec, w, h),
     sample: { name: "Craftsman 230-pc Mechanics Set", price: "99.00", regPrice: "129.00", savings: "30" },
   },
   {
     id: "buy_get_off", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "Buy 2 Get $X Off",
     note: "Buy two get $00 off",
-    fields: [F.sku, F.name, F.detail, F.qty2, F.savings, F.image, F.dates],
+    fields: [F.sku, F.name, F.detail, F.qty2, Object.assign({}, F.savings, { label: "Dollars off", help: "Taken off when they buy that many." }), F.image, F.dates],
+    scaleLabels: { price: "Offer block" },
     render: (spec, w, h) => AceRenderers.buy_get_off(spec, w, h),
     sample: { name: "Clark+Kensington Paint Gallons", qty: 2, savings: "10" },
   },
@@ -117,6 +130,7 @@ const SIGN_TYPES = [
       { key: "unitOnly", kind: "check", label: "Show “THIS UNIT ONLY”", def: true },
       F.image, F.dates,
     ],
+    scaleLabels: { price: "Was / now prices" },
     render: (spec, w, h) => AceRenderers.was_now(spec, w, h),
     sample: { name: "Weber Spirit E-325 Gas Grill", regPrice: "549.00", price: "399.00", unitOnly: true },
   },
@@ -136,13 +150,15 @@ const SIGN_TYPES = [
     id: "your_choice", hideable: ["logo", "image", "name", "detail", "sku"], group: "Price & Promo", label: "Your Choice",
     note: "Red circle — your choice $00",
     fields: [F.sku, F.name, F.detail, F.price, F.image, F.dates],
+    scaleLabels: { price: "Price circle" },
     render: (spec, w, h) => AceRenderers.your_choice(spec, w, h),
     sample: { name: "Assorted Hand Trowels & Cultivators", price: "5.00" },
   },
   {
     id: "under_amount", hideable: ["logo"], group: "Price & Promo", label: "Under $X",
     note: "Category under a dollar amount",
-    fields: [F.category, F.price, F.dates],
+    fields: [F.category, Object.assign({}, F.price, { label: "Under this amount" }), F.dates],
+    scaleLabels: { price: "Under $ block" },
     render: (spec, w, h) => AceRenderers.under_amount(spec, w, h),
     sample: { category: "STOCKING STUFFERS", price: "10" },
   },
@@ -163,7 +179,7 @@ const SIGN_TYPES = [
       Object.assign({}, F.price, { modes: ["priced"] }),
       Object.assign({}, F.image, { modes: ["priced"] }),
       Object.assign({}, F.detail, { label: "Small line underneath", modes: ["message"] }),
-      Object.assign({}, F.dates, { modes: ["priced", "message"] }),
+      Object.assign({}, F.dates, { label: "Dates", modes: ["priced", "message"] }),
     ],
     render: (spec, w, h) => AceRenderers.big_text(spec, w, h),
     sample: { name: "PROPANE REFILLS", price: "17.99", mode: "priced" },
@@ -182,6 +198,7 @@ const SIGN_TYPES = [
       Object.assign({}, F.price, { label: "Clearance price" }),
       F.image, F.dates,
     ],
+    scaleLabels: { price: "Clearance price" },
     render: (spec, w, h) => AceRenderers.stihl_clearance(spec, w, h),
     sample: { name: "STIHL MS 271 Farm Boss", price: "399.00", regPrice: "479.00", mode: "wasnow" },
   },
@@ -361,13 +378,10 @@ function scalablesForType(t) {
   const keys = ["logo"];
   if (has("image")) keys.push("image");
   if (has("name")) keys.push("name");
-  if (t.id !== "text_only") keys.push("price"); // every other type draws a price/promo block
-  else keys.push("detail"); // Text Only's small line under the message
+  keys.push("price"); // every type draws a price/promo block
   if (has("sku")) keys.push("footer");
-  return keys.map((k) => ({
-    key: k,
-    label: t.id === "text_only" && k === "name" ? "Message" : SCALE_DEFS[k],
-  }));
+  const own = t.scaleLabels || {};
+  return keys.map((k) => ({ key: k, label: own[k] || (k === "price" ? "Price" : SCALE_DEFS[k]) }));
 }
 
 function applyHiddenFields(spec, hide) {

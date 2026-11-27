@@ -53,6 +53,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   initBulk();
   initBackup();
   window.addEventListener("resize", () => schedulePreview()); // re-scale preview to the new window
+  document.addEventListener("keydown", editorShortcuts);
   fetch("/api/health", { cache: "no-store" }).then((r) => r.json()).then((h) => {
     window.__appVersion = h.version;
     window.__appHost = h.host;
@@ -65,6 +66,26 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
   $$(".modal-close").forEach((b) => (b.onclick = () => b.closest(".modal-back").classList.remove("show")));
 });
+
+/* Editor keyboard shortcuts: Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) undo and
+   redo, Ctrl+Enter adds the sign to the queue. Off while a dialog or
+   menu is open so they never act on something hidden behind it. */
+function editorShortcuts(e) {
+  if (App.view !== "editor" || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+  if ($(".modal-back.show") || (typeof _pickMenuEl !== "undefined" && _pickMenuEl && _pickMenuEl.isConnected)) return;
+  const k = e.key.toLowerCase();
+  if (k === "enter") {
+    e.preventDefault();
+    const b = $("#addQueueBtn");
+    if (b) b.click();
+  } else if (k === "z" && !e.shiftKey) {
+    e.preventDefault();
+    editorUndo(-1);
+  } else if (k === "y" || (k === "z" && e.shiftKey)) {
+    e.preventDefault();
+    editorUndo(1);
+  }
+}
 
 /* Heartbeat: tells the backend the window is still open. Chrome throttles
    main-thread timers in minimized/hidden windows to as little as once per
@@ -359,7 +380,14 @@ function showEditor(typeId) {
       <div class="edit-banner" id="editBanner" style="display:none">✏️ Editing a queued sign — <b>&nbsp;Update Sign&nbsp;</b> saves your changes to it.<span class="link" id="cancelEditBtn">Cancel</span></div>
       <div class="editor-grid">
         <div class="card">
-          <div class="card-head"><h2>${esc(t.label)}</h2><span class="hint">${esc(t.note || "")}</span></div>
+          <div class="card-head editor-head">
+            <div class="editor-title"><h2>${esc(t.label)}</h2><span class="hint">${esc(t.note || "")}</span></div>
+            <div class="editor-tools">
+              <button class="btn btn-ghost btn-sm tool-btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+              <button class="btn btn-ghost btn-sm tool-btn" id="redoBtn" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
+              <button class="btn btn-ghost btn-sm tool-btn" id="startOverBtn" title="Clear this sign and start a new one">New sign</button>
+            </div>
+          </div>
           <div class="card-body" id="editorFields"></div>
         </div>
         <div class="card preview-card">
@@ -371,7 +399,7 @@ function showEditor(typeId) {
           <div class="preview-meta" id="previewMeta"></div>
           <div class="card-body" style="padding-top:0">
             <div class="actions" style="margin-top:0">
-              <button class="btn btn-primary" id="addQueueBtn">＋ Add to Queue</button>
+              <button class="btn btn-primary" id="addQueueBtn" title="Ctrl+Enter">＋ Add to Queue</button>
               <button class="btn btn-ghost" id="editorMoreBtn" title="Print or save just this sign">⋯</button>
             </div>
             <div class="msg" id="editorMsg"></div>
@@ -383,7 +411,8 @@ function showEditor(typeId) {
   buildEditorFields(t);
   $("#addQueueBtn").onclick = () => {
     const err = validateSpec(t, App.spec);
-    if (err) return showMsg("editorMsg", "err", err);
+    if (err) return flagProblems(t, err);
+    App._showErrors = false;
     if (App.editingUid) {
       const updated = Queue.update(App.editingUid, t.id, App.sizeId, App.spec);
       App.editingUid = null;
@@ -412,7 +441,7 @@ function showEditor(typeId) {
   // "just this one, right now" case.
   const printOne = async () => {
     const err = validateSpec(t, App.spec);
-    if (err) return showMsg("editorMsg", "err", err);
+    if (err) return flagProblems(t, err);
     showMsg("editorMsg", "ok", "Preparing print…");
     try {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
@@ -423,7 +452,7 @@ function showEditor(typeId) {
   };
   const pdfOne = async () => {
     const err = validateSpec(t, App.spec);
-    if (err) return showMsg("editorMsg", "err", err);
+    if (err) return flagProblems(t, err);
     showMsg("editorMsg", "ok", "Building PDF…");
     try {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
@@ -451,8 +480,85 @@ function showEditor(typeId) {
     menu.style.left = Math.max(8, r.right - menu.offsetWidth) + "px";
     setTimeout(() => document.addEventListener("click", closeBatchPickMenu, { once: true }), 0);
   };
+  $("#undoBtn").onclick = () => editorUndo(-1);
+  $("#redoBtn").onclick = () => editorUndo(1);
+  $("#startOverBtn").onclick = () => startOverSign(t);
+  App._showErrors = false;
   updateEditMode();
+  EditorHistory.reset();
   schedulePreview();
+}
+
+/* After a failed Add/Print: every problem field turns red with its own
+   message, the form scrolls to the first one, and the summary under the
+   button says how many there are. Messages clear live as they're fixed. */
+function flagProblems(t, firstErr) {
+  App._showErrors = true;
+  paintAllFieldMessages();
+  const bad = $("#editorFields .f-field.has-error");
+  if (bad) {
+    const card = bad.closest(".mp-card");
+    if (card && card.classList.contains("folded")) card.classList.remove("folded");
+    bad.scrollIntoView({ block: "center", behavior: "smooth" });
+    const inp = bad.querySelector("input, textarea");
+    if (inp) setTimeout(() => inp.focus({ preventScroll: true }), 250);
+  }
+  const n = $$("#editorFields .f-field.has-error").length;
+  showMsg("editorMsg", "err", n > 1 ? `${firstErr} (${n} things to fix, marked in red.)` : firstErr);
+}
+
+function paintAllFieldMessages() {
+  if (App.view !== "editor") return;
+  const t = typeById(App.typeId);
+  if (!t) return;
+  const host = $("#editorFields");
+  if (!host) return;
+  if (t.id === "multi") {
+    for (const card of $$("#multiProducts .mp-card")) {
+      const p = App.spec.products && App.spec.products[+card.dataset.product];
+      const st = p && typeById(p.typeId);
+      if (st) paintFieldMessages(card, st, p.spec, App._showErrors);
+    }
+  } else {
+    paintFieldMessages(host, t, App.spec, App._showErrors);
+  }
+  if (App._showErrors && !validateSpec(t, App.spec)) {
+    const m = $("#editorMsg");
+    if (m && m.classList.contains("err")) m.className = "msg";
+  }
+}
+
+/* Undo/redo: restore the snapshot, then rebuild the form around it,
+   keeping the cursor in the field it was in. */
+function editorUndo(delta) {
+  const t = typeById(App.typeId);
+  if (!t || App.view !== "editor") return;
+  closeInlineEdit();
+  const ae = document.activeElement;
+  const focusKey = ae && ae.dataset ? ae.dataset.field : null;
+  if (!EditorHistory.go(delta)) return;
+  buildSizeChips(t);
+  buildEditorFields(t);
+  schedulePreview();
+  if (focusKey) {
+    const inp = $(`#editorFields [data-field="${focusKey}"]`);
+    if (inp) inp.focus({ preventScroll: true });
+  }
+}
+
+/* New sign: wipe the form (the sale dates stay, they're usually the same
+   for the whole batch), with Undo in the toast. */
+function startOverSign(t) {
+  const before = JSON.parse(JSON.stringify(App.spec));
+  App.spec = t.id === "multi" ? { products: [] } : { startDate: App.batchStart, endDate: App.batchEnd };
+  App._showErrors = false;
+  buildEditorFields(t);
+  schedulePreview();
+  const m = $("#editorMsg");
+  if (m) m.className = "msg";
+  const first = $("#editorFields input.f-input");
+  if (first) first.focus();
+  showToast("Started a new sign.", { undo: () => { App.spec = before; buildEditorFields(t); schedulePreview(); } });
 }
 
 /* A history row for a sign printed straight from the editor: the raw spec
@@ -497,17 +603,9 @@ function currentRenderSpec() {
 }
 
 function validateSpec(t, spec) {
-  const hidden = (f) => !!(spec.hide && spec.hide[f]);
-  // a field only counts if it's active in the current style (see `modes`)
-  const active = (x) => !x.modes || x.modes.includes(spec.mode);
-  const need = (f) => !hidden(f) && t.fields.some((x) => x.key === f && active(x));
-  if (need("name") && !String(spec.name || "").trim() && t.id !== "under_amount") return "Enter a product name (or look up a SKU).";
-  if (need("price") && !String(spec.price || "").trim()) return "Enter a price.";
-  if (need("percent") && !String(spec.percent || "").trim()) return "Enter the percent off.";
-  if (need("savings") && !String(spec.savings || "").trim()) return "Enter the savings amount.";
-  if (need("category") && !String(spec.category || "").trim()) return "Enter the category name.";
-  if (t.id === "was_now" && !String(spec.regPrice || "").trim()) return "Enter the was price.";
-  if (t.id === "stihl_clearance" && spec.mode === "wasnow" && !String(spec.regPrice || "").trim()) return "Enter the was price.";
+  // required fields, in form order (see specProblems in editor-assist.js)
+  const problems = specProblems(t, spec);
+  if (problems.length) return problems[0].msg;
   if (t.id === "multi") {
     // every product is validated by its own type's rules, named by slot
     // so the message points at the card to fix
@@ -562,6 +660,24 @@ function buildEditorFields(t) {
   const fineBody = el("div", "fine-body");
   fine.appendChild(fineBody);
   const FINE_KEYS = { unit: 1, barcode: 1, qr: 1 };
+  // One wrapper per field: its label, input(s), help and the live
+  // message line (problem / check / info) painted by paintFieldMessages.
+  const fieldBox = (f, dest) => {
+    const box = el("div", "f-field");
+    box.dataset.key = f.key;
+    dest.appendChild(box);
+    return box;
+  };
+  const help = (box, f) => { if (f.help) box.appendChild(el("div", "f-help", f.help)); };
+  // Every typed change goes through here: derived values (Instant
+  // Savings) follow, then the preview.
+  const edited = (key) => {
+    for (const k of applyDerived(t, App.spec, key)) {
+      const x = $(`#editorFields [data-field="${k}"]`);
+      if (x && x !== document.activeElement) x.value = App.spec[k];
+    }
+    schedulePreview();
+  };
   for (const f of t.fields) {
     // Fields tagged with `modes` only appear in the matching style (see the
     // Big Text sign's "mode" selector).
@@ -571,7 +687,8 @@ function buildEditorFields(t) {
     if (f.kind === "seg") {
       // Segmented style picker; changing it re-filters the fields above.
       if (App.spec[f.key] == null) App.spec[f.key] = f.def;
-      host.appendChild(labelEl(f.label));
+      const box = fieldBox(f, host);
+      box.appendChild(labelEl(f.label));
       const row = el("div", "seg");
       for (const opt of f.options) {
         const b = el("button", "seg-btn" + (App.spec[f.key] === opt.value ? " active" : ""), opt.label);
@@ -583,12 +700,14 @@ function buildEditorFields(t) {
         };
         row.appendChild(b);
       }
-      host.appendChild(row);
+      box.appendChild(row);
       continue;
     }
     if (f.kind === "sku") {
-      host.appendChild(labelEl(f.label));
+      const box = fieldBox(f, host);
+      box.appendChild(labelEl(f.label));
       const inp = inputEl("text", App.spec.sku || "", "e.g. 7135975 — or paste a product URL");
+      inp.dataset.field = "sku";
       const status = el("div", "lookup-status");
       inp.addEventListener("input", () => { App.spec.sku = inp.value.trim(); });
       attachAutoLookup(inp, status, (res, si) => {
@@ -609,6 +728,14 @@ function buildEditorFields(t) {
               st.className = "lookup-status ok";
               st.innerHTML = `✓ ${esc(res.name || res.sku)} <span class="sale-flag">On Sale</span> — switched to a Sale sign <span class="diag-link" onclick="showDiagnostics()">details</span>`;
             }
+          } else if (!t.fields.some((x) => x.key === "regPrice")) {
+            // a sign with no regular-price spot: say so, offer the Sale sign
+            const hint = el("div", "sale-hint");
+            hint.innerHTML = `This item is on sale: <b>$${esc(si.sale)}</b> (reg. $${esc(si.reg)}). The sale price is filled in above.`;
+            const sw = el("button", "btn btn-ghost btn-sm", "Use a Sale sign instead");
+            sw.onclick = () => switchTypeKeepingSpec("sale");
+            hint.appendChild(sw);
+            status.appendChild(hint);
           }
         } else {
           if (res.price) setField("price", res.price);
@@ -617,14 +744,17 @@ function buildEditorFields(t) {
           if (t.fields.some((x) => x.key === "regPrice") && t.id !== "was_now") setField("regPrice", "");
         }
         if (res.imageUrl) { App.spec.image = res.imageUrl; refreshImageDrop(); }
+        const cur = typeById(App.typeId) || t;
+        for (const k of applyDerived(cur, App.spec, "*")) setField(k, App.spec[k]);
         schedulePreview();
       });
-      host.appendChild(inp);
-      host.appendChild(status);
+      box.appendChild(inp);
+      box.appendChild(status);
       continue;
     }
     if (f.kind === "image") {
-      host.appendChild(labelEl(f.label));
+      const box = fieldBox(f, host);
+      box.appendChild(labelEl(f.label));
       const drop = el("div", "img-drop");
       drop.id = "imgDrop";
       drop.innerHTML = `<img id="imgPrev" style="display:none"><div class="img-note" id="imgNote">Auto-fetched on SKU lookup.<br>Click to use your own photo, or drag one here.</div><button class="img-clear" id="imgClear" title="Remove photo" style="display:none">✕</button>`;
@@ -647,16 +777,19 @@ function buildEditorFields(t) {
         if (!fl || !/^image\//.test(fl.type)) return;
         acceptCustomPhoto(fl);
       });
-      host.appendChild(drop);
+      box.appendChild(drop);
       setTimeout(refreshImageDrop, 0);
       $("#imgDrop").querySelector("#imgClear").onclick = () => { App.spec.image = null; App.spec._customImage = false; refreshImageDrop(); schedulePreview(); };
       continue;
     }
     if (f.kind === "dates") {
-      host.appendChild(labelEl("Sale dates (prints as a red pill — leave blank for none)"));
+      const box = fieldBox(f, host);
+      box.appendChild(labelEl(f.label));
       const row = el("div", "f-row");
       const s = inputEl("date", App.spec.startDate || "");
       const e2 = inputEl("date", App.spec.endDate || "");
+      s.title = "First day";
+      e2.title = "Last day";
       const clr = el("button", "btn btn-ghost btn-sm", "Clear");
       s.onchange = () => {
         App.spec.startDate = s.value;
@@ -667,10 +800,13 @@ function buildEditorFields(t) {
       e2.onchange = () => { App.spec.endDate = e2.value; App.batchEnd = e2.value; schedulePreview(); };
       clr.onclick = () => { s.value = ""; e2.value = ""; App.spec.startDate = ""; App.spec.endDate = ""; App.batchStart = ""; App.batchEnd = ""; schedulePreview(); };
       row.appendChild(s); row.appendChild(e2); row.appendChild(clr);
-      host.appendChild(row);
+      box.appendChild(row);
+      addDatePicks(box, s, e2);
+      help(box, f);
       continue;
     }
     if (f.kind === "check") {
+      const box = fieldBox(f, dest);
       const lab = el("label", "f-check");
       const cb = el("input");
       cb.type = "checkbox";
@@ -679,19 +815,22 @@ function buildEditorFields(t) {
       cb.onchange = () => { App.spec[f.key] = cb.checked; schedulePreview(); };
       lab.appendChild(cb);
       lab.appendChild(document.createTextNode(f.label));
-      dest.appendChild(lab);
+      box.appendChild(lab);
       continue;
     }
-    dest.appendChild(labelEl(f.label));
+    const box = fieldBox(f, dest);
+    box.appendChild(labelEl(f.label));
     let wrap = null, inp;
     if (f.kind === "money") {
       wrap = el("div", "prefix-wrap");
       wrap.dataset.prefix = "$";
       inp = inputEl("text", App.spec[f.key] != null ? App.spec[f.key] : (f.def != null ? f.def : ""));
+      inp.inputMode = "decimal";
     } else if (f.kind === "percent") {
       wrap = el("div", "suffix-wrap");
       wrap.dataset.suffix = "%";
       inp = inputEl("text", App.spec[f.key] || "");
+      inp.inputMode = "numeric";
     } else if (f.kind === "int") {
       inp = inputEl("number", App.spec[f.key] != null ? App.spec[f.key] : f.def || 2);
       inp.min = "2"; inp.max = "9";
@@ -703,15 +842,18 @@ function buildEditorFields(t) {
       inp = inputEl("text", App.spec[f.key] || "");
     }
     inp.dataset.field = f.key;
-    inp.addEventListener("input", () => { App.spec[f.key] = inp.value; schedulePreview(); });
-    if (wrap) { wrap.appendChild(inp); dest.appendChild(wrap); }
-    else dest.appendChild(inp);
+    inp.addEventListener("input", () => { App.spec[f.key] = inp.value; edited(f.key); });
+    if (wrap) { wrap.appendChild(inp); box.appendChild(wrap); }
+    else box.appendChild(inp);
+    if (f.kind === "percent") addQuickChips(box, inp, [10, 15, 20, 25, 30, 40, 50], "%");
+    help(box, f);
   }
   buildToggleChips(t, fineBody);
   buildScaleSliders(t, fineBody);
   // Only offer the section when it has something in it (e.g. Text Only has
   // no toggles, sliders, or extras).
   if (fineBody.childNodes.length) host.appendChild(fine);
+  paintAllFieldMessages();
 }
 
 function buildToggleChips(t, host) {
@@ -724,7 +866,8 @@ function buildToggleChips(t, host) {
     host.appendChild(wrap);
   }
   wrap.innerHTML = "";
-  wrap.appendChild(labelEl("Show on sign — click to hide an element"));
+  wrap.appendChild(labelEl("Show on sign"));
+  wrap.appendChild(el("div", "f-help", "Click a part to hide it; click again to bring it back."));
   const row = el("div", "size-chips");
   if (!App.spec.hide) App.spec.hide = {};
   for (const tg of toggles) {
@@ -756,7 +899,7 @@ function buildScaleSliders(t, host) {
   wrap.innerHTML = "";
   const sc = App.spec.scale || (App.spec.scale = {});
   const head = el("div", "scale-head");
-  head.appendChild(labelEl("Element sizes — the sign re-fits itself around your changes"));
+  head.appendChild(labelEl("Element sizes"));
   const presets = el("button", "btn btn-ghost btn-sm", "Presets ▾");
   presets.title = "Save this layout, or apply a saved one";
   presets.onclick = (e) => { e.stopPropagation(); showPresetMenu(presets, t, host); };
@@ -774,6 +917,7 @@ function buildScaleSliders(t, host) {
   };
   head.appendChild(reset);
   wrap.appendChild(head);
+  wrap.appendChild(el("div", "f-help", "Make a part bigger or smaller; the rest of the sign re-fits around it. You can also drag a part up or down on the preview."));
   for (const d of defs) {
     const row = el("div", "scale-row");
     const hidden = !!(App.spec.hide && App.spec.hide[d.key]);
@@ -807,6 +951,8 @@ function buildScaleSliders(t, host) {
     wrap.appendChild(row);
   }
   updateReset();
+  // the keep-on-new-SKU choice only means something on a sign with a SKU
+  if (!t.fields.some((f) => f.kind === "sku")) return;
   const keep = el("label", "f-check");
   const cb = el("input");
   cb.type = "checkbox";
@@ -939,6 +1085,7 @@ function switchTypeKeepingSpec(newType) {
   const keep = App.spec;
   showEditor(newType);
   App.spec = Object.assign(App.spec, keep);
+  EditorHistory.reset();
 }
 
 /* ---------------- Multi Product editor ----------------
@@ -1182,8 +1329,13 @@ function refreshProductImage(host, spec) {
   }
 }
 
-function buildProductField(t, p, i, st, f, dest, card) {
+function buildProductField(t, p, i, st, f, destOuter, card) {
   const spec = p.spec;
+  // same per-field wrapper as the single form, so messages paint per card
+  const dest = el("div", "f-field");
+  dest.dataset.key = f.key;
+  destOuter.appendChild(dest);
+  const help = () => { if (f.help) dest.appendChild(el("div", "f-help", f.help)); };
   if (f.kind === "seg") {
     if (spec[f.key] == null) spec[f.key] = f.def;
     dest.appendChild(labelEl(f.label));
@@ -1215,6 +1367,10 @@ function buildProductField(t, p, i, st, f, dest, card) {
         if (x) x.value = spec[k] != null ? spec[k] : "";
       }
       refreshProductImage(card, spec);
+      for (const k of applyDerived(typeById(p.typeId) || st, spec, "*")) {
+        const x = card.querySelector(`[data-field="${k}"]`);
+        if (x) x.value = spec[k];
+      }
       if (switched) {
         const fresh = rebuildProductCard(t, p, i);
         const s2 = fresh.querySelector(".lookup-status");
@@ -1266,7 +1422,7 @@ function buildProductField(t, p, i, st, f, dest, card) {
     return;
   }
   if (f.kind === "dates") {
-    dest.appendChild(labelEl("Sale dates (prints as a red pill — leave blank for none)"));
+    dest.appendChild(labelEl(f.label));
     const row = el("div", "f-row");
     const s = inputEl("date", spec.startDate || "");
     const e2 = inputEl("date", spec.endDate || "");
@@ -1280,6 +1436,8 @@ function buildProductField(t, p, i, st, f, dest, card) {
     clr.onclick = () => { s.value = ""; e2.value = ""; spec.startDate = ""; spec.endDate = ""; schedulePreview(); };
     row.appendChild(s); row.appendChild(e2); row.appendChild(clr);
     dest.appendChild(row);
+    addDatePicks(dest, s, e2);
+    help();
     return;
   }
   if (f.kind === "check") {
@@ -1315,9 +1473,18 @@ function buildProductField(t, p, i, st, f, dest, card) {
     inp = inputEl("text", spec[f.key] || "");
   }
   inp.dataset.field = f.key;
-  inp.addEventListener("input", () => { spec[f.key] = inp.value; schedulePreview(); });
+  inp.addEventListener("input", () => {
+    spec[f.key] = inp.value;
+    for (const k of applyDerived(st, spec, f.key)) {
+      const x = card.querySelector(`[data-field="${k}"]`);
+      if (x && x !== document.activeElement) x.value = spec[k];
+    }
+    schedulePreview();
+  });
   if (wrap) { wrap.appendChild(inp); dest.appendChild(wrap); }
   else dest.appendChild(inp);
+  if (f.kind === "percent") addQuickChips(dest, inp, [10, 15, 20, 25, 30, 40, 50], "%");
+  help();
 }
 
 function showMsg(id, cls, text) {
@@ -1332,6 +1499,8 @@ const schedulePreview = debounce(async () => {
   if (App.view === "editor") {
     const t = typeById(App.typeId);
     if (!t) return;
+    paintAllFieldMessages();
+    recordEditorHistory();
     const seq = ++App._previewSeq;
     await ensureFontsLoaded();
     const size = sizeById(App.sizeId);

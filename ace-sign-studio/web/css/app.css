@@ -529,3 +529,43 @@ label.f-label:first-child{margin-top:0}
 .mp-paste[open]>summary::before{content:'▾ '}
 .mp-paste-body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
 .mp-paste-body .btn{align-self:flex-start}
+
+/* ============ Editor polish (3.13) ============ */
+/* one wrapper per field: label, input, quick picks, help, message */
+.f-field{margin-top:14px}
+.f-field:first-child{margin-top:0}
+.f-field>.f-check{margin-top:0}
+.fine-body>.f-field{margin-top:10px}
+.fine-body>.f-field:first-child{margin-top:0}
+#toggleWrap,#scaleWrap{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+#toggleWrap>.f-help,#scaleWrap>.f-help{margin:-2px 0 8px}
+.scale-head{align-items:center}
+.scale-head label.f-label{margin:0;flex:1}
+
+.f-msg{font-size:12px;line-height:1.35;margin-top:5px;font-weight:600}
+.f-msg:empty{display:none}
+.f-field.has-error .f-msg{color:var(--error)}
+.f-field.has-warn .f-msg{color:var(--warning)}
+.f-field.has-info .f-msg{color:var(--success);font-weight:500}
+.f-field.has-error .f-input,.f-field.has-error .f-textarea{border-color:var(--error);background:var(--error-bg)}
+.f-field.has-warn .f-input{border-color:#E0A458}
+
+.quick-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.quick-chip{
+  border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:3px 10px;
+  font-size:11.5px;font-weight:700;color:var(--text-2);cursor:pointer;
+}
+.quick-chip:hover{border-color:var(--gray-11);color:var(--text)}
+
+.editor-head{flex-wrap:wrap;row-gap:8px}
+.editor-title{display:flex;align-items:baseline;gap:10px;flex:1;min-width:0;flex-wrap:wrap}
+.editor-tools{display:flex;gap:4px;flex:none}
+.tool-btn{padding:5px 9px;font-size:12px;font-weight:700}
+.tool-btn[disabled]{opacity:.4;cursor:default}
+
+.sale-hint{
+  width:100%;margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--warning-bg);
+  color:var(--text);font-weight:500;display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+}
+.sale-hint .btn{padding:4px 9px}
+.fine-body>#toggleWrap:first-child,.fine-body>#scaleWrap:first-child{border-top:0;padding-top:0;margin-top:0}
