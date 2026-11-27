@@ -1,8 +1,9 @@
 /* ============================================================
    Multi-PC sync via a private GitHub repo.
 
-   Every computer points Settings → Sync at the same private repo with a
-   fine-grained token (Contents read/write on that repo only). What syncs:
+   Every computer syncs with the same private repo through the token built
+   into the exe (Contents read/write on that repo only; nothing to paste,
+   and the page never sees it). What syncs:
    saved batches and print history. The live queue stays per-computer —
    hand a queue to another PC by saving it as a batch.
 
@@ -26,10 +27,8 @@ const Sync = {
   _busy: false,
 
   cfg() {
-    const s = Settings.get();
-    // a blank token is fine — release builds carry the store token and
-    // the backend substitutes it server-side
-    return { repo: String(s.syncRepo || "").trim(), token: String(s.syncToken || "").trim() };
+    // the token is built into the exe and added server-side
+    return { repo: String(Settings.get().syncRepo || "").trim() };
   },
   enabled() {
     return !!Settings.get().syncOn && !!this.cfg().repo;
@@ -56,7 +55,7 @@ const Sync = {
     const resp = await fetch("/api/sync/github", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({ repo: c.repo, token: c.token, by: Settings.get().syncName || "" }, payload)),
+      body: JSON.stringify(Object.assign({ repo: c.repo, by: Settings.get().syncName || "" }, payload)),
     });
     if (!resp.ok) throw new Error(`sync failed (${resp.status})`);
     return resp.json();

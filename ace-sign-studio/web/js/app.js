@@ -2709,7 +2709,6 @@ function initDiagnostics() {
   window.addEventListener("unhandledrejection", (e) => note("rejection", (e.reason && (e.reason.message || e.reason)) || "unknown"));
   $("#copyDiagBtn").onclick = async () => {
     const s = Object.assign({}, Settings.get());
-    delete s.syncToken; // never leaves the computer
     const lines = [
       `Ace Sign Studio ${window.__appVersion || "?"} on ${window.__appHost || "?"}`,
       `Generated ${new Date().toISOString()}`,
@@ -2895,7 +2894,6 @@ function openSettings() {
   $("#setBatchPriceCheck").checked = !!s.batchPriceCheck;
   $("#setSyncOn").checked = !!s.syncOn;
   $("#setSyncRepo").value = s.syncRepo || "";
-  $("#setSyncToken").value = s.syncToken || "";
   $("#setSyncName").value = s.syncName || "";
   if (window.__appHost) $("#setSyncName").placeholder = `This computer's name (e.g. ${window.__appHost})`;
   syncStatusUI();
@@ -2913,7 +2911,6 @@ function openSettings() {
       batchPriceCheck: $("#setBatchPriceCheck").checked,
       syncOn: $("#setSyncOn").checked,
       syncRepo: $("#setSyncRepo").value.trim() || "codysuter/ace-sign-sync",
-      syncToken: $("#setSyncToken").value.trim(),
       syncName: $("#setSyncName").value.trim(),
       margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),
       templateSku: $("#setTemplateSku").value.trim() || "81995",
@@ -2924,19 +2921,18 @@ function openSettings() {
       try { localStorage.removeItem("acesignstudio.template.v1"); } catch (e) {}
       loadTemplateProduct();
     }
-    Sync.start(); // pick up sync repo/token changes immediately
+    Sync.start(); // pick up sync setting changes immediately
     renderQueue();
   };
 }
 
 /* ---------------- backup export / import ----------------
    Everything worth keeping — queue, batches, history, settings — to a
-   plain JSON file and back. The sync token is deliberately excluded both
-   ways: it never travels in a backup file, and an import never clobbers
-   the one stored on this computer. */
+   plain JSON file and back. The sync token lives only inside the exe, so
+   it is never in a backup; an old backup that still carries a pasted
+   token from pre-3.12.2 has it dropped on import. */
 function buildBackupJSON() {
   const settings = Object.assign({}, Settings.get());
-  delete settings.syncToken;
   return JSON.stringify({
     app: "AceSignStudio",
     backupVersion: 1,
@@ -2971,10 +2967,9 @@ function applyBackup(data) {
     batches: Batches.data,
     history: History.data,
   };
-  const keepToken = Settings.data.syncToken;
   if (data.settings && typeof data.settings === "object") {
     Object.assign(Settings.data, data.settings);
-    Settings.data.syncToken = keepToken;
+    delete Settings.data.syncToken; // pre-3.12.2 backups may carry one
   }
   Batches.data = data.batches && typeof data.batches === "object" ? data.batches : {};
   History.data = Array.isArray(data.history) ? data.history : [];

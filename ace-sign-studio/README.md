@@ -78,9 +78,12 @@ Replaces and unifies the three older tools:
 - **Print All / Save PDF**: one vector PDF (brand Roboto embedded), sent
   straight to the print dialog or saved.
 - **Multi-PC sync** (3.0): saved batches and print history stay identical
-  on every store computer pointed at the same private GitHub repo
-  (Settings → Sync: `owner/repo` + a fine-grained token with Contents
-  read/write on that one repo). The frontend merges convergently — batch
+  on every store computer, through a private GitHub repo
+  (`codysuter/ace-sign-sync`). The fine-grained token (Contents read/write
+  on that one repo, **no expiration**) is baked into release builds from the
+  `ACE_SYNC_TOKEN` repo secret — it is the only token sync uses, and there
+  is no Settings field for one. To rotate it, update the secret and ship a
+  new version number (installed copies only self-update to a newer one). The frontend merges convergently — batch
   deletions carry tombstones, history unions by id — and writes go through
   GitHub's sha-guarded PUT, so concurrent computers can't tear the file.
   The live print queue stays per-computer by design.

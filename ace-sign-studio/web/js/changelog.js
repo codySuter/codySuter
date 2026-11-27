@@ -12,7 +12,8 @@ const CHANGELOG = [
     version: "3.12.2",
     date: "November 2026",
     notes: [
-      "Sync between store computers works again. The app's built-in connection to the store's sync storage had expired, so saved batches and print history stopped sharing between computers; it has been renewed. If it ever expires again, Settings → Sync now says so plainly instead of asking you to paste a token.",
+      "Sync between store computers works again. The app's built-in connection to the store's sync storage had expired, so saved batches and print history stopped sharing between computers. It has been replaced with one that doesn't expire.",
+      "The sync token box is gone from Settings — the connection is built into the app, so there's nothing to paste. Any token pasted by an older version is cleaned up automatically.",
     ],
   },
   {

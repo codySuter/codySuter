@@ -246,8 +246,10 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 // deliberately NOT strong protection — anyone determined can decode it —
 // an accepted trade-off (owner's call): the token can only read/write the
 // sync repo's batch data, and rotating it is just updating the repo
-// secret before the next release. Dev builds have no token; sync then
-// needs one pasted in Settings.
+// secret before the next release. The token is created with no expiry
+// date, and it is the ONLY token sync uses: there is no Settings field to
+// paste one, and any token sent by the page is ignored. Dev builds have no
+// token and so cannot sync.
 var embeddedSyncTokenB64 = ""
 
 func embeddedSyncToken() string {
@@ -261,17 +263,17 @@ func embeddedSyncToken() string {
 // ---------------- multi-PC sync via a private GitHub repo ----------------
 //
 // The sync store is a single JSON file in a private repo the store owns
-// (e.g. codysuter/ace-sign-sync). Each PC pastes a fine-grained token
-// (Contents read/write on that one repo) into Settings; the frontend owns
-// the merge logic and this endpoint just proxies the GitHub Contents API,
-// keeping the token out of third-party requests made by the page.
+// (e.g. codysuter/ace-sign-sync). The fine-grained token (Contents
+// read/write on that one repo) is baked into release builds; the frontend
+// owns the merge logic and this endpoint just proxies the GitHub Contents
+// API, so the token never reaches the page at all.
 //
 // GitHub's sha-guarded PUT gives compare-and-swap: when two PCs write at
 // once, the loser gets {conflict:true}, re-pulls, re-merges, and retries —
 // no torn writes, unlike a plain shared file.
 //
-// The token stays in this PC's local state.json and is sent only to
-// api.github.com; it is never part of the synced document itself.
+// The token lives only inside the exe and is sent only to api.github.com;
+// it is never stored in state.json or part of the synced document.
 
 var githubAPIBase = "https://api.github.com" // overridden in tests
 
@@ -280,12 +282,11 @@ const syncRepoFile = "acesignstudio-sync.json"
 var syncHTTP = &http.Client{Timeout: 20 * time.Second}
 
 type syncGithubReq struct {
-	Op    string          `json:"op"` // "get" | "put"
-	Repo  string          `json:"repo"`
-	Token string          `json:"token"`
-	Sha   string          `json:"sha,omitempty"`
-	Doc   json.RawMessage `json:"doc,omitempty"`
-	By    string          `json:"by,omitempty"` // computer name for the commit message
+	Op   string          `json:"op"` // "get" | "put"
+	Repo string          `json:"repo"`
+	Sha  string          `json:"sha,omitempty"`
+	Doc  json.RawMessage `json:"doc,omitempty"`
+	By   string          `json:"by,omitempty"` // computer name for the commit message
 }
 
 var syncRepoRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
@@ -310,7 +311,6 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Repo = strings.TrimSpace(req.Repo)
-	req.Token = strings.TrimSpace(req.Token)
 	// The regex alone still matches "." and ".." segments, which GitHub's API
 	// would path-normalize — letting a crafted request aim the embedded token
 	// at other api.github.com paths. Real owners/repos are never dot-only.
@@ -320,13 +320,11 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"ok": false, "error": "sync repo must look like owner/repo (e.g. codysuter/ace-sign-sync)"})
 		return
 	}
-	builtin := false // true when this request runs on the token baked into the exe
-	if req.Token == "" {
-		req.Token = embeddedSyncToken() // release builds carry the store token
-		builtin = req.Token != ""
-	}
-	if req.Token == "" {
-		writeJSON(w, map[string]any{"ok": false, "error": "this build has no built-in store token — paste one under Settings → Sync → advanced"})
+	// Only the token baked into the exe is ever used — any "token" field the
+	// page sends is ignored (and no longer decoded at all).
+	token := embeddedSyncToken()
+	if token == "" {
+		writeJSON(w, map[string]any{"ok": false, "error": "this copy of the app has no built-in sync connection — download the latest version from the Updates page"})
 		return
 	}
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", githubAPIBase, req.Repo, syncRepoFile)
@@ -341,7 +339,7 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, nil, err
 		}
-		greq.Header.Set("Authorization", "Bearer "+req.Token)
+		greq.Header.Set("Authorization", "Bearer "+token)
 		greq.Header.Set("Accept", "application/vnd.github+json")
 		greq.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 		resp, err := syncHTTP.Do(greq)
@@ -353,24 +351,15 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 		return resp, rb, err
 	}
 
+	// The built-in token is the only one, so a 401/403 means it was revoked,
+	// expired, or lost access — every PC stops at once and the cure is a
+	// release built with a fresh ACE_SYNC_TOKEN secret. Nothing to paste.
 	authError := func(code int) string {
-		// Nobody pasted the built-in token, so "paste it again" would be
-		// meaningless on the store floor. Fine-grained tokens expire; when the
-		// baked-in one does, every PC stops syncing at once and the cure is a
-		// release built with a fresh ACE_SYNC_TOKEN secret.
-		if builtin {
-			switch code {
-			case http.StatusUnauthorized:
-				return "the store's built-in sync connection has expired — check Settings → Updates for a newer version (or paste a new token under Sync → advanced)"
-			case http.StatusForbidden:
-				return "the store's built-in sync connection no longer has access to the sync repo — check Settings → Updates for a newer version"
-			}
-		}
 		switch code {
 		case http.StatusUnauthorized:
-			return "GitHub rejected the token — paste it again (it may have expired)"
+			return "the store's built-in sync connection was rejected by GitHub (expired or revoked) — check Settings → Updates for a newer version"
 		case http.StatusForbidden:
-			return "the token doesn't have access — it needs Contents read & write on the sync repo"
+			return "the store's built-in sync connection no longer has access to the sync repo — check Settings → Updates for a newer version"
 		}
 		return ""
 	}
@@ -386,13 +375,13 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 			// an unreachable repo and a missing file both 404 — check the repo
 			// itself so a typo'd name doesn't silently "sync" into nothing
 			if greq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/repos/%s", githubAPIBase, req.Repo), nil); err == nil {
-				greq.Header.Set("Authorization", "Bearer "+req.Token)
+				greq.Header.Set("Authorization", "Bearer "+token)
 				greq.Header.Set("Accept", "application/vnd.github+json")
 				if repoResp, err := syncHTTP.Do(greq); err == nil {
 					_, _ = io.Copy(io.Discard, repoResp.Body)
 					repoResp.Body.Close()
 					if repoResp.StatusCode != http.StatusOK {
-						writeJSON(w, map[string]any{"ok": false, "error": "GitHub can't find that repo with this token — check the owner/repo name and the token's repository access"})
+						writeJSON(w, map[string]any{"ok": false, "error": "GitHub can't find that repo with the built-in sync connection — check the repo name in Settings → Sync"})
 						return
 					}
 				}

@@ -71,114 +71,118 @@ func syncCall(t *testing.T, body string) map[string]any {
 	return out
 }
 
+// withSyncServer points the proxy at a mock GitHub and bakes in `embedded`
+// as the exe's token (the only token sync ever uses).
+func withSyncServer(t *testing.T, gh *mockGithub, embedded string) {
+	t.Helper()
+	srv := httptest.NewServer(gh.handler())
+	oldBase, oldTok := githubAPIBase, embeddedSyncTokenB64
+	githubAPIBase = srv.URL
+	embeddedSyncTokenB64 = ""
+	if embedded != "" {
+		embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte(embedded))
+	}
+	t.Cleanup(func() {
+		srv.Close()
+		githubAPIBase, embeddedSyncTokenB64 = oldBase, oldTok
+	})
+}
+
 func TestSyncGithubRoundtrip(t *testing.T) {
 	gh := &mockGithub{token: "tok123"}
-	srv := httptest.NewServer(gh.handler())
-	defer srv.Close()
-	old := githubAPIBase
-	githubAPIBase = srv.URL
-	defer func() { githubAPIBase = old }()
+	withSyncServer(t, gh, "tok123")
 
 	// no file yet → missing
-	out := syncCall(t, `{"op":"get","repo":"store/sync","token":"tok123"}`)
+	out := syncCall(t, `{"op":"get","repo":"store/sync"}`)
 	if out["missing"] != true {
 		t.Fatalf("expected missing, got %v", out)
 	}
 
 	// first put (no sha), then get returns the doc + sha
-	out = syncCall(t, `{"op":"put","repo":"store/sync","token":"tok123","doc":{"batches":{}},"by":"Front Desk"}`)
+	out = syncCall(t, `{"op":"put","repo":"store/sync","doc":{"batches":{}},"by":"Front Desk"}`)
 	if out["ok"] != true || out["conflict"] == true {
 		t.Fatalf("create failed: %v", out)
 	}
-	out = syncCall(t, `{"op":"get","repo":"store/sync","token":"tok123"}`)
+	out = syncCall(t, `{"op":"get","repo":"store/sync"}`)
 	if out["sha"] != shaStr(1) || out["doc"] == nil {
 		t.Fatalf("get after put: %v", out)
 	}
 
 	// stale sha → conflict (compare-and-swap)
-	out = syncCall(t, `{"op":"put","repo":"store/sync","token":"tok123","sha":"sha-stale","doc":{}}`)
+	out = syncCall(t, `{"op":"put","repo":"store/sync","sha":"sha-stale","doc":{}}`)
 	if out["conflict"] != true {
 		t.Fatalf("expected conflict on stale sha, got %v", out)
 	}
 	// correct sha → accepted
-	out = syncCall(t, `{"op":"put","repo":"store/sync","token":"tok123","sha":"`+shaStr(1)+`","doc":{"batches":{"a":1}}}`)
+	out = syncCall(t, `{"op":"put","repo":"store/sync","sha":"`+shaStr(1)+`","doc":{"batches":{"a":1}}}`)
 	if out["ok"] != true || out["conflict"] == true {
 		t.Fatalf("guarded put failed: %v", out)
 	}
 }
 
-func TestSyncGithubEmbeddedToken(t *testing.T) {
+// The built-in token is the only one: a token sent by the page (e.g. an
+// old pasted one) must never be used, whether it would work or not.
+func TestSyncGithubIgnoresPageToken(t *testing.T) {
 	gh := &mockGithub{token: "tok123"}
-	srv := httptest.NewServer(gh.handler())
+
+	withSyncServer(t, gh, "tok123")
+	out := syncCall(t, `{"op":"get","repo":"store/sync","token":"stale-pasted"}`)
+	if out["ok"] != true {
+		t.Fatalf("a page-sent token must not override the built-in one: %v", out)
+	}
+
+	withSyncServer(t, gh, "expired-builtin")
+	out = syncCall(t, `{"op":"get","repo":"store/sync","token":"tok123"}`)
+	if out["ok"] != false {
+		t.Fatalf("a page-sent token must not be used even when it would work: %v", out)
+	}
+}
+
+// No built-in token (a dev build) → a clear error, and GitHub is never called.
+func TestSyncGithubNoBuiltinToken(t *testing.T) {
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { called = true }))
 	defer srv.Close()
 	oldBase, oldTok := githubAPIBase, embeddedSyncTokenB64
-	githubAPIBase = srv.URL
-	embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte("tok123"))
+	githubAPIBase, embeddedSyncTokenB64 = srv.URL, ""
 	defer func() { githubAPIBase, embeddedSyncTokenB64 = oldBase, oldTok }()
 
-	// no token in the request — the embedded store token carries it
-	out := syncCall(t, `{"op":"put","repo":"store/sync","token":"","doc":{"batches":{}}}`)
-	if out["ok"] != true || out["conflict"] == true {
-		t.Fatalf("embedded-token put failed: %v", out)
+	out := syncCall(t, `{"op":"get","repo":"store/sync","token":"tok123"}`)
+	if msg, _ := out["error"].(string); out["ok"] != false || !strings.Contains(msg, "no built-in sync connection") {
+		t.Fatalf("expected no-built-in error, got %v", out)
 	}
-	// a pasted token still wins over the embedded one
-	embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte("stale-rotated-out"))
-	out = syncCall(t, `{"op":"get","repo":"store/sync","token":"tok123"}`)
-	if out["ok"] != true {
-		t.Fatalf("explicit token should override embedded: %v", out)
+	if called {
+		t.Fatal("GitHub was called without a built-in token")
+	}
+}
+
+// An expired/revoked built-in token says so plainly — nothing to paste.
+func TestSyncGithubExpiredBuiltinToken(t *testing.T) {
+	withSyncServer(t, &mockGithub{token: "fresh-token"}, "expired-token")
+	for _, op := range []string{
+		`{"op":"get","repo":"store/sync"}`,
+		`{"op":"put","repo":"store/sync","doc":{}}`,
+	} {
+		out := syncCall(t, op)
+		msg, _ := out["error"].(string)
+		if out["ok"] != false || !strings.Contains(msg, "built-in sync connection was rejected") || strings.Contains(msg, "paste") {
+			t.Fatalf("expected built-in rejection error for %s, got %v", op, out)
+		}
 	}
 }
 
 func TestSyncGithubErrors(t *testing.T) {
-	gh := &mockGithub{token: "tok123"}
-	srv := httptest.NewServer(gh.handler())
-	defer srv.Close()
-	old := githubAPIBase
-	githubAPIBase = srv.URL
-	defer func() { githubAPIBase = old }()
+	withSyncServer(t, &mockGithub{token: "tok123"}, "tok123")
 
-	// bad repo shape / missing token → friendly errors, no GitHub call
-	if out := syncCall(t, `{"op":"get","repo":"not a repo","token":"x"}`); out["ok"] != false {
-		t.Fatalf("bad repo accepted: %v", out)
-	}
-	if out := syncCall(t, `{"op":"get","repo":"store/sync","token":""}`); out["ok"] != false {
-		t.Fatalf("empty token accepted: %v", out)
-	}
-	// wrong token → auth error surfaced
-	out := syncCall(t, `{"op":"get","repo":"store/sync","token":"wrong"}`)
-	if out["ok"] != false || !strings.Contains(out["error"].(string), "token") {
-		t.Fatalf("expected token error, got %v", out)
-	}
-	// unknown repo with valid token → named-repo error, not silent missing
-	out = syncCall(t, `{"op":"get","repo":"store/other","token":"tok123"}`)
-	if out["ok"] != false || !strings.Contains(out["error"].(string), "find that repo") {
-		t.Fatalf("expected repo-not-found error, got %v", out)
-	}
-}
-
-// An expired built-in token must not tell store staff to "paste it again" —
-// they never pasted one. A pasted token keeps the paste-it-again advice.
-func TestSyncGithubExpiredEmbeddedToken(t *testing.T) {
-	gh := &mockGithub{token: "fresh-token"}
-	srv := httptest.NewServer(gh.handler())
-	defer srv.Close()
-	oldBase, oldTok := githubAPIBase, embeddedSyncTokenB64
-	githubAPIBase = srv.URL
-	embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte("expired-token"))
-	defer func() { githubAPIBase, embeddedSyncTokenB64 = oldBase, oldTok }()
-
-	for _, op := range []string{
-		`{"op":"get","repo":"store/sync","token":""}`,
-		`{"op":"put","repo":"store/sync","token":"","doc":{}}`,
-	} {
-		out := syncCall(t, op)
-		msg, _ := out["error"].(string)
-		if out["ok"] != false || !strings.Contains(msg, "built-in sync connection has expired") {
-			t.Fatalf("expected built-in expiry error for %s, got %v", op, out)
+	// bad repo shape → friendly error, no GitHub call
+	for _, repo := range []string{"not a repo", "../x", "store/.."} {
+		if out := syncCall(t, `{"op":"get","repo":"`+repo+`"}`); out["ok"] != false {
+			t.Fatalf("bad repo %q accepted: %v", repo, out)
 		}
 	}
-	out := syncCall(t, `{"op":"get","repo":"store/sync","token":"pasted-but-wrong"}`)
-	if msg, _ := out["error"].(string); !strings.Contains(msg, "paste it again") {
-		t.Fatalf("pasted token should keep the paste-again advice, got %v", out)
+	// unknown repo → named-repo error, not silent missing
+	out := syncCall(t, `{"op":"get","repo":"store/other"}`)
+	if out["ok"] != false || !strings.Contains(out["error"].(string), "find that repo") {
+		t.Fatalf("expected repo-not-found error, got %v", out)
 	}
 }

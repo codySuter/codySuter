@@ -22,7 +22,6 @@ const Settings = {
     syncOn: false,            // share batches & history with the store's other computers
     syncOfferDismissed: false, // the "turn on sync?" launch banner was declined on this PC
     syncRepo: "codysuter/ace-sign-sync", // private GitHub repo holding the sync data
-    syncToken: "",            // token override — blank uses the token built into release builds
     syncName: "",             // this computer's name, shown on synced history
     sizePresets: {},          // named Element-sizes slider layouts, {name: scaleMap}
   },
@@ -303,6 +302,9 @@ async function restoreState() {
     if (state.settings && state.settings.syncOn == null && String(Settings.data.syncToken || "").trim()) {
       Settings.data.syncOn = true;
     }
+    // 3.12.2+: sync uses only the token built into the exe. Drop any token
+    // pasted by an older version so it doesn't linger in state.json.
+    delete Settings.data.syncToken;
     if (Array.isArray(state.queue)) Queue.items = state.queue;
     if (state.batches && typeof state.batches === "object") Batches.data = state.batches;
     if (Array.isArray(state.history)) History.data = state.history;
