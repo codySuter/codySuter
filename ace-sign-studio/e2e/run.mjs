@@ -479,10 +479,12 @@ async function run() {
     await waitToastGone();
 
     // ================= export guard =================
-    console.log("→ Export blocks incomplete signs");
+    console.log("→ Export warns about, but never blocks, unfinished signs");
+    const dlUnfinished = page.waitForEvent("download", { timeout: 60000 });
     await page.click("#exportAllBtn");
     await page.waitForSelector(".toast");
-    ok("export blocked while a sign needs its Now price", (await page.textContent(".toast")).includes("incomplete"));
+    ok("export gives a heads-up about the missing Now price", (await page.textContent(".toast")).includes("unfinished"));
+    ok("…and still saves the PDF as shown", !!(await dlUnfinished));
     await waitToastGone();
     // fix it through the click-to-edit flow
     await page.click('.q-item:has-text("This Unit Only Clearance") .q-main');
@@ -586,9 +588,11 @@ async function run() {
     await page.click('.nav-item[data-type="sale"]');
     await page.waitForSelector("#editorFields");
     await page.click("#startOverBtn");
+    const qUnfinished = await page.evaluate(() => Queue.items.length);
     await page.click("#addQueueBtn");
     await page.waitForTimeout(400);
     ok("every missing field is marked in red", (await page.$$("#editorFields .f-field.has-error")).length === 2);
+    ok("an unfinished sign is still added to the queue", (await page.evaluate(() => Queue.items.length)) === qUnfinished + 1);
     await page.fill('#editorFields [data-field="name"]', "Test Drill");
     await page.waitForTimeout(400);
     ok("a fixed field clears its mark", (await page.$$("#editorFields .f-field.has-error")).length === 1);

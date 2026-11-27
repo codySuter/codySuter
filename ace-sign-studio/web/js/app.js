@@ -443,27 +443,28 @@ function showEditor(typeId) {
     </div>`;
   buildSizeChips(t);
   buildEditorFields(t);
+  // Add / Print are never blocked: the sign goes out exactly as the
+  // preview shows it. Unfinished-looking fields are only marked, with a
+  // heads-up next to the confirmation.
   $("#addQueueBtn").onclick = () => {
-    const err = validateSpec(t, App.spec);
-    if (err) return flagProblems(t, err);
-    App._showErrors = false;
+    const note = markProblems(t);
     if (App.editingUid) {
       const updated = Queue.update(App.editingUid, t.id, App.sizeId, App.spec);
       App.editingUid = null;
       updateEditMode();
       if (updated) {
-        showMsg("editorMsg", "ok", "Sign updated in the queue.");
+        showMsg("editorMsg", note ? "warn" : "ok", "Sign updated in the queue." + note);
         showToast("Sign updated.");
       } else {
         // the row was deleted while editing — keep the work, add as new
         Queue.add(t.id, App.sizeId, App.spec);
-        showMsg("editorMsg", "ok", "That sign was no longer in the queue — added it as a new one.");
+        showMsg("editorMsg", note ? "warn" : "ok", "That sign was no longer in the queue — added it as a new one." + note);
       }
       return;
     }
     Queue.add(t.id, App.sizeId, App.spec);
     const n = Queue.totalSigns();
-    showMsg("editorMsg", "ok", `Added to queue — ${n} sign${n === 1 ? "" : "s"} queued.`);
+    showMsg("editorMsg", note ? "warn" : "ok", `Added to queue — ${n} sign${n === 1 ? "" : "s"} queued.` + note);
   };
   $("#cancelEditBtn").onclick = () => {
     App.editingUid = null;
@@ -474,8 +475,7 @@ function showEditor(typeId) {
   // panel. The single-sign shortcuts stay reachable behind ⋯ for the
   // "just this one, right now" case.
   const printOne = async () => {
-    const err = validateSpec(t, App.spec);
-    if (err) return flagProblems(t, err);
+    markProblems(t);
     showMsg("editorMsg", "ok", "Preparing print…");
     try {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
@@ -485,8 +485,7 @@ function showEditor(typeId) {
     } catch (e) { showMsg("editorMsg", "err", "Print failed: " + friendlyError(e) + "."); }
   };
   const pdfOne = async () => {
-    const err = validateSpec(t, App.spec);
-    if (err) return flagProblems(t, err);
+    markProblems(t);
     showMsg("editorMsg", "ok", "Building PDF…");
     try {
       const doc = await signToPdf({ typeId: t.id, sizeId: App.sizeId, spec: currentRenderSpec() });
@@ -524,20 +523,18 @@ function showEditor(typeId) {
   schedulePreview();
 }
 
-/* After a failed Add/Print: every problem field turns red with its own
-   message, the form scrolls to the first one, and the summary under the
-   button says how many there are. Messages clear live as they're fixed. */
-function flagProblems(t, firstErr) {
-  App._showErrors = true;
+/* On Add/Print: mark every field that looks unfinished in red with its
+   own note (the marks clear live as they're filled in). Never blocks —
+   returns a short heads-up to append to the confirmation, or "". */
+function markProblems(t) {
+  const err = validateSpec(t, App.spec);
+  App._showErrors = !!err;
   paintAllFieldMessages();
-  const bad = $("#editorFields .f-field.has-error");
-  if (bad) {
-    bad.scrollIntoView({ block: "center", behavior: "smooth" });
-    const inp = bad.querySelector("input, textarea");
-    if (inp) setTimeout(() => inp.focus({ preventScroll: true }), 250);
-  }
+  if (!err) return "";
   const n = $$("#editorFields .f-field.has-error").length;
-  showMsg("editorMsg", "err", n > 1 ? `${firstErr} (${n} things to fix, marked in red.)` : firstErr);
+  return n > 1
+    ? ` Heads-up: ${n} fields look unfinished (marked in red) — it was added just as the preview shows.`
+    : ` Heads-up: ${err.replace(/\.$/, "")} — it was added just as the preview shows.`;
 }
 
 function paintAllFieldMessages() {
@@ -560,8 +557,9 @@ function paintAllFieldMessages() {
     paintFieldMessages(host, t, App.spec, App._showErrors);
   }
   if (App._showErrors && !validateSpec(t, App.spec)) {
+    App._showErrors = false;
     const m = $("#editorMsg");
-    if (m && m.classList.contains("err")) m.className = "msg";
+    if (m && m.classList.contains("warn")) m.className = "msg";
   }
 }
 
@@ -2926,16 +2924,15 @@ async function exportQueue(print, opts) {
   // With a selection, everything below acts on just the ticked signs.
   const selItems = selectedQueueItems();
   const source = selItems.length ? selItems : Queue.items;
-  // never print a broken sign (e.g. a bulk clearance sign still missing
-  // its NOW price would render "NOW $—") — block with a pointer instead
+  // Signs print exactly as their previews show, finished or not (3.13:
+  // the store's call). Unfinished ones get a heads-up, never a block.
   const bad = source.filter((q) => {
     const t = typeById(q.typeId);
     return t && validateSpec(t, q.spec);
   });
   if (bad.length) {
     const first = validateSpec(typeById(bad[0].typeId), bad[0].spec);
-    showToast(`${bad.length} sign${bad.length === 1 ? " is" : "s are"} incomplete — “${queueItemTitle(bad[0])}”: ${first} Click it in the queue to fix.`, { ms: 9000 });
-    return;
+    showToast(`Heads-up: ${bad.length} sign${bad.length === 1 ? " looks" : "s look"} unfinished — “${queueItemTitle(bad[0])}”: ${first} Printing ${bad.length === 1 ? "it" : "them"} as shown.`, { ms: 9000 });
   }
   if (!(opts && opts.skipStaleCheck)) {
     const stale = stalePricedItems(source);

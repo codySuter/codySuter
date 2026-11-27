@@ -12,7 +12,7 @@ const CHANGELOG = [
     version: "3.13.0",
     date: "November 2026",
     notes: [
-      "If something is missing when you add a sign, every field that needs fixing turns red with a note right under it, and the note clears as soon as it's fixed.",
+      "If something looks missing when you add or print a sign, every field that looks unfinished turns red with a note right under it (the note clears as soon as it's filled in). It never stops you: the sign is always added and printed exactly as the preview shows it.",
       "Friendly checks while you type: a sale price that isn't below the regular price, a percent over 99, or sale dates that are already over get a heads-up (it never stops you printing). Sale and clearance signs also show how much the customer saves, and 2 for $X shows the price each.",
       "Instant Savings works out the savings amount from the two prices by itself. Type your own amount to override it.",
       "One-click buttons for common percents (10% to 50%) and for sale dates: This week, 2 weeks, or Through month end.",
