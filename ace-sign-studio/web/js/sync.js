@@ -26,12 +26,9 @@ const Sync = {
   _rq: null,
   _busy: false,
 
-  cfg() {
-    // the token is built into the exe and added server-side
-    return { repo: String(Settings.get().syncRepo || "").trim() };
-  },
+  // the repo and token are both built into the exe and added server-side
   enabled() {
-    return !!Settings.get().syncOn && !!this.cfg().repo;
+    return !!Settings.get().syncOn;
   },
 
   /* (Re)start polling — call at boot and whenever Settings change. */
@@ -51,11 +48,10 @@ const Sync = {
   },
 
   async call(payload) {
-    const c = this.cfg();
     const resp = await fetch("/api/sync/github", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({ repo: c.repo, by: Settings.get().syncName || "" }, payload)),
+      body: JSON.stringify(Object.assign({ by: Settings.get().syncName || "" }, payload)),
     });
     if (!resp.ok) throw new Error(`sync failed (${resp.status})`);
     return resp.json();

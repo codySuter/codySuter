@@ -2893,7 +2893,6 @@ function openSettings() {
   $("#setCutGuides").checked = !!s.cutGuides;
   $("#setBatchPriceCheck").checked = !!s.batchPriceCheck;
   $("#setSyncOn").checked = !!s.syncOn;
-  $("#setSyncRepo").value = s.syncRepo || "";
   $("#setSyncName").value = s.syncName || "";
   if (window.__appHost) $("#setSyncName").placeholder = `This computer's name (e.g. ${window.__appHost})`;
   syncStatusUI();
@@ -2910,7 +2909,6 @@ function openSettings() {
       cutGuides: $("#setCutGuides").checked,
       batchPriceCheck: $("#setBatchPriceCheck").checked,
       syncOn: $("#setSyncOn").checked,
-      syncRepo: $("#setSyncRepo").value.trim() || "codysuter/ace-sign-sync",
       syncName: $("#setSyncName").value.trim(),
       margin: Math.min(0.6, Math.max(0.25, parseFloat($("#setMargin").value) || 0.375)),
       templateSku: $("#setTemplateSku").value.trim() || "81995",
@@ -2969,7 +2967,8 @@ function applyBackup(data) {
   };
   if (data.settings && typeof data.settings === "object") {
     Object.assign(Settings.data, data.settings);
-    delete Settings.data.syncToken; // pre-3.12.2 backups may carry one
+    delete Settings.data.syncToken; // pre-3.12.2 backups may carry these
+    delete Settings.data.syncRepo;
   }
   Batches.data = data.batches && typeof data.batches === "object" ? data.batches : {};
   History.data = Array.isArray(data.history) ? data.history : [];

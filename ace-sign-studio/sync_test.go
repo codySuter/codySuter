@@ -76,15 +76,15 @@ func syncCall(t *testing.T, body string) map[string]any {
 func withSyncServer(t *testing.T, gh *mockGithub, embedded string) {
 	t.Helper()
 	srv := httptest.NewServer(gh.handler())
-	oldBase, oldTok := githubAPIBase, embeddedSyncTokenB64
-	githubAPIBase = srv.URL
+	oldBase, oldTok, oldRepo := githubAPIBase, embeddedSyncTokenB64, syncRepo
+	githubAPIBase, syncRepo = srv.URL, "store/sync"
 	embeddedSyncTokenB64 = ""
 	if embedded != "" {
 		embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte(embedded))
 	}
 	t.Cleanup(func() {
 		srv.Close()
-		githubAPIBase, embeddedSyncTokenB64 = oldBase, oldTok
+		githubAPIBase, embeddedSyncTokenB64, syncRepo = oldBase, oldTok, oldRepo
 	})
 }
 
@@ -93,28 +93,28 @@ func TestSyncGithubRoundtrip(t *testing.T) {
 	withSyncServer(t, gh, "tok123")
 
 	// no file yet → missing
-	out := syncCall(t, `{"op":"get","repo":"store/sync"}`)
+	out := syncCall(t, `{"op":"get"}`)
 	if out["missing"] != true {
 		t.Fatalf("expected missing, got %v", out)
 	}
 
 	// first put (no sha), then get returns the doc + sha
-	out = syncCall(t, `{"op":"put","repo":"store/sync","doc":{"batches":{}},"by":"Front Desk"}`)
+	out = syncCall(t, `{"op":"put","doc":{"batches":{}},"by":"Front Desk"}`)
 	if out["ok"] != true || out["conflict"] == true {
 		t.Fatalf("create failed: %v", out)
 	}
-	out = syncCall(t, `{"op":"get","repo":"store/sync"}`)
+	out = syncCall(t, `{"op":"get"}`)
 	if out["sha"] != shaStr(1) || out["doc"] == nil {
 		t.Fatalf("get after put: %v", out)
 	}
 
 	// stale sha → conflict (compare-and-swap)
-	out = syncCall(t, `{"op":"put","repo":"store/sync","sha":"sha-stale","doc":{}}`)
+	out = syncCall(t, `{"op":"put","sha":"sha-stale","doc":{}}`)
 	if out["conflict"] != true {
 		t.Fatalf("expected conflict on stale sha, got %v", out)
 	}
 	// correct sha → accepted
-	out = syncCall(t, `{"op":"put","repo":"store/sync","sha":"`+shaStr(1)+`","doc":{"batches":{"a":1}}}`)
+	out = syncCall(t, `{"op":"put","sha":"`+shaStr(1)+`","doc":{"batches":{"a":1}}}`)
 	if out["ok"] != true || out["conflict"] == true {
 		t.Fatalf("guarded put failed: %v", out)
 	}
@@ -126,13 +126,13 @@ func TestSyncGithubIgnoresPageToken(t *testing.T) {
 	gh := &mockGithub{token: "tok123"}
 
 	withSyncServer(t, gh, "tok123")
-	out := syncCall(t, `{"op":"get","repo":"store/sync","token":"stale-pasted"}`)
+	out := syncCall(t, `{"op":"get","token":"stale-pasted"}`)
 	if out["ok"] != true {
 		t.Fatalf("a page-sent token must not override the built-in one: %v", out)
 	}
 
 	withSyncServer(t, gh, "expired-builtin")
-	out = syncCall(t, `{"op":"get","repo":"store/sync","token":"tok123"}`)
+	out = syncCall(t, `{"op":"get","token":"tok123"}`)
 	if out["ok"] != false {
 		t.Fatalf("a page-sent token must not be used even when it would work: %v", out)
 	}
@@ -147,7 +147,7 @@ func TestSyncGithubNoBuiltinToken(t *testing.T) {
 	githubAPIBase, embeddedSyncTokenB64 = srv.URL, ""
 	defer func() { githubAPIBase, embeddedSyncTokenB64 = oldBase, oldTok }()
 
-	out := syncCall(t, `{"op":"get","repo":"store/sync","token":"tok123"}`)
+	out := syncCall(t, `{"op":"get","token":"tok123"}`)
 	if msg, _ := out["error"].(string); out["ok"] != false || !strings.Contains(msg, "no built-in sync connection") {
 		t.Fatalf("expected no-built-in error, got %v", out)
 	}
@@ -160,8 +160,8 @@ func TestSyncGithubNoBuiltinToken(t *testing.T) {
 func TestSyncGithubExpiredBuiltinToken(t *testing.T) {
 	withSyncServer(t, &mockGithub{token: "fresh-token"}, "expired-token")
 	for _, op := range []string{
-		`{"op":"get","repo":"store/sync"}`,
-		`{"op":"put","repo":"store/sync","doc":{}}`,
+		`{"op":"get"}`,
+		`{"op":"put","doc":{}}`,
 	} {
 		out := syncCall(t, op)
 		msg, _ := out["error"].(string)
@@ -171,18 +171,41 @@ func TestSyncGithubExpiredBuiltinToken(t *testing.T) {
 	}
 }
 
-func TestSyncGithubErrors(t *testing.T) {
+func TestSyncGithubUnknownRepo(t *testing.T) {
 	withSyncServer(t, &mockGithub{token: "tok123"}, "tok123")
-
-	// bad repo shape → friendly error, no GitHub call
-	for _, repo := range []string{"not a repo", "../x", "store/.."} {
-		if out := syncCall(t, `{"op":"get","repo":"`+repo+`"}`); out["ok"] != false {
-			t.Fatalf("bad repo %q accepted: %v", repo, out)
-		}
-	}
-	// unknown repo → named-repo error, not silent missing
-	out := syncCall(t, `{"op":"get","repo":"store/other"}`)
-	if out["ok"] != false || !strings.Contains(out["error"].(string), "find that repo") {
+	syncRepo = "store/other" // a repo the token can't see
+	out := syncCall(t, `{"op":"get"}`)
+	if out["ok"] != false || !strings.Contains(out["error"].(string), "can't find the store's sync repo") {
 		t.Fatalf("expected repo-not-found error, got %v", out)
+	}
+}
+
+// The repo is fixed in the code: a repo sent by the page (an old Settings
+// value, or a crafted "../.." aiming the built-in token at other GitHub
+// API paths) must be ignored, every request going to syncRepo's file.
+func TestSyncGithubIgnoresPageRepo(t *testing.T) {
+	var paths []string
+	gh := &mockGithub{token: "tok123", content: []byte(`{}`), sha: 1}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		gh.handler().ServeHTTP(w, r)
+	}))
+	defer srv.Close()
+	oldBase, oldTok, oldRepo := githubAPIBase, embeddedSyncTokenB64, syncRepo
+	githubAPIBase, syncRepo = srv.URL, "store/sync"
+	embeddedSyncTokenB64 = base64.StdEncoding.EncodeToString([]byte("tok123"))
+	defer func() { githubAPIBase, embeddedSyncTokenB64, syncRepo = oldBase, oldTok, oldRepo }()
+
+	for _, repo := range []string{"../..", "evil/repo", "x/.."} {
+		paths = nil
+		out := syncCall(t, `{"op":"get","repo":"`+repo+`"}`)
+		if out["ok"] != true {
+			t.Fatalf("repo %q: expected the fixed repo to answer, got %v", repo, out)
+		}
+		for _, p := range paths {
+			if p != "/repos/store/sync/contents/acesignstudio-sync.json" {
+				t.Fatalf("repo %q: request went to %q", repo, p)
+			}
+		}
 	}
 }

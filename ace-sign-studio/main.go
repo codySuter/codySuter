@@ -21,7 +21,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -262,8 +261,8 @@ func embeddedSyncToken() string {
 
 // ---------------- multi-PC sync via a private GitHub repo ----------------
 //
-// The sync store is a single JSON file in a private repo the store owns
-// (e.g. codysuter/ace-sign-sync). The fine-grained token (Contents
+// The sync store is a single JSON file in the store's private repo
+// (syncRepo below — fixed, not a setting). The fine-grained token (Contents
 // read/write on that one repo) is baked into release builds; the frontend
 // owns the merge logic and this endpoint just proxies the GitHub Contents
 // API, so the token never reaches the page at all.
@@ -277,19 +276,21 @@ func embeddedSyncToken() string {
 
 var githubAPIBase = "https://api.github.com" // overridden in tests
 
+// syncRepo is the one repo sync ever talks to. It is fixed in the code (not
+// a setting, and never taken from the page), so the built-in token can only
+// ever be aimed at this repo's sync file.
+var syncRepo = "codysuter/ace-sign-sync" // overridden in tests
+
 const syncRepoFile = "acesignstudio-sync.json"
 
 var syncHTTP = &http.Client{Timeout: 20 * time.Second}
 
 type syncGithubReq struct {
-	Op   string          `json:"op"` // "get" | "put"
-	Repo string          `json:"repo"`
-	Sha  string          `json:"sha,omitempty"`
-	Doc  json.RawMessage `json:"doc,omitempty"`
-	By   string          `json:"by,omitempty"` // computer name for the commit message
+	Op  string          `json:"op"` // "get" | "put"
+	Sha string          `json:"sha,omitempty"`
+	Doc json.RawMessage `json:"doc,omitempty"`
+	By  string          `json:"by,omitempty"` // computer name for the commit message
 }
-
-var syncRepoRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
 func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -310,24 +311,14 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
-	req.Repo = strings.TrimSpace(req.Repo)
-	// The regex alone still matches "." and ".." segments, which GitHub's API
-	// would path-normalize — letting a crafted request aim the embedded token
-	// at other api.github.com paths. Real owners/repos are never dot-only.
-	owner, repoName, _ := strings.Cut(req.Repo, "/")
-	if !syncRepoRe.MatchString(req.Repo) ||
-		owner == "." || owner == ".." || repoName == "." || repoName == ".." {
-		writeJSON(w, map[string]any{"ok": false, "error": "sync repo must look like owner/repo (e.g. codysuter/ace-sign-sync)"})
-		return
-	}
-	// Only the token baked into the exe is ever used — any "token" field the
-	// page sends is ignored (and no longer decoded at all).
+	// Only the token baked into the exe and the fixed syncRepo are ever used
+	// — any "token" or "repo" field the page sends is ignored (not decoded).
 	token := embeddedSyncToken()
 	if token == "" {
 		writeJSON(w, map[string]any{"ok": false, "error": "this copy of the app has no built-in sync connection — download the latest version from the Updates page"})
 		return
 	}
-	url := fmt.Sprintf("%s/repos/%s/contents/%s", githubAPIBase, req.Repo, syncRepoFile)
+	url := fmt.Sprintf("%s/repos/%s/contents/%s", githubAPIBase, syncRepo, syncRepoFile)
 
 	ghDo := func(method string, payload any) (*http.Response, []byte, error) {
 		var rd io.Reader
@@ -374,14 +365,14 @@ func handleSyncGithub(w http.ResponseWriter, r *http.Request) {
 		if resp.StatusCode == http.StatusNotFound {
 			// an unreachable repo and a missing file both 404 — check the repo
 			// itself so a typo'd name doesn't silently "sync" into nothing
-			if greq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/repos/%s", githubAPIBase, req.Repo), nil); err == nil {
+			if greq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/repos/%s", githubAPIBase, syncRepo), nil); err == nil {
 				greq.Header.Set("Authorization", "Bearer "+token)
 				greq.Header.Set("Accept", "application/vnd.github+json")
 				if repoResp, err := syncHTTP.Do(greq); err == nil {
 					_, _ = io.Copy(io.Discard, repoResp.Body)
 					repoResp.Body.Close()
 					if repoResp.StatusCode != http.StatusOK {
-						writeJSON(w, map[string]any{"ok": false, "error": "GitHub can't find that repo with the built-in sync connection — check the repo name in Settings → Sync"})
+						writeJSON(w, map[string]any{"ok": false, "error": "GitHub can't find the store's sync repo with the built-in sync connection — check Settings → Updates for a newer version"})
 						return
 					}
 				}

@@ -21,7 +21,6 @@ const Settings = {
     batchPriceCheck: true,    // launch scan: saved batches vs current store prices
     syncOn: false,            // share batches & history with the store's other computers
     syncOfferDismissed: false, // the "turn on sync?" launch banner was declined on this PC
-    syncRepo: "codysuter/ace-sign-sync", // private GitHub repo holding the sync data
     syncName: "",             // this computer's name, shown on synced history
     sizePresets: {},          // named Element-sizes slider layouts, {name: scaleMap}
   },
@@ -295,16 +294,14 @@ async function restoreState() {
   }
   if (state) {
     if (state.settings) Object.assign(Settings.data, state.settings);
-    // 3.0.0 installs saved syncRepo:"" before the default existed — an
-    // empty repo means "use the store default"
-    if (!String(Settings.data.syncRepo || "").trim()) Settings.data.syncRepo = "codysuter/ace-sign-sync";
     // pre-3.1 sync was "on" purely by having a token pasted — carry that over
     if (state.settings && state.settings.syncOn == null && String(Settings.data.syncToken || "").trim()) {
       Settings.data.syncOn = true;
     }
-    // 3.12.2+: sync uses only the token built into the exe. Drop any token
-    // pasted by an older version so it doesn't linger in state.json.
+    // 3.12.2+: sync uses only the token and repo built into the exe. Drop
+    // the old Settings values so they don't linger in state.json.
     delete Settings.data.syncToken;
+    delete Settings.data.syncRepo;
     if (Array.isArray(state.queue)) Queue.items = state.queue;
     if (state.batches && typeof state.batches === "object") Batches.data = state.batches;
     if (Array.isArray(state.history)) History.data = state.history;
