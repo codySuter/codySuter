@@ -164,6 +164,11 @@ function mergeSyncDoc(remote) {
   if (mergedH.some((h) => !remoteUids.has(h.uid))) changedRemote = true;
   History.data = mergedH;
 
+  // favorites (3.13+): same newest-wins + tombstone rules as batches
+  const fav = typeof mergeFavorites === "function" ? mergeFavorites(remote && remote.favorites) : null;
+  if (fav && fav.changedLocal) changedLocal = true;
+  if (fav && fav.changedRemote) changedRemote = true;
+
   return {
     changedLocal,
     changedRemote,
@@ -171,6 +176,7 @@ function mergeSyncDoc(remote) {
       v: 1,
       batches: mergedB,
       history: mergedH,
+      favorites: fav ? fav.merged : undefined,
       updatedAt: new Date().toISOString(),
       by: String(Settings.get().syncName || "").trim(),
     },
@@ -198,6 +204,10 @@ async function shrinkSyncDoc(doc) {
     for (const h of out.history || []) {
       for (const q of h.items || []) fn(q.spec, "history");
     }
+    for (const n of Object.keys(out.favorites || {})) {
+      const f = out.favorites[n];
+      if (f && f.spec) fn(f.spec, "favorite");
+    }
   };
   const big = [];
   eachSpec((spec) => {
@@ -213,9 +223,13 @@ async function shrinkSyncDoc(doc) {
     }
     if (small && small.length < spec.image.length) spec.image = small;
   }
+  const dropExtraPictures = (spec) => {
+    if (spec && Array.isArray(spec.extras)) spec.extras = spec.extras.filter((x) => !(x && x.kind === "image" && String(x.src || "").startsWith("data:")));
+  };
   if (JSON.stringify(out).length > SYNC_DOC_BUDGET) {
     eachSpec((spec, where) => {
       if (where === "history" && spec && typeof spec.image === "string" && spec.image.startsWith("data:")) spec.image = null;
+      if (where === "history") dropExtraPictures(spec);
     });
   }
   if (JSON.stringify(out).length > SYNC_DOC_BUDGET) {

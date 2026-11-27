@@ -33,7 +33,7 @@ const sizeById = (id) => SIZES.find((s) => s.id === id) || SIZES[0];
    dates, check, textarea. `show` may hide a field per spec state. */
 const F = {
   sku:    { key: "sku", kind: "sku", label: "SKU / item number", help: "Type or paste — price, name & photo auto-fill from acehardware.com" },
-  name:   { key: "name", kind: "text", label: "Product name" },
+  name:   { key: "name", kind: "text", label: "Product name", multiline: true },
   detail: { key: "detail", kind: "text", label: "Detail line (brand · size · model)", optional: true },
   price:  { key: "price", kind: "money", label: "Price" },
   regPrice: { key: "regPrice", kind: "money", label: "Regular price", optional: true },
@@ -44,7 +44,7 @@ const F = {
   image:  { key: "image", kind: "image", label: "Product photo" },
   dates:  { key: "dates", kind: "dates", label: "Sale dates", help: "Prints as a red pill in the corner. Leave blank for none." },
   upTo:   { key: "upTo", kind: "check", label: "Show “UP TO” above the percent" },
-  category: { key: "category", kind: "text", label: "Category name (e.g. HAND TOOLS)" },
+  category: { key: "category", kind: "text", label: "Category name (e.g. HAND TOOLS)", multiline: true },
   message:  { key: "message", kind: "textarea", label: "Message" },
   barcode:  { key: "barcode", kind: "check", label: "Print a scannable SKU barcode (Code 128)" },
   qr:       { key: "qr", kind: "check", label: "Print a QR code to this product on acehardware.com" },

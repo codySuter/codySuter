@@ -340,8 +340,10 @@ function showGallery() {
         <h2>What are we making today?</h2>
         <p>Pick a sign type — live pricing fills in automatically from acehardware.com for store #${esc(Settings.get().storeCode)}. Every sign can go to the print queue.</p>
       </div>
+      <div id="favStrip"></div>
       <div class="gallery" id="gallery"></div>
     </div>`;
+  buildFavoritesStrip($("#favStrip"));
   const g = $("#gallery");
   for (const t of menuTypes()) {
     const card = el("button", "g-card");
@@ -416,6 +418,7 @@ function showEditor(typeId) {
             <div class="editor-tools">
               <button class="btn btn-ghost btn-sm tool-btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
               <button class="btn btn-ghost btn-sm tool-btn" id="redoBtn" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
+              <button class="btn btn-ghost btn-sm tool-btn" id="favBtn" title="Save this sign's look, or use a saved one">★ Favorites</button>
               <button class="btn btn-ghost btn-sm tool-btn" id="startOverBtn" title="Clear this sign and start a new one">New sign</button>
             </div>
           </div>
@@ -514,6 +517,7 @@ function showEditor(typeId) {
   $("#undoBtn").onclick = () => editorUndo(-1);
   $("#redoBtn").onclick = () => editorUndo(1);
   $("#startOverBtn").onclick = () => startOverSign(t);
+  $("#favBtn").onclick = (e) => { e.stopPropagation(); showFavoritesMenu($("#favBtn")); };
   App._showErrors = false;
   updateEditMode();
   EditorHistory.reset();
@@ -689,7 +693,7 @@ function buildEditorFields(t) {
   fine.addEventListener("toggle", () => {
     try { localStorage.setItem("acesignstudio.finetune", fine.open ? "open" : ""); } catch (e) {}
   });
-  fine.appendChild(el("summary", null, "Fine-tune this sign — layout, barcode & extras"));
+  fine.appendChild(el("summary", null, "Sizes, hide parts, barcode & QR"));
   const fineBody = el("div", "fine-body");
   fine.appendChild(fineBody);
   const FINE_KEYS = { unit: 1, barcode: 1, qr: 1 };
@@ -887,6 +891,8 @@ function buildEditorFields(t) {
     } else if (f.kind === "textarea") {
       inp = el("textarea", "f-textarea");
       inp.value = App.spec[f.key] || "";
+    } else if (f.multiline) {
+      inp = multilineInput(App.spec[f.key] || "");
     } else {
       if (App.spec[f.key] == null && f.def != null) App.spec[f.key] = f.def;
       inp = inputEl("text", App.spec[f.key] || "");
@@ -896,10 +902,13 @@ function buildEditorFields(t) {
     if (wrap) { wrap.appendChild(inp); box.appendChild(wrap); }
     else box.appendChild(inp);
     if (f.kind === "percent") addQuickChips(box, inp, [10, 15, 20, 25, 30, 40, 50], "%");
+    if (f.multiline && !f.help) box.appendChild(el("div", "f-help", "Press Enter to start a new line on the sign."));
     help(box, f);
   }
   buildToggleChips(t, fineBody);
   buildScaleSliders(t, fineBody);
+  buildLayoutSection(t, host);
+  buildExtrasSection(t, host);
   // Only offer the section when it has something in it (e.g. Text Only has
   // no toggles, sliders, or extras).
   if (fineBody.childNodes.length) host.appendChild(fine);
@@ -975,8 +984,8 @@ function buildScaleSliders(t, host) {
     row.appendChild(el("span", "scale-name", d.label));
     const slider = el("input", "scale-slider");
     slider.type = "range";
-    slider.min = "50";
-    slider.max = "160";
+    slider.min = String(Math.round(SCALE_MIN * 100));
+    slider.max = String(Math.round(SCALE_MAX * 100));
     slider.step = "5";
     slider.value = String(Math.round((sc[d.key] || 1) * 100));
     slider.dataset.scaleKey = d.key; // lets preview drags sync this row
@@ -996,7 +1005,23 @@ function buildScaleSliders(t, host) {
       slider.value = "100";
       slider.dispatchEvent(new Event("input"));
     });
+    const step = (dir) => {
+      slider.value = String(Math.max(+slider.min, Math.min(+slider.max, +slider.value + dir * 5)));
+      slider.dispatchEvent(new Event("input"));
+    };
+    const minus = el("button", "nudge-btn scale-step", "−");
+    minus.type = "button";
+    minus.title = `Make ${d.label.toLowerCase()} smaller`;
+    minus.disabled = hidden;
+    minus.onclick = () => step(-1);
+    const plus = el("button", "nudge-btn scale-step", "+");
+    plus.type = "button";
+    plus.title = `Make ${d.label.toLowerCase()} bigger`;
+    plus.disabled = hidden;
+    plus.onclick = () => step(1);
+    row.appendChild(minus);
     row.appendChild(slider);
+    row.appendChild(plus);
     row.appendChild(val);
     wrap.appendChild(row);
   }
@@ -1087,6 +1112,17 @@ function maybeResetScaleForNewSku(newSku, t, host) {
 }
 
 function labelEl(text) { return el("label", "f-label", text); }
+/* A text box that looks like a one-line input but takes Enter as a line
+   break on the sign, growing as lines are added. */
+function multilineInput(value) {
+  const ta = el("textarea", "f-input f-autogrow");
+  ta.rows = 1;
+  ta.value = value;
+  const grow = () => { ta.style.height = "auto"; ta.style.height = Math.min(160, ta.scrollHeight + 3) + "px"; };
+  ta.addEventListener("input", grow);
+  setTimeout(grow, 0);
+  return ta;
+}
 function inputEl(type, value, placeholder) {
   const i = el("input", "f-input");
   i.type = type;
@@ -1551,6 +1587,8 @@ function buildProductField(t, p, i, st, f, destOuter, card) {
   } else if (f.kind === "textarea") {
     inp = el("textarea", "f-textarea");
     inp.value = spec[f.key] || "";
+  } else if (f.multiline) {
+    inp = multilineInput(spec[f.key] || "");
   } else {
     if (spec[f.key] == null && f.def != null) spec[f.key] = f.def;
     inp = inputEl("text", spec[f.key] || "");
@@ -1666,7 +1704,8 @@ function openInlineEdit(textEl) {
   const box = el("div", "inline-edit");
   box.appendChild(el("div", "inline-edit-label", (tgt.pi >= 0 ? `Product ${tgt.pi + 1} · ` : "") + f.label));
   let inp;
-  if (f.kind === "textarea") inp = el("textarea", "f-textarea");
+  const multi = f.kind === "textarea" || f.multiline;
+  if (multi) inp = el("textarea", "f-textarea");
   else { inp = el("input", "f-input"); inp.type = f.kind === "int" ? "number" : "text"; }
   inp.value = tgt.spec[tgt.key] != null ? tgt.spec[tgt.key] : "";
   const original = inp.value;
@@ -1674,7 +1713,7 @@ function openInlineEdit(textEl) {
   if (f.kind === "money") { wrap = el("div", "prefix-wrap"); wrap.dataset.prefix = "$"; wrap.appendChild(inp); }
   else if (f.kind === "percent") { wrap = el("div", "suffix-wrap"); wrap.dataset.suffix = "%"; wrap.appendChild(inp); }
   box.appendChild(wrap);
-  box.appendChild(el("div", "inline-edit-hint", f.kind === "sku" ? "Enter to look it up · Esc to undo" : "Enter to save · Esc to undo"));
+  box.appendChild(el("div", "inline-edit-hint", f.kind === "sku" ? "Enter to look it up · Esc to undo" : multi ? "Enter for a new line · click away when done · Esc to undo" : "Enter to save · Esc to undo"));
   const push = (v) => {
     if (tgt.input) {
       // the form input's own listener writes the spec, re-renders, and
@@ -1688,7 +1727,7 @@ function openInlineEdit(textEl) {
   };
   inp.addEventListener("input", () => push(inp.value));
   inp.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && f.kind !== "textarea") {
+    if (e.key === "Enter" && !multi) {
       e.preventDefault();
       if (f.kind === "sku" && tgt.input) tgt.input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
       closeInlineEdit();
@@ -1842,10 +1881,16 @@ function attachPreviewDrag(holder) {
     });
   }
   if (t.id === "multi") attachProductDrag(svg);
+  attachExtrasDrag(svg);
   for (const g of svg.querySelectorAll("g[data-elem]")) {
     const d = byKey[g.dataset.elem];
     if (!d) continue;
     g.style.cursor = "ns-resize";
+    if (!g.querySelector(":scope > title")) {
+      const tip = document.createElementNS("http://www.w3.org/2000/svg", "title");
+      tip.textContent = `${d.label}: drag up to make it bigger, down to make it smaller`;
+      g.insertBefore(tip, g.firstChild);
+    }
     g.addEventListener("pointerenter", () => { if (!_elemDrag) showDragHint(svg, g, d.label); });
     g.addEventListener("pointerleave", () => hideDragHint());
     g.addEventListener("pointerdown", (e) => startElemDrag(e, d));
@@ -1897,9 +1942,9 @@ function startElemDrag(e, d) {
   document.body.appendChild(badge);
   const move = (ev) => {
     if (Math.abs(ev.clientY - _elemDrag.startY) > 3) _elemDrag.moved = true;
-    // 220px of drag spans roughly the whole 50–160% slider range
+    // 220px of drag spans roughly 110% of size
     const raw = _elemDrag.start + (_elemDrag.startY - ev.clientY) / 220;
-    const snapped = Math.round(Math.min(1.6, Math.max(0.5, raw)) * 20) / 20;
+    const snapped = Math.round(Math.min(SCALE_MAX, Math.max(SCALE_MIN, raw)) * 20) / 20;
     if (App.spec.scale[_elemDrag.key] !== snapped) {
       App.spec.scale[_elemDrag.key] = snapped;
       App.spec._scaleSku = String(App.spec.sku || "");
@@ -3198,6 +3243,7 @@ function buildBackupJSON() {
     queue: Queue.items,
     batches: Batches.data,
     history: History.data,
+    favorites: Favorites.data,
   });
 }
 
@@ -3222,6 +3268,7 @@ function applyBackup(data) {
     queue: Queue.items,
     batches: Batches.data,
     history: History.data,
+    favorites: Favorites.data,
   };
   if (data.settings && typeof data.settings === "object") {
     Object.assign(Settings.data, data.settings);
@@ -3230,6 +3277,8 @@ function applyBackup(data) {
   }
   Batches.data = data.batches && typeof data.batches === "object" ? data.batches : {};
   History.data = Array.isArray(data.history) ? data.history : [];
+  // older backups have no favorites: keep this computer's rather than wipe them
+  if (data.favorites && typeof data.favorites === "object") Favorites.data = data.favorites;
   Queue.replaceAll(Array.isArray(data.queue) ? data.queue : []); // persists + re-renders
   Sync.start();
   showToast(`Backup restored${data.exportedAt ? ` (saved ${fmtBatchDate(data.exportedAt)})` : ""} — queue, batches, history & settings replaced.`, {
@@ -3237,6 +3286,7 @@ function applyBackup(data) {
       Object.assign(Settings.data, prev.settings);
       Batches.data = prev.batches;
       History.data = prev.history;
+      Favorites.data = prev.favorites;
       Queue.replaceAll(prev.queue);
       Sync.start();
     },

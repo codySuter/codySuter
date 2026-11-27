@@ -286,9 +286,10 @@ async function run() {
     // ================= click-to-edit in the preview =================
     console.log("→ Click any text on the preview to edit it");
     await page.locator('#signHolder svg text[data-field="name"]').first().click();
-    await page.waitForSelector(".inline-edit input", { timeout: 5000 });
-    ok("clicking the name opens an editor holding the name", (await page.inputValue(".inline-edit input")).includes("DeWalt"));
-    await page.fill(".inline-edit input", "DeWalt 20V Drill Kit — Sale Table");
+    // the name takes line breaks, so its popup is a multi-line box
+    await page.waitForSelector(".inline-edit textarea", { timeout: 5000 });
+    ok("clicking the name opens an editor holding the name", (await page.inputValue(".inline-edit textarea")).includes("DeWalt"));
+    await page.fill(".inline-edit textarea", "DeWalt 20V Drill Kit — Sale Table");
     ok("typing in the popup drives the form field", (await page.inputValue('[data-field="name"]')) === "DeWalt 20V Drill Kit — Sale Table");
     ok("…and the spec", await page.evaluate(() => App.spec.name === "DeWalt 20V Drill Kit — Sale Table"));
     await page.waitForFunction(() => document.querySelector("#signHolder svg").textContent.includes("Sale Table"), null, { timeout: 10000 });
@@ -579,6 +580,98 @@ async function run() {
     ok("queue persists server-side", Array.isArray(stateResp.queue) && stateResp.queue.length > 0);
     ok("batches persist server-side", !!(stateResp.batches && stateResp.batches["Test Batch"]));
     ok("copies persist server-side", (stateResp.queue || []).every((q) => q.copies >= 1));
+
+    // ================= editor polish (3.13) =================
+    console.log("→ Editor: problems marked per field");
+    await page.click('.nav-item[data-type="sale"]');
+    await page.waitForSelector("#editorFields");
+    await page.click("#startOverBtn");
+    await page.click("#addQueueBtn");
+    await page.waitForTimeout(400);
+    ok("every missing field is marked in red", (await page.$$("#editorFields .f-field.has-error")).length === 2);
+    await page.fill('#editorFields [data-field="name"]', "Test Drill");
+    await page.waitForTimeout(400);
+    ok("a fixed field clears its mark", (await page.$$("#editorFields .f-field.has-error")).length === 1);
+
+    console.log("→ Editor: price checks and automatic savings");
+    await page.fill('#editorFields [data-field="price"]', "30");
+    await page.fill('#editorFields [data-field="regPrice"]', "25");
+    await page.waitForTimeout(400);
+    ok("sale above regular price is flagged", (await page.textContent('.f-field[data-key="price"] .f-msg')).includes("not lower"));
+    await page.click('.nav-item[data-type="instant_savings"]');
+    await page.waitForSelector("#editorFields");
+    await page.fill('#editorFields [data-field="price"]', "99");
+    await page.fill('#editorFields [data-field="regPrice"]', "129.50");
+    await page.waitForTimeout(300);
+    ok("Instant Savings fills in the savings", (await page.inputValue('#editorFields [data-field="savings"]')) === "30.50");
+
+    console.log("→ Editor: undo / redo / Ctrl+Enter");
+    await page.fill('#editorFields [data-field="name"]', "Undo Me");
+    await page.waitForTimeout(800);
+    await page.fill('#editorFields [data-field="name"]', "Changed");
+    await page.waitForTimeout(800);
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(300);
+    ok("Ctrl+Z undoes the last change", (await page.inputValue('#editorFields [data-field="name"]')) === "Undo Me");
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(300);
+    ok("Ctrl+Y redoes it", (await page.inputValue('#editorFields [data-field="name"]')) === "Changed");
+    const qBefore = await page.evaluate(() => Queue.items.length);
+    await page.keyboard.press("Control+Enter");
+    await page.waitForTimeout(400);
+    ok("Ctrl+Enter adds the sign to the queue", (await page.evaluate(() => Queue.items.length)) === qBefore + 1);
+
+    console.log("→ Editor: one Arrow sign with a direction picker");
+    await page.click('.nav-item[data-family="arrow"]');
+    await page.waitForSelector('.seg-btn[data-member="arrow_left"]');
+    await page.click('.seg-btn[data-member="arrow_left"]');
+    await page.waitForTimeout(300);
+    ok("direction picker switches the arrow type", (await page.evaluate(() => App.typeId)) === "arrow_left");
+    ok("the arrow keeps what was typed", (await page.inputValue('#editorFields [data-field="name"]')) === "Changed");
+
+    console.log("→ Editor: line breaks, layout, color, extra boxes, favorites");
+    await page.click('.nav-item[data-type="big_text"]');
+    await page.waitForSelector("#editorFields");
+    await page.fill('#editorFields [data-field="name"]', "PROPANE\nEXCHANGE");
+    await page.waitForTimeout(500);
+    const lines = await page.$$eval('#signHolder text[data-field="name"]', (els) => els.map((e) => e.textContent));
+    ok("a typed line break starts a new line on the sign", lines.join("|") === "PROPANE|EXCHANGE", lines.join("|"));
+    await page.click('.nav-item[data-type="regular"]');
+    await page.waitForSelector("#editorFields");
+    await fill('#editorFields [data-field="sku"]', "3000003");
+    await page.press('#editorFields [data-field="sku"]', "Enter");
+    await page.waitForFunction(() => !!App.spec.image, null, { timeout: 15000 });
+    await page.evaluate(() => { document.querySelector("#secLayout").open = true; });
+    await page.click('#secLayout .seg-btn:has-text("Photo left")');
+    await page.click('#secLayout .swatch[title="Green"]');
+    await page.waitForTimeout(500);
+    ok("arrangement and color are saved on the sign", await page.evaluate(() => App.spec.arrange === "photo-left" && App.spec.style.accent === "#1F6F3F"));
+    ok("the preview uses the chosen color", (await page.innerHTML("#signHolder")).includes("#1F6F3F"));
+    await page.evaluate(() => { document.querySelector("#secExtras").open = true; });
+    await page.click("#addExtraText");
+    await page.fill(".extra-card textarea", "LIMIT 2");
+    await page.waitForTimeout(500);
+    ok("an extra text box draws on the sign", (await page.$$('#signHolder g[data-extra="0"] text')).length === 1);
+    await page.click(".extra-card input[type=checkbox]");
+    await page.waitForTimeout(500);
+    ok("Make room docks the box to an edge", await page.evaluate(() => App.spec.extras[0].dock === "top"));
+    const pdfBytes = await page.evaluate(async () => (await signToPdf({ typeId: App.typeId, sizeId: App.sizeId, spec: currentRenderSpec() })).output("arraybuffer").byteLength);
+    ok("a customized sign exports to PDF", pdfBytes > 10000, String(pdfBytes));
+    await page.click("#favBtn");
+    await page.fill("#favName", "E2E Favorite");
+    await page.click(".fav-menu .btn-primary");
+    await page.waitForTimeout(700);
+    const st2 = await page.evaluate(async () => (await fetch("/api/state")).json());
+    const fav = st2.favorites && st2.favorites["E2E Favorite"];
+    ok("favorite is saved without the product", !!fav && fav.typeId === "regular" && !fav.spec.sku && !fav.spec.name && fav.spec.extras.length === 1);
+    await page.click("#startOverBtn");
+    await page.click("#favBtn");
+    await page.click('.fav-menu .pick-item:has-text("E2E Favorite")');
+    await page.waitForTimeout(400);
+    ok("applying a favorite brings its look back", await page.evaluate(() => App.spec.arrange === "photo-left" && App.spec.extras.length === 1));
+    await page.click("#homeBtn");
+    await page.waitForSelector(".fav-chip");
+    ok("the gallery lists the store's favorites", (await page.textContent(".fav-strip")).includes("E2E Favorite"));
 
     await shot("07-final");
     ok("no page errors during the run", pageErrors.length === 0, pageErrors.join(" | "));
